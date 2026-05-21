@@ -10,7 +10,6 @@ if (isAdminPage) {
 
 const PANTRY_ID = "d9785260-5904-4964-ba0b-8389092f3adb";
 
-// Weltweites Raster-System
 function getBasketUrl(lat, lng) {
     const gridLat = Math.floor(lat);
     const gridLng = Math.floor(lng);
@@ -19,7 +18,6 @@ function getBasketUrl(lat, lng) {
 
 let map, myLocationMarker, reportsData = [], activeMarkers = {};
 
-// Distanzberechnung für den Vor-Ort-Check
 function getDistance(lat1, lon1, lat2, lon2) {
     const R = 6371; 
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -34,11 +32,7 @@ async function initApp() {
     const splash = document.getElementById('splash-screen');
     map = L.map('map').setView([48.775, 9.182], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    
-    // Standort-Tracking starten
     setupLocationTracking();
-
-    // Dynamisches Nachladen beim Bewegen der Karte
     map.on('moveend', function() {
         loadFromCommunity(); 
     });
@@ -93,7 +87,6 @@ async function loadFromCommunity() {
             reportsData = result.markers || [];
             drawMarkersOnMap();
         } else {
-            // Falls das Raster noch gar nicht existiert
             reportsData = [];
             drawMarkersOnMap();
         }
@@ -102,11 +95,8 @@ async function loadFromCommunity() {
     }
 }
 
-// Angepasst für das Raster-System
 async function saveToCommunity(markerToUpdate = null) {
     if (reportsData.length === 0 && !markerToUpdate) return;
-    
-    // Bestimme das Ziel-Raster basierend auf dem Marker oder der Kartenmitte
     const ref = markerToUpdate || (reportsData.length > 0 ? reportsData[0] : map.getCenter());
     const targetUrl = getBasketUrl(ref.lat, ref.lng);
 
@@ -134,8 +124,6 @@ function updateStatus(text, color) {
 
 function drawMarkersOnMap() {
     const isAdminPage = window.location.pathname.includes("admin.html");
-    
-    // Nur Community-Marker löschen, Standort-Marker behalten
     Object.values(activeMarkers).forEach(m => map.removeLayer(m));
     activeMarkers = {};
 
@@ -168,7 +156,6 @@ function drawMarkersOnMap() {
             m.on('click', () => adminReviewDone(r.id));
         }
 
-        // Google Maps URL Fix
         const gMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}&travelmode=walking`;
         
         let popupContent = `<div style="font-family:sans-serif; min-width:200px;">`;
