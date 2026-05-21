@@ -1,7 +1,7 @@
 const isAdminPage = window.location.pathname.includes("admin.html");
 
 if (isAdminPage) {
-    const login = prompt("Willkommen im StepFree Admin-Bereich\nBitte geben Sie Ihr Passwort ein:");
+    const login = prompt("Willkommen im StepFree Admin-Bereich\nBitte Passwort eingeben:");
     if (btoa(login) !== "ZldpUyE=") {
         alert("Zugriff verweigert.");
         window.location.href = "index.html";
@@ -9,11 +9,13 @@ if (isAdminPage) {
 }
 
 const PANTRY_ID = "d9785260-5904-4964-ba0b-8389092f3adb";
+let isSyncing = false;
 
+// VERFEINERTES RASTER: Jetzt ca. 1,1km Quadrate statt 111km
 function getBasketUrl(lat, lng) {
-    const gridLat = Math.floor(lat);
-    const gridLng = Math.floor(lng);
-    return `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/freeway_grid_${gridLat}_${gridLng}`;
+    const gridLat = (Math.floor(lat * 100) / 100).toFixed(2);
+    const gridLng = (Math.floor(lng * 100) / 100).toFixed(2);
+    return `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/grid_${gridLat}_${gridLng}`;
 }
 
 let map, myLocationMarker, reportsData = [],
@@ -28,39 +30,23 @@ function updateStatus(text, color) {
     }
 }
 
-function getDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-}
-
 async function initApp() {
     const splash = document.getElementById('splash-screen');
-    map = L.map('map', {
-        fadeAnimation: false,
-        zoomAnimation: true,
-        markerZoomAnimation: true
-    }).setView([48.775, 9.182], 13);
+    map = L.map('map', { fadeAnimation: false }).setView([48.775, 9.182], 13);
     
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        updateWhenIdle: true,
-        keepBuffer: 2
-    }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     
     map.on('click', e => openSelectionPopup(e.latlng));
     setupLocationTracking();
     
     let loadTimeout;
     map.on('moveend', function() {
+        if (isSyncing) return;
         updateStatus("Synchronisiere...", "#3498db");
         clearTimeout(loadTimeout);
         loadTimeout = setTimeout(() => {
             loadFromCommunity();
-        }, 300);
+        }, 400);
     });
     
     loadFromCommunity();
@@ -82,9 +68,7 @@ function setupLocationTracking() {
         className: '',
         iconSize: [18, 18]
     });
-    
     map.locate({ watch: true, enableHighAccuracy: true });
-    
     map.on('locationfound', e => {
         if (myLocationMarker) {
             myLocationMarker.setLatLng(e.latlng);
@@ -97,44 +81,50 @@ function setupLocationTracking() {
 }
 
 async function loadFromCommunity() {
+    if (isSyncing) return;
     const center = map.getCenter();
     const url = getBasketUrl(center.lat, center.lng);
     try {
         const response = await fetch(url);
         if (response.ok) {
             const result = await response.json();
-            reportsData = result.markers || [];
-            drawMarkersOnMap();
-            updateStatus("Community Live ✅", "#27AE60");
+            if (!isSyncing) {
+                reportsData = result.markers || [];
+                drawMarkersOnMap();
+                updateStatus("Community Live ✅", "#27AE60");
+            }
         } else {
+            // Falls das Raster noch nicht existiert
+            reportsData = [];
+            drawMarkersOnMap();
             updateStatus("Region bereit ✅", "#27AE60");
         }
     } catch (err) {
-        updateStatus("Offline-Modus ⚠️", "#E67E22");
+        updateStatus("Verbindung prüfen", "#E67E22");
     }
 }
 
 async function saveToCommunity(markerToUpdate = null) {
+    isSyncing = true;
     const ref = markerToUpdate || (reportsData.length > 0 ? reportsData[0] : map.getCenter());
     const targetUrl = getBasketUrl(ref.lat, ref.lng);
     updateStatus("Sichere Daten...", "#f39c12");
     
-    setTimeout(async () => {
-        try {
-            await fetch(targetUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ markers: reportsData })
-            });
-            updateStatus("Community Live ✅", "#27AE60");
-        } catch (err) {
-            updateStatus("Sync-Fehler ❌", "#E74C3C");
-        }
-    }, 10);
+    try {
+        await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ markers: reportsData })
+        });
+        updateStatus("Community Live ✅", "#27AE60");
+    } catch (err) {
+        updateStatus("Sync-Fehler ❌", "#E74C3C");
+    } finally {
+        setTimeout(() => { isSyncing = false; }, 1500);
+    }
 }
 
 function drawMarkersOnMap() {
-    const isAdminPage = window.location.pathname.includes("admin.html");
     Object.values(activeMarkers).forEach(m => map.removeLayer(m));
     activeMarkers = {};
     
@@ -145,29 +135,21 @@ function drawMarkersOnMap() {
         if (r.typ.includes("WC")) emoji = "🚽";
         if (r.typ.includes("Parkplatz")) emoji = "🅿️";
         if (r.typ.includes("Baustelle")) emoji = "🚧";
-        if (r.typ.includes("Ort")) emoji = "📍";
-        
-        let adminStyle = "";
-        if (isAdminPage) {
-            if (r.votes <= -3) adminStyle = "box-shadow: 0 0 15px 5px red; border: 2px solid red;";
-            else if (r.status === "new") adminStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;";
-        }
         
         const icon = L.divIcon({
-            html: `<div style="background:${r.farbe}; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:2px solid white; color:white; ${adminStyle}">${emoji}</div>`,
+            html: `<div style="background:${r.farbe}; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:2px solid white; color:white;">${emoji}</div>`,
             className: '',
             iconSize: [30, 30]
         });
         
         const m = L.marker([r.lat, r.lng], { icon }).addTo(map);
+        
+        // Google Maps Navigation URL Fix
         const gMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}&travelmode=walking`;
         
         let popupContent = `<div style="font-family:sans-serif; min-width:200px;">
                 <b style="font-size:1.1em;">${r.typ}</b><br>
                 <p style="margin: 5px 0; color:#555;">${r.kommentar}</p>
-                <div style="background:#eee; padding:5px; border-radius:5px; text-align:center; margin-bottom:10px; font-size: 0.9em;">
-                    Vertrauen: <b>${r.votes || 0}</b>
-                </div>
                 <div style="display:flex; gap:5px; margin-bottom:10px;">
                     <button onclick="vote('${r.id}', 1)" style="flex:1; background:#27AE60; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">✅</button>
                     <button onclick="vote('${r.id}', -1)" style="flex:1; background:#E67E22; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">❌</button>
@@ -204,34 +186,45 @@ function openSelectionPopup(latlng) {
 }
 
 async function finalizeReport(lat, lng, typ, farbe) {
-    const details = prompt("Weitere Details (optional):", "");
-    const newReport = { lat, lng, typ, farbe, kommentar: details || "", id: "id_" + Date.now(), votes: 0, status: "new" };
+    const details = prompt("Möchten Sie Details hinzufügen?", "");
+    const newReport = { lat, lng, typ, farbe, kommentar: details || "", id: "id_" + Date.now(), votes: 0 };
     
+    isSyncing = true;
     reportsData.push(newReport);
     drawMarkersOnMap();
     map.closePopup();
-    updateStatus("Sende Daten...", "#f39c12");
     
-    setTimeout(async () => {
-        const targetUrl = getBasketUrl(lat, lng);
-        try {
-            let regionData = { markers: [] };
-            const response = await fetch(targetUrl);
-            if (response.ok) {
-                const result = await response.json();
-                regionData.markers = result.markers || [];
-            }
-            regionData.markers.push(newReport);
-            await fetch(targetUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(regionData)
-            });
-            updateStatus("Community Live ✅", "#27AE60");
-        } catch (err) {
-            updateStatus("Sync-Fehler ❌", "#E74C3C");
+    const targetUrl = getBasketUrl(lat, lng);
+    try {
+        let regionData = { markers: [] };
+        const response = await fetch(targetUrl);
+        if (response.ok) {
+            const result = await response.json();
+            regionData.markers = result.markers || [];
         }
-    }, 50);
+        regionData.markers.push(newReport);
+        
+        await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(regionData)
+        });
+        updateStatus("Community Live ✅", "#27AE60");
+    } catch (err) {
+        updateStatus("Sync-Fehler ❌", "#E74C3C");
+    } finally {
+        setTimeout(() => { isSyncing = false; }, 1500);
+    }
+}
+
+function directDelete(id) {
+    if (confirm("Eintrag löschen?")) {
+        isSyncing = true;
+        const reportToDelete = reportsData.find(r => r.id === id);
+        reportsData = reportsData.filter(r => r.id !== id);
+        drawMarkersOnMap();
+        saveToCommunity(reportToDelete);
+    }
 }
 
 async function vote(id, change) {
@@ -244,15 +237,6 @@ async function vote(id, change) {
     localStorage.setItem('userVotes', JSON.stringify(myVotes));
     saveToCommunity(report);
     drawMarkersOnMap();
-}
-
-function directDelete(id) {
-    if (confirm("Eintrag entfernen?")) {
-        const report = reportsData.find(r => r.id === id);
-        reportsData = reportsData.filter(r => r.id !== id);
-        saveToCommunity(report);
-        drawMarkersOnMap();
-    }
 }
 
 window.onload = initApp;
