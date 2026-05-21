@@ -47,9 +47,9 @@ async function initApp() {
             setTimeout(() => {
                 splash.style.display = 'none';
                 map.invalidateSize();
-            }, 800);
+            }, 600);
         }
-    }, 1000);
+    }, 100);
 }
 
 function setupLocationTracking() {
