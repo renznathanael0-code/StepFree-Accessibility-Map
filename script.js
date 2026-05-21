@@ -36,9 +36,15 @@ async function initApp() {
     map.on('click', e => openSelectionPopup(e.latlng));
     setupLocationTracking();
 
-    map.on('moveend', function() {
-        loadFromCommunity(); 
-    });
+    let loadTimeout;
+map.on('moveend', function() {
+    updateStatus("Bereite Synchronisierung vor...", "#3498db");
+    clearTimeout(loadTimeout);
+    loadTimeout = setTimeout(() => {
+        loadFromCommunity();
+    }, 500);
+});
+
 
     updateStatus("Daten werden geladen...", "#3498db");
     try {
@@ -249,17 +255,33 @@ function openSelectionPopup(latlng) {
 async function finalizeReport(lat, lng, typ, farbe) {
     const details = prompt("Möchten Sie noch weitere hilfreiche Details hinzufügen?", "");
     const newReport = { lat, lng, typ, farbe, kommentar: details || "", id: "id_" + Date.now(), votes: 0, status: "new" };
+    
+    reportsData.push(newReport);
+    drawMarkersOnMap();
+    updateStatus("Wird im Hintergrund gesichert...", "#f39c12");
+
     const targetUrl = getBasketUrl(lat, lng);
     try {
         let regionData = { markers: [] };
         const response = await fetch(targetUrl);
-        if (response.ok) regionData = await response.json();
-        regionData.markers.push(newReport);
-        await fetch(targetUrl, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(regionData) });
-        reportsData.push(newReport);
-        drawMarkersOnMap();
-        alert("Herzlichen Dank! Ihr Hinweis wurde erfolgreich gespeichert.");
-    } catch (err) { alert("Es gab leider ein Problem beim Speichern. Bitte versuchen Sie es erneut."); }
+        if (response.ok) {
+            const result = await response.json();
+            regionData.markers = result.markers || [];
+        }
+        
+        if (!regionData.markers.find(m => m.id === newReport.id)) {
+            regionData.markers.push(newReport);
+        }
+
+        await fetch(targetUrl, { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify(regionData) 
+        });
+        updateStatus("Community live ✅", "#27AE60");
+    } catch (err) { 
+        console.error("Cloud-Sync verzögert."); 
+    }
 }
 
 function adminReviewDone(id) {
