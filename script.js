@@ -19,6 +19,15 @@ function getBasketUrl(lat, lng) {
 let map, myLocationMarker, reportsData = [],
     activeMarkers = {};
 
+function updateStatus(text, color) {
+    const s = document.getElementById('sync-status');
+    if (s) {
+        s.innerHTML = text;
+        s.style.background = color;
+        s.style.display = 'block';
+    }
+}
+
 function getDistance(lat1, lon1, lat2, lon2) {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -31,28 +40,40 @@ function getDistance(lat1, lon1, lat2, lon2) {
 
 async function initApp() {
     const splash = document.getElementById('splash-screen');
-    map = L.map('map', { fadeAnimation: false }).setView([48.775, 9.182], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    map = L.map('map', {
+        fadeAnimation: false,
+        zoomAnimation: true,
+        markerZoomAnimation: true
+    }).setView([48.775, 9.182], 13);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        updateWhenIdle: true,
+        keepBuffer: 2
+    }).addTo(map);
     
     map.on('click', e => openSelectionPopup(e.latlng));
     setupLocationTracking();
     
     let loadTimeout;
     map.on('moveend', function() {
+        updateStatus("Synchronisiere...", "#3498db");
         clearTimeout(loadTimeout);
         loadTimeout = setTimeout(() => {
             loadFromCommunity();
-        }, 400);
+        }, 300);
     });
     
-    try {
-        await loadFromCommunity();
-    } catch (e) {}
+    loadFromCommunity();
     
-    if (splash) {
-        splash.style.display = 'none';
-        map.invalidateSize();
-    }
+    setTimeout(() => {
+        if (splash) {
+            splash.style.opacity = '0';
+            setTimeout(() => {
+                splash.style.display = 'none';
+                map.invalidateSize();
+            }, 600);
+        }
+    }, 1200);
 }
 
 function setupLocationTracking() {
@@ -84,20 +105,32 @@ async function loadFromCommunity() {
             const result = await response.json();
             reportsData = result.markers || [];
             drawMarkersOnMap();
+            updateStatus("Community Live ✅", "#27AE60");
+        } else {
+            updateStatus("Region bereit ✅", "#27AE60");
         }
-    } catch (err) {}
+    } catch (err) {
+        updateStatus("Offline-Modus ⚠️", "#E67E22");
+    }
 }
 
 async function saveToCommunity(markerToUpdate = null) {
     const ref = markerToUpdate || (reportsData.length > 0 ? reportsData[0] : map.getCenter());
     const targetUrl = getBasketUrl(ref.lat, ref.lng);
-    try {
-        await fetch(targetUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ markers: reportsData })
-        });
-    } catch (err) {}
+    updateStatus("Sichere Daten...", "#f39c12");
+    
+    setTimeout(async () => {
+        try {
+            await fetch(targetUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ markers: reportsData })
+            });
+            updateStatus("Community Live ✅", "#27AE60");
+        } catch (err) {
+            updateStatus("Sync-Fehler ❌", "#E74C3C");
+        }
+    }, 10);
 }
 
 function drawMarkersOnMap() {
@@ -112,7 +145,7 @@ function drawMarkersOnMap() {
         if (r.typ.includes("WC")) emoji = "🚽";
         if (r.typ.includes("Parkplatz")) emoji = "🅿️";
         if (r.typ.includes("Baustelle")) emoji = "🚧";
-        
+        if (r.typ.includes("Ort")) emoji = "📍";
         
         let adminStyle = "";
         if (isAdminPage) {
@@ -127,7 +160,6 @@ function drawMarkersOnMap() {
         });
         
         const m = L.marker([r.lat, r.lng], { icon }).addTo(map);
-        
         const gMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}&travelmode=walking`;
         
         let popupContent = `<div style="font-family:sans-serif; min-width:200px;">
@@ -141,7 +173,7 @@ function drawMarkersOnMap() {
                     <button onclick="vote('${r.id}', -1)" style="flex:1; background:#E67E22; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">❌</button>
                 </div>
                 <a href="${gMapsUrl}" target="_blank" style="text-decoration:none;">
-                    <button style="background:#4285F4; color:white; border:none; padding:10px; width:100%; border-radius:5px; margin-bottom:10px; cursor:pointer; font-weight:bold;">Route planen</button>
+                    <button style="background:#4285F4; color:white; border:none; padding:10px; width:100%; border-radius:5px; margin-bottom:10px; cursor:pointer; font-weight:bold;">📍 Route planen</button>
                 </a>`;
         
         if (isAdminPage) {
@@ -160,7 +192,7 @@ function openSelectionPopup(latlng) {
       <div style="display: flex; flex-direction: column; gap: 5px;">
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Treppe', '#E74C3C')" style="background:#E74C3C; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🪜 Treppe</button>
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Aufzug defekt', '#E67E22')" style="background:#E67E22; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🛗 Aufzug defekt</button>
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Baustelle / Sperrung', '#F1C40F')" style="background:#F1C40F; color:black; border:none; padding:10px; border-radius:5px; cursor:pointer;">🚧 Baustelle / Sperrung</button><br>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Baustelle / Sperrung', '#F1C40F')" style="background:#F1C40F; color:black; border:none; padding:10px; border-radius:5px; cursor:pointer;">🚧 Baustelle / Sperrung</button>
         <hr style="margin:5px 0; border:0; border-top:1px solid #ccc;">
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Aufzug vorhanden', '#27AE60')" style="background:#27AE60; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🛗 Aufzug vorhanden</button>
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'WC barrierefrei', '#2ECC71')" style="background:#2ECC71; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🚽 WC barrierefrei</button>
@@ -178,18 +210,28 @@ async function finalizeReport(lat, lng, typ, farbe) {
     reportsData.push(newReport);
     drawMarkersOnMap();
     map.closePopup();
+    updateStatus("Sende Daten...", "#f39c12");
     
-    const targetUrl = getBasketUrl(lat, lng);
-    try {
-        let regionData = { markers: [] };
-        const response = await fetch(targetUrl);
-        if (response.ok) {
-            const result = await response.json();
-            regionData.markers = result.markers || [];
+    setTimeout(async () => {
+        const targetUrl = getBasketUrl(lat, lng);
+        try {
+            let regionData = { markers: [] };
+            const response = await fetch(targetUrl);
+            if (response.ok) {
+                const result = await response.json();
+                regionData.markers = result.markers || [];
+            }
+            regionData.markers.push(newReport);
+            await fetch(targetUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(regionData)
+            });
+            updateStatus("Community Live ✅", "#27AE60");
+        } catch (err) {
+            updateStatus("Sync-Fehler ❌", "#E74C3C");
         }
-        regionData.markers.push(newReport);
-        await fetch(targetUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(regionData) });
-    } catch (err) {}
+    }, 50);
 }
 
 async function vote(id, change) {
