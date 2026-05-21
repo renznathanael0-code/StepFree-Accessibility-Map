@@ -107,8 +107,7 @@ function drawMarkersOnMap() {
     activeMarkers = {};
 
     reportsData.forEach((r, index) => {
-        // Bürger sehen jetzt IMMER alles. Nur Admins sehen die farbigen Warn-Ringe.
-        
+        // Emojis festlegen
         let emoji = "📍";
         if (r.typ.includes("Treppe")) emoji = "🪜";
         if (r.typ.includes("defekt")) emoji = "🛗";
@@ -117,13 +116,13 @@ function drawMarkersOnMap() {
         if (r.typ.includes("Aufzug")) emoji = "🛗";
         if (r.typ.includes("Baustelle")) emoji = "🚧";
 
-        // MARKIERUNGEN NUR FÜR ADMINS
+        // MARKIERUNGEN NUR FÜR ADMINS (Leuchteffekte)
         let adminStyle = "";
         if (isAdminPage) {
             if (r.votes <= -3) {
-                adminStyle = "box-shadow: 0 0 15px 5px red; border: 2px solid red;"; // Viel Kritik
+                adminStyle = "box-shadow: 0 0 15px 5px red; border: 2px solid red;"; // Viel Kritik (Rot)
             } else if (r.status === "new") {
-                adminStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;"; // Ganz neu
+                adminStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;"; // Neu (Blau)
             }
         }
 
@@ -135,37 +134,52 @@ function drawMarkersOnMap() {
 
         const m = L.marker([r.lat, r.lng], {icon}).addTo(map);
         
+        // Admin-Logik: Markierung beim ersten Klick entfernen
         if (isAdminPage && r.status === "new") {
             m.on('click', () => adminReviewDone(r.id));
         }
 
+        const gMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}`;
+        
         let popupContent = `<div style="font-family:sans-serif; min-width:200px;">`;
         
+        // Admin-Header Info
         if (isAdminPage) {
-            if (r.votes <= -3) popupContent += `<b style="color:red;">⚠️ KRITISCH (Votes)</b><br>`;
-            if (r.status === "new") popupContent += `<b style="color:#3498db;">🆕 NEUER EINTRAG</b><br>`;
+            if (r.votes <= -3) popupContent += `<b style="color:red; font-size:10px;">⚠️ KRITISCH (VOTES)</b><br>`;
+            if (r.status === "new") popupContent += `<b style="color:#3498db; font-size:10px;">🆕 UNGEPRÜFT</b><br>`;
         }
 
         popupContent += `
                 <b style="font-size:1.1em;">${r.typ}</b><br>
                 <p style="margin: 5px 0; color:#555;">${r.kommentar}</p>
                 <div style="background:#eee; padding:5px; border-radius:5px; text-align:center; margin-bottom:10px; font-size: 0.9em;">
-                    Vertrauen: <b>${r.votes || 0}</b>
+                    Community-Vertrauen: <b>${r.votes || 0}</b>
                 </div>`;
 
+        // ZEITSTEMPEL NUR FÜR ADMIN (VerifiedAt)
         if (isAdminPage && r.verifiedAt) {
             popupContent += `
-                <div style="background:#D4EFDF; color:#1D8348; padding:8px; border-radius:5px; margin-bottom:10px; font-size:0.8em;">
-                    ✅ Check-In: ${r.verifiedAt}
+                <div style="background:#D4EFDF; color:#1D8348; padding:8px; border-radius:5px; margin-bottom:10px; font-size:0.8em; border:1px solid #27AE60;">
+                    <b>✅ Check-In erfolgt:</b><br>${r.verifiedAt}
                 </div>`;
         }
 
+        // Voting Buttons
         popupContent += `
                 <div style="display:flex; gap:5px; margin-bottom:10px;">
-                    <button onclick="vote('${r.id}', 1)" style="flex:1; background:#27AE60; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">✅ Stimmt</button>
-                    <button onclick="vote('${r.id}', -1)" style="flex:1; background:#E67E22; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">❌ Falsch</button>
+                    <button onclick="vote('${r.id}', 1)" style="flex:1; background:#27AE60; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer; font-weight:bold;">✅</button>
+                    <button onclick="vote('${r.id}', -1)" style="flex:1; background:#E67E22; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer; font-weight:bold;">❌</button>
                 </div>`;
 
+        // GOOGLE MAPS BUTTON (Wieder da!)
+        popupContent += `
+                <a href="${gMapsUrl}" target="_blank" style="text-decoration:none;">
+                    <button style="background:#4285F4; color:white; border:none; padding:10px; width:100%; border-radius:5px; margin-bottom:10px; cursor:pointer; font-weight:bold; display:flex; align-items:center; justify-content:center;">
+                        <span style="margin-right:8px;">🗺️</span> Navigation starten
+                    </button>
+                </a>`;
+
+        // Spezielle Buttons
         if (isAdminPage) {
             popupContent += `
                 <div style="border-top:1px solid #ccc; padding-top:10px; margin-top:5px;">
@@ -174,7 +188,7 @@ function drawMarkersOnMap() {
                 </div>`;
         } else if (r.needsCheck) {
             popupContent += `
-                <button onclick="verifyByLocation('${r.id}')" style="background:#f39c12; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Hier einchecken</button>`;
+                <button onclick="verifyByLocation('${r.id}')" style="background:#f39c12; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Hier einchecken (GPS)</button>`;
         }
 
         popupContent += `</div>`; 
