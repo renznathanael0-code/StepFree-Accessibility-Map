@@ -8,6 +8,9 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+
+
 </head>
 <body>
 
@@ -15,6 +18,19 @@
         <div class="logo-text">StepFree</div>
         <div id="sync-status">Verbindung wird aufgebaut...</div>
     </div>
+
+<div id="filter-container" style="position:fixed; top:43px; right:11px; z-index:1001; width: 250px;">
+    <select id="typeFilter" onchange="drawMarkersOnMap()" style="width: 100%; padding:8px; border: none; border-radius: 0 0 4px 4px; font-family: sans-serif; cursor: pointer; background: white; box-shadow: 0 3px 5px rgba(0,0,0,0.2); -webkit-appearance: none; appearance: none; border-top: 1px solid #eee;">
+        <option value="alle">🌍 Alle Kategorien</option>
+        <option value="Treppe">🪜 Treppen</option>
+        <option value="Aufzug defekt">❌ 🛗 Aufzüge defekt</option>
+        <option value="Aufzug vorhanden">✅ 🛗 Aufzüge okay</option>
+        <option value="Baustelle">🚧 Baustellen</option>
+        <option value="WC">🚽 WCs / Toiletten</option>
+        <option value="Parkplatz">🅿️ Parkplätze</option>
+        <option value="Barrierefreier Ort">📍 Barrierefreie Orte</option>
+    </select>
+</div>
 
     <div id="map"></div>
     <div id="map-legend" style="position: fixed; bottom: 20px; left: 10px; background: white; padding: 10px; border-radius: 8px; z-index: 1000; box-shadow: 0 0 10px rgba(0,0,0,0.2); font-size: 12px;">
@@ -28,10 +44,11 @@
     📍 Barrierefreier Ort
 </div>
 
-
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    
     <script src="script.js"></script>
-
-</body>
-</html>
+    </body>
+    
+    </html>

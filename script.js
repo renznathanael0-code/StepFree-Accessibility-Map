@@ -32,6 +32,25 @@ async function initApp() {
     map.on('click', e => openSelectionPopup(e.latlng));
     setupLocationTracking();
 
+// Suchleiste hinzufügen
+L.Control.geocoder({
+    defaultMarkGeocode: false,
+    placeholder: "Stadt oder Straße suchen...",
+    errorMessage: "Nichts gefunden."
+})
+.on('markgeocode', function(e) {
+    var bbox = e.geocode.bbox;
+    var poly = L.polygon([
+        bbox.getSouthEast(),
+        bbox.getNorthEast(),
+        bbox.getNorthWest(),
+        bbox.getSouthWest()
+    ]);
+    map.fitBounds(poly.getBounds()); // Zoomt zum gefundenen Ort
+})
+.addTo(map);
+
+
     // Daten laden
     await loadFromCommunity();
 
@@ -127,21 +146,28 @@ function updateStatus(text, color) {
 }
 
 function drawMarkersOnMap() {
-    if (!map) return; // Sicherheitsschalter
+    if (!map) return;
 
     const isAdminPage = window.location.pathname.includes("admin.html");
-    const bounds = map.getBounds(); // Das aktuelle Sichtfeld der Karte abfragen
+    const bounds = map.getBounds();
+    const filterValue = document.getElementById('typeFilter').value; // Filter-Wert abgreifen
 
-    // 1. Alle alten Marker von der Karte entfernen
     Object.values(activeMarkers).forEach(m => map.removeLayer(m));
     activeMarkers = {};
     
     reportsData.forEach((r, index) => {
         const latLng = L.latLng(r.lat, r.lng);
 
-        // 2. PRÜFUNG: Liegt der Punkt im aktuellen Sichtfeld?
-        // Wenn nein, überspringen wir diesen Punkt einfach (spart CPU & Akku)
+        // --- NEU: FILTER-LOGIK ---
+        // Wenn nicht "alle" gewählt ist UND der Typ nicht zum Filter passt -> Überspringen
+        if (filterValue !== "alle" && !r.typ.includes(filterValue)) {
+            return;
+        }
+
+        // Sichtfeld-Check (wie bisher)
         if (!bounds.contains(latLng)) return;
+
+        // ... ab hier folgt dein restlicher Code zum Zeichnen der Marker ...
 
         // --- Ab hier folgt dein bewährter Code für das Zeichnen ---
         let emoji = "📍";
