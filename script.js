@@ -150,8 +150,8 @@ function openSelectionPopup(latlng) {
       <div style="display: flex; flex-direction: column; gap: 5px;">
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Treppe', '#E74C3C')" style="background:#E74C3C; color:white; border:none; padding:10px; border-radius:5px;">🪜 Treppe</button>
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Aufzug defekt', '#E67E22')" style="background:#E67E22; color:white; border:none; padding:10px; border-radius:5px;">🛗 Aufzug defekt</button>
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Baustelle', '#F1C40F')" style="background:#F1C40F; color:black; border:none; padding:10px; border-radius:5px;">🚧 Baustelle</button>
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Aufzug vorhanden', '#27AE60')" style="background:#27AE60; color:white; border:none; padding:10px; border-radius:5px;">🛗 Aufzug OK</button>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Baustelle', '#F1C40F')" style="background:#F1C40F; color:black; border:none; padding:10px; border-radius:5px;">🚧 Baustelle / Sperrung</button><br>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Aufzug vorhanden', '#27AE60')" style="background:#27AE60; color:white; border:none; padding:10px; border-radius:5px;">🛗 Aufzug vorhanden</button>
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'WC barrierefrei', '#2ECC71')" style="background:#2ECC71; color:white; border:none; padding:10px; border-radius:5px;">🚽 WC</button>
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Parkplatz', '#3498DB')" style="background:#3498DB; color:white; border:none; padding:10px; border-radius:5px;">🅿️ Parkplatz</button>
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Barrierefreier Ort', '#9B59B6')" style="background:#9B59B6; color:white; border:none; padding:10px; border-radius:5px;">📍 Ort</button>
@@ -168,6 +168,34 @@ function finalizeReport(lat, lng, typ, farbe) {
 
 function directDelete(id) {
     if (confirm("Löschen?")) { reportsData = reportsData.filter(r => r.id !== id); saveToCommunity(); drawMarkersOnMap(); }
+}
+
+async function vote(id, change) {
+    // 1. Prüfen, ob der User für DIESE id schon gestimmt hat
+    let myVotes = JSON.parse(localStorage.getItem('userVotes') || "{}");
+    
+    if (myVotes[id]) {
+        alert("Du hast für diesen Punkt bereits abgestimmt!");
+        return;
+    }
+
+    // 2. Den richtigen Punkt in unseren lokalen Daten finden
+    const report = reportsData.find(r => r.id === id);
+    if (!report) return;
+
+    // 3. Vote hinzufügen und im LocalStorage speichern
+    report.votes = (report.votes || 0) + change;
+    myVotes[id] = true;
+    localStorage.setItem('userVotes', JSON.stringify(myVotes));
+
+    // 4. Status-Check: Wenn zu viele negative Votes, Admin-Review triggern
+    if (report.votes <= -3) {
+        report.status = "review";
+    }
+
+    // 5. Ab zum Server und Karte aktualisieren
+    await saveToCommunity();
+    drawMarkersOnMap();
 }
 
 window.onload = initApp;
