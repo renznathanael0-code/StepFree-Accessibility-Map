@@ -24,28 +24,33 @@ function getDistance(lat1, lon1, lat2, lon2) {
 
 async function initApp() {
     const splash = document.getElementById('splash-screen');
+    
+    // Karte initialisieren
     map = L.map('map').setView([48.775, 9.182], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    
     map.on('click', e => openSelectionPopup(e.latlng));
     setupLocationTracking();
 
-    updateStatus("Lade Community-Daten...", "#3498db");
-    try {
-        await loadFromCommunity();
-        updateStatus("Community Live ✅", "#27AE60");
-    } catch (e) {
-        updateStatus("Eingeschränkt bereit ⚠️", "#E67E22");
-    }
+    // Daten laden
+    await loadFromCommunity();
 
-    setTimeout(() => {
-        if(splash) {
+    // --- DIESE ZEILEN SIND ENTSCHEIDEND ---
+    map.on('moveend', drawMarkersOnMap); // Wenn Schieben fertig -> neu zeichnen
+    map.on('zoomend', drawMarkersOnMap); // Wenn Zoomen fertig -> neu zeichnen
+    // --------------------------------------
+
+    if(splash) {
+        setTimeout(() => {
             splash.style.opacity = '0';
             setTimeout(() => {
                 splash.style.display = 'none';
                 map.invalidateSize();
+                // Einmal manuell aufrufen, falls am Start noch nichts da ist
+                drawMarkersOnMap(); 
             }, 800);
-        }
-    }, 1000);
+        }, 1000);
+    }
 }
 
 function setupLocationTracking() {
