@@ -1,22 +1,20 @@
 const isAdminPage = window.location.pathname.includes("admin.html");
 
 if (isAdminPage) {
-    if (sessionStorage.getItem('isLoggedIn') !== 'true') {
-        const login = prompt("StepFree Admin-Bereich\nBitte Passwort eingeben:");
-        if (btoa(login) === "ZldpUyE=") { 
-            sessionStorage.setItem('isLoggedIn', 'true');
-        } else {
-            alert("Zugriff verweigert!");
-            window.location.href = "index.html"; 
-        }
+    const login = prompt("StepFree Admin-Bereich\nBitte Passwort eingeben:");
+    if (btoa(login) !== "ZldpUyE=") { 
+        alert("Zugriff verweigert!");
+        window.location.href = "index.html"; 
     }
 }
 
-const DATA_URL = "https://api.npoint.io/dfa7f001d0f6505ce61a";
-
+const PANTRY_ID = "d9785260-5904-4964-ba0b-8389092f3adb"; 
+const BASKET_NAME = "freeway_stuttgart";
+const PANTRY_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`;
 
 let map, myLocationMarker, reportsData = [], activeMarkers = {};
 
+// Distanzberechnung für den Vor-Ort-Check
 function getDistance(lat1, lon1, lat2, lon2) {
     const R = 6371; 
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -24,7 +22,7 @@ function getDistance(lat1, lon1, lat2, lon2) {
     const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
               Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c; 
+    return R * c; // Kilometer
 }
 
 async function initApp() {
@@ -73,36 +71,25 @@ function setupLocationTracking() {
 
 async function loadFromCommunity() {
     try {
-        const response = await fetch(DATA_URL + "?t=" + Date.now());
+        const response = await fetch(PANTRY_URL);
         if (response.ok) {
             const result = await response.json();
             reportsData = result.markers || [];
             drawMarkersOnMap();
         }
-    } catch (err) { 
-        console.error("Ladefehler:", err); 
-        updateStatus("Offline ⚠️", "#E67E22");
-    }
+    } catch (err) { console.error("Ladefehler:", err); }
 }
 
 async function saveToCommunity() {
     updateStatus("Speichere...", "#f39c12");
     try {
-        const response = await fetch(DATA_URL, {
+        await fetch(PANTRY_URL, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ markers: reportsData })
         });
-        
-        if (response.ok) {
-            updateStatus("Community Live ✅", "#27AE60");
-        } else {
-            throw new Error("Server-Fehler");
-        }
-    } catch (err) { 
-        console.error("Speichern fehlgeschlagen:", err);
-        updateStatus("Sync-Fehler ❌", "#e74c3c");
-    }
+        updateStatus("Community Live ✅", "#27AE60");
+    } catch (err) { console.error("Speichern fehlgeschlagen."); }
 }
 
 function updateStatus(text, color) {
@@ -114,10 +101,13 @@ function updateStatus(text, color) {
 }
 
 function drawMarkersOnMap() {
+    const isAdminPage = window.location.pathname.includes("admin.html");
     Object.values(activeMarkers).forEach(m => map.removeLayer(m));
     activeMarkers = {};
 
     reportsData.forEach((r, index) => {
+        if (r.status === "review" && !isAdminPage) return; 
+
         let emoji = "📍";
         if (r.typ.includes("Treppe")) emoji = "🪜";
         if (r.typ.includes("defekt")) emoji = "🛗";
@@ -126,53 +116,55 @@ function drawMarkersOnMap() {
         if (r.typ.includes("Aufzug")) emoji = "🛗";
         if (r.typ.includes("Baustelle")) emoji = "🚧";
 
-        let adminStyle = "";
-        if (isAdminPage) {
-            if (r.votes <= -3) {
-                adminStyle = "box-shadow: 0 0 15px 5px red; border: 2px solid red;"; 
-            } else if (r.status === "new") {
-                adminStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;"; 
-            }
-        }
-
         const icon = L.divIcon({
-            html: `<div style="background:${r.farbe}; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:2px solid white; color:white; ${adminStyle}">${emoji}</div>`,
+            html: `<div style="background:${r.farbe}; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:2px solid white; color:white; ${r.status === 'review' ? 'box-shadow: 0 0 10px red; border: 2px solid red;' : ''}">${emoji}</div>`,
             className: '', 
             iconSize: [30, 30]
         });
 
         const m = L.marker([r.lat, r.lng], {icon}).addTo(map);
-
-        if (isAdminPage && r.status === "new") {
-            m.on('click', () => adminReviewDone(r.id));
-        }
-
-        const gMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}`;
+        const gMapsUrl = `https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lng}`;
+        
         let popupContent = `<div style="font-family:sans-serif; min-width:200px;">`;
         
-        if (isAdminPage) {
-            if (r.votes <= -3) popupContent += `<b style="color:red; font-size:10px;">⚠️ KRITISCH (VOTES)</b><br>`;
-            if (r.status === "new") popupContent += `<b style="color:#3498db; font-size:10px;">🆕 UNGEPRÜFT</b><br>`;
-        }
-
+        if (r.status === 'review') popupContent += `<b style="color:red;">⚠️ IN PRÜFUNG</b><br>`;
+        
         popupContent += `
                 <b style="font-size:1.1em;">${r.typ}</b><br>
                 <p style="margin: 5px 0; color:#555;">${r.kommentar}</p>
                 <div style="background:#eee; padding:5px; border-radius:5px; text-align:center; margin-bottom:10px; font-size: 0.9em;">
-                    Community-Vertrauen: <b>${r.votes || 0}</b>
-                </div>
+                    Vertrauen: <b>${r.votes || 0}</b>
+                </div>`;
+
+        // Check-In Status Anzeige
+        if (r.verifiedAt) {
+            popupContent += `
+                <div style="background:#D4EFDF; color:#1D8348; padding:8px; border-radius:5px; margin-bottom:10px; font-size:0.85em; border:1px solid #27AE60;">
+                    <b>✅ Vor Ort verifiziert</b><br>
+                    <small>Geprüft am: ${r.verifiedAt}</small>
+                </div>`;
+        }
+
+        popupContent += `
                 <div style="display:flex; gap:5px; margin-bottom:10px;">
-                    <button onclick="vote('${r.id}', 1)" style="flex:1; background:#27AE60; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer; font-weight:bold;">✅</button>
-                    <button onclick="vote('${r.id}', -1)" style="flex:1; background:#E67E22; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer; font-weight:bold;">❌</button>
+                    <button onclick="vote('${r.id}', 1)" style="flex:1; background:#27AE60; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer; font-weight:bold;">✅ Stimmt</button>
+                    <button onclick="vote('${r.id}', -1)" style="flex:1; background:#E67E22; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer; font-weight:bold;">❌ Falsch</button>
                 </div>
                 <a href="${gMapsUrl}" target="_blank" style="text-decoration:none;">
-                    <button style="background:#4285F4; color:white; border:none; padding:10px; width:100%; border-radius:5px; margin-bottom:10px; cursor:pointer; font-weight:bold; display:flex; align-items:center; justify-content:center;">🗺️ Navigation</button>
+                    <button style="background:#4285F4; color:white; border:none; padding:10px; width:100%; border-radius:5px; margin-bottom:10px; cursor:pointer; font-weight:bold;">🗺️ Google Maps</button>
                 </a>`;
 
         if (isAdminPage) {
             popupContent += `
                 <div style="border-top:1px solid #ccc; padding-top:10px; margin-top:5px;">
-                    <button onclick="directDelete('${r.id}')" style="background:#e74c3c; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">🗑️ Löschen</button>
+                    <button onclick="directDelete('${r.id}')" style="background:#e74c3c; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">🗑️ Endgültig Löschen</button>
+                    <button onclick="askForCheck('${r.id}')" style="background:#3498db; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Vor-Ort-Check anfordern</button>
+                </div>`;
+        } else if (r.needsCheck) {
+            popupContent += `
+                <div style="background:#fff3cd; padding:10px; border-radius:5px; border:1px solid #ffeeba; text-align:center;">
+                    <p style="color:#856404; font-size:11px; font-weight:bold; margin-bottom:8px;">⚠️ Admin bittet um Bestätigung vor Ort!</p>
+                    <button onclick="verifyByLocation('${r.id}')" style="background:#f39c12; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Jetzt einchecken</button>
                 </div>`;
         }
 
@@ -188,6 +180,37 @@ function directDelete(id) {
         saveToCommunity();
         drawMarkersOnMap();
     }
+}
+
+function askForCheck(id) {
+    const r = reportsData.find(item => item.id === id);
+    if (r) {
+        r.needsCheck = true;
+        r.status = "active"; 
+        saveToCommunity();
+        drawMarkersOnMap();
+        alert("Vor-Ort-Check wurde angefordert!");
+    }
+}
+
+function verifyByLocation(id) {
+    updateStatus("Prüfe Standort...", "#3498db");
+    navigator.geolocation.getCurrentPosition((pos) => {
+        const report = reportsData.find(r => r.id === id);
+        const dist = getDistance(pos.coords.latitude, pos.coords.longitude, report.lat, report.lng);
+
+        // 50 Meter Radius (0.05 km)
+        if (dist <= 0.05) { 
+            report.needsCheck = false;
+            report.verifiedAt = new Date().toLocaleString('de-DE');
+            saveToCommunity();
+            drawMarkersOnMap();
+            alert("Erfolgreich! Dein Standort wurde verifiziert und der Punkt bestätigt.");
+        } else {
+            alert(`Check-In fehlgeschlagen! Du bist ${Math.round(dist * 1000)}m entfernt. Du musst näher am Hindernis sein (max. 50m).`);
+        }
+        updateStatus("Community Live ✅", "#27AE60");
+    }, () => alert("GPS-Zugriff verweigert! Ohne Standort kein Check-In möglich."));
 }
 
 function openSelectionPopup(latlng) {
@@ -212,10 +235,7 @@ function finalizeReport(lat, lng, typ, farbe) {
     const details = prompt(`Zusatzinfos für ${typ}:`, "");
     reportsData.push({
         lat: lat, lng: lng, typ: typ, farbe: farbe, 
-        kommentar: details || "", 
-        id: "id_" + Date.now(), 
-        votes: 0, 
-        status: "new" 
+        kommentar: details || "", id: "id_" + Date.now(), votes: 0, status: "active"
     });
     drawMarkersOnMap();
     saveToCommunity();
@@ -225,23 +245,18 @@ function finalizeReport(lat, lng, typ, farbe) {
 async function vote(id, change) {
     const report = reportsData.find(r => r.id === id);
     if (!report) return;
+    
     let myVotes = JSON.parse(localStorage.getItem('userVotes') || "{}");
     if (myVotes[id]) return alert("Bereits abgestimmt!");
+    
     report.votes += change;
     myVotes[id] = true;
     localStorage.setItem('userVotes', JSON.stringify(myVotes));
+    
     if (report.votes <= -3) report.status = "review";
+    
     saveToCommunity();
-    map.closePopup();
     drawMarkersOnMap();
 }
 
-function adminReviewDone(id) {
-    const r = reportsData.find(item => item.id === id);
-    if (r && r.status === "new") {
-        r.status = "active";
-        saveToCommunity();
-        drawMarkersOnMap();
-    }
-}
 window.onload = initApp;
