@@ -1,10 +1,14 @@
 const isAdminPage = window.location.pathname.includes("admin.html");
 
 if (isAdminPage) {
-    const login = prompt("StepFree Admin-Bereich\nBitte Passwort eingeben:");
-    if (btoa(login) !== "ZldpUyE=") { 
-        alert("Zugriff verweigert!");
-        window.location.href = "index.html"; 
+    if (sessionStorage.getItem('isLoggedIn') !== 'true') {
+        const login = prompt("StepFree Admin-Bereich\nBitte Passwort eingeben:");
+        if (btoa(login) === "ZldpUyE=") { 
+            sessionStorage.setItem('isLoggedIn', 'true');
+        } else {
+            alert("Zugriff verweigert!");
+            window.location.href = "index.html"; 
+        }
     }
 }
 
@@ -28,8 +32,11 @@ async function initApp() {
     const splash = document.getElementById('splash-screen');
     map = L.map('map', { fadeAnimation: false }).setView([48.775, 9.182], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    
     map.on('click', e => openSelectionPopup(e.latlng));
     map.on('moveend', () => drawMarkersOnMap());
+    map.on('zoomend', () => drawMarkersOnMap());
+    
     setupLocationTracking();
 
     updateStatus("Lade Daten...", "#3498db");
@@ -67,7 +74,7 @@ function setupLocationTracking() {
 }
 
 async function loadFromCommunity() {
-    const response = await fetch(PANTRY_URL);
+    const response = await fetch(PANTRY_URL + "?t=" + Date.now());
     if (response.ok) {
         const result = await response.json();
         reportsData = result.markers || [];
@@ -91,7 +98,9 @@ function updateStatus(text, color) {
 }
 
 function drawMarkersOnMap() {
+    if (!map) return;
     const bounds = map.getBounds();
+    
     Object.keys(activeMarkers).forEach(id => {
         const m = activeMarkers[id];
         if (!bounds.contains(m.getLatLng())) {
@@ -112,8 +121,11 @@ function drawMarkersOnMap() {
 
             let adminStyle = "";
             if (isAdminPage) {
-                if (r.votes <= -3) adminStyle = "box-shadow: 0 0 15px 5px red; border: 2px solid red;"; 
-                else if (r.status === "new") adminStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;"; 
+                if (r.votes <= -3 || r.status === "review") {
+                    adminStyle = "box-shadow: 0 0 15px 5px red; border: 2px solid red;"; 
+                } else if (r.status === "new") {
+                    adminStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;"; 
+                }
             }
 
             const icon = L.divIcon({
@@ -128,15 +140,18 @@ function drawMarkersOnMap() {
                 <b>${r.typ}</b><br><p>${r.kommentar}</p>
                 <div style="background:#eee; padding:5px; border-radius:5px; text-align:center; margin-bottom:10px;">Vertrauen: ${r.votes || 0}</div>
                 <div style="display:flex; gap:5px; margin-bottom:10px;">
-                    <button onclick="vote('${r.id}', 1)" style="flex:1; background:#27AE60; color:white; border:none; padding:8px; border-radius:5px;">✅</button>
-                    <button onclick="vote('${r.id}', -1)" style="flex:1; background:#E67E22; color:white; border:none; padding:8px; border-radius:5px;">❌</button>
+                    <button onclick="vote('${r.id}', 1)" style="flex:1; background:#27AE60; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">✅</button>
+                    <button onclick="vote('${r.id}', -1)" style="flex:1; background:#E67E22; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">❌</button>
                 </div>
                 <a href="${gMapsUrl}" target="_blank" style="text-decoration:none;">
-                    <button style="background:#4285F4; color:white; border:none; padding:10px; width:100%; border-radius:5px;">🗺️ Navigation</button>
+                    <button style="background:#4285F4; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer;">🗺️ Navigation</button>
                 </a>`;
 
             if (isAdminPage) {
-                popup += `<button onclick="directDelete('${r.id}')" style="background:#e74c3c; color:white; border:none; padding:8px; width:100%; border-radius:5px; margin-top:5px;">🗑️ Löschen</button>`;
+                popup += `<button onclick="directDelete('${r.id}')" style="background:#e74c3c; color:white; border:none; padding:8px; width:100%; border-radius:5px; margin-top:5px; cursor:pointer;">🗑️ Löschen</button>`;
+                if (r.status === "new") {
+                    m.on('click', () => adminReviewDone(r.id));
+                }
             }
             m.bindPopup(popup + `</div>`);
             activeMarkers[r.id] = m;
@@ -148,13 +163,13 @@ function openSelectionPopup(latlng) {
   const content = `<div style="width: 250px; font-family: sans-serif; padding: 10px;">
       <b style="display: block; text-align: center; margin-bottom: 10px;">Eintrag hinzufügen</b>
       <div style="display: flex; flex-direction: column; gap: 5px;">
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Treppe', '#E74C3C')" style="background:#E74C3C; color:white; border:none; padding:10px; border-radius:5px;">🪜 Treppe</button>
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Aufzug defekt', '#E67E22')" style="background:#E67E22; color:white; border:none; padding:10px; border-radius:5px;">🛗 Aufzug defekt</button>
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Baustelle', '#F1C40F')" style="background:#F1C40F; color:black; border:none; padding:10px; border-radius:5px;">🚧 Baustelle / Sperrung</button><br>
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Aufzug vorhanden', '#27AE60')" style="background:#27AE60; color:white; border:none; padding:10px; border-radius:5px;">🛗 Aufzug vorhanden</button>
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'WC barrierefrei', '#2ECC71')" style="background:#2ECC71; color:white; border:none; padding:10px; border-radius:5px;">🚽 WC</button>
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Parkplatz', '#3498DB')" style="background:#3498DB; color:white; border:none; padding:10px; border-radius:5px;">🅿️ Parkplatz</button>
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Barrierefreier Ort', '#9B59B6')" style="background:#9B59B6; color:white; border:none; padding:10px; border-radius:5px;">📍 Ort</button>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Treppe', '#E74C3C')" style="background:#E74C3C; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🪜 Treppe</button>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Aufzug defekt', '#E67E22')" style="background:#E67E22; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🛗 Aufzug defekt</button>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Baustelle', '#F1C40F')" style="background:#F1C40F; color:black; border:none; padding:10px; border-radius:5px; cursor:pointer;">🚧 Baustelle</button>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Aufzug vorhanden', '#27AE60')" style="background:#27AE60; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🛗 Aufzug vorhanden</button>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'WC barrierefrei', '#2ECC71')" style="background:#2ECC71; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🚽 WC barrierefrei</button>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Parkplatz', '#3498DB')" style="background:#3498DB; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🅿️ Parkplatz</button>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Barrierefreier Ort', '#9B59B6')" style="background:#9B59B6; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">📍 Barrierefreier Ort</button>
       </div>
     </div>`;
   L.popup().setLatLng(latlng).setContent(content).openOn(map);
@@ -162,40 +177,44 @@ function openSelectionPopup(latlng) {
 
 function finalizeReport(lat, lng, typ, farbe) {
     const details = prompt(`Zusatzinfos:`, "");
-    reportsData.push({ lat, lng, typ, farbe, kommentar: details || "", id: "id_" + Date.now(), votes: 0, status: "new" });
-    saveToCommunity(); drawMarkersOnMap(); map.closePopup();
+    const newId = "id_" + Date.now();
+    reportsData.push({ lat, lng, typ, farbe, kommentar: details || "", id: newId, votes: 0, status: "new" });
+    saveToCommunity(); 
+    drawMarkersOnMap(); 
+    map.closePopup();
 }
 
 function directDelete(id) {
-    if (confirm("Löschen?")) { reportsData = reportsData.filter(r => r.id !== id); saveToCommunity(); drawMarkersOnMap(); }
+    if (confirm("Löschen?")) { 
+        reportsData = reportsData.filter(r => r.id !== id); 
+        saveToCommunity(); 
+        drawMarkersOnMap(); 
+    }
 }
 
 async function vote(id, change) {
-    // 1. Prüfen, ob der User für DIESE id schon gestimmt hat
     let myVotes = JSON.parse(localStorage.getItem('userVotes') || "{}");
-    
     if (myVotes[id]) {
-        alert("Du hast für diesen Punkt bereits abgestimmt!");
+        alert("Bereits abgestimmt!");
         return;
     }
-
-    // 2. Den richtigen Punkt in unseren lokalen Daten finden
     const report = reportsData.find(r => r.id === id);
     if (!report) return;
-
-    // 3. Vote hinzufügen und im LocalStorage speichern
     report.votes = (report.votes || 0) + change;
     myVotes[id] = true;
     localStorage.setItem('userVotes', JSON.stringify(myVotes));
-
-    // 4. Status-Check: Wenn zu viele negative Votes, Admin-Review triggern
-    if (report.votes <= -3) {
-        report.status = "review";
-    }
-
-    // 5. Ab zum Server und Karte aktualisieren
+    if (report.votes <= -3) report.status = "review";
     await saveToCommunity();
     drawMarkersOnMap();
+}
+
+function adminReviewDone(id) {
+    const r = reportsData.find(item => item.id === id);
+    if (r && r.status === "new") {
+        r.status = "active";
+        saveToCommunity();
+        drawMarkersOnMap();
+    }
 }
 
 window.onload = initApp;
