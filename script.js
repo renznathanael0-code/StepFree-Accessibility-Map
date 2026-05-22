@@ -12,9 +12,8 @@ if (isAdminPage) {
     }
 }
 
-const PANTRY_ID = "d9785260-5904-4964-ba0b-8389092f3adb"; 
-const BASKET_NAME = "freeway_stuttgart";
-const PANTRY_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`;
+const DATA_URL = "https://api.npoint.io/dfa7f001d0f6505ce61a";
+
 
 let map, myLocationMarker, reportsData = [], activeMarkers = {};
 
@@ -74,25 +73,36 @@ function setupLocationTracking() {
 
 async function loadFromCommunity() {
     try {
-        const response = await fetch(PANTRY_URL + "?t=" + Date.now());
+        const response = await fetch(DATA_URL + "?t=" + Date.now());
         if (response.ok) {
             const result = await response.json();
             reportsData = result.markers || [];
             drawMarkersOnMap();
         }
-    } catch (err) { console.error("Ladefehler:", err); }
+    } catch (err) { 
+        console.error("Ladefehler:", err); 
+        updateStatus("Offline ⚠️", "#E67E22");
+    }
 }
 
 async function saveToCommunity() {
     updateStatus("Speichere...", "#f39c12");
     try {
-        await fetch(PANTRY_URL, {
+        const response = await fetch(DATA_URL, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ markers: reportsData })
         });
-        updateStatus("Community Live ✅", "#27AE60");
-    } catch (err) { console.error("Speichern fehlgeschlagen."); }
+        
+        if (response.ok) {
+            updateStatus("Community Live ✅", "#27AE60");
+        } else {
+            throw new Error("Server-Fehler");
+        }
+    } catch (err) { 
+        console.error("Speichern fehlgeschlagen:", err);
+        updateStatus("Sync-Fehler ❌", "#e74c3c");
+    }
 }
 
 function updateStatus(text, color) {
