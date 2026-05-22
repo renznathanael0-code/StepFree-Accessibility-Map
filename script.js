@@ -1,4 +1,4 @@
-const isAdminPage = window.location.pathname.includes("admin.html");
+const isAdminPage = window.location.pathname.toLowerCase().includes("admin.html");
 
 if (isAdminPage) {
     if (sessionStorage.getItem('isLoggedIn') !== 'true') {
@@ -32,13 +32,10 @@ async function initApp() {
     const splash = document.getElementById('splash-screen');
     map = L.map('map', { fadeAnimation: false }).setView([48.775, 9.182], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    
     map.on('click', e => openSelectionPopup(e.latlng));
     map.on('moveend', () => drawMarkersOnMap());
     map.on('zoomend', () => drawMarkersOnMap());
-    
     setupLocationTracking();
-
     updateStatus("Lade Daten...", "#3498db");
     try {
         await loadFromCommunity();
@@ -46,7 +43,6 @@ async function initApp() {
     } catch (e) {
         updateStatus("Offline-Modus ⚠️", "#E67E22");
     }
-
     setTimeout(() => {
         if(splash) {
             splash.style.opacity = '0';
@@ -82,14 +78,15 @@ async function loadFromCommunity() {
     }
 }
 
-async function saveToCommunity() {
+function saveToCommunity() {
     updateStatus("Speichere...", "#f39c12");
-    await fetch(PANTRY_URL, {
+    fetch(PANTRY_URL, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ markers: reportsData })
-    });
-    updateStatus("Community Live ✅", "#27AE60");
+    })
+    .then(() => updateStatus("Community Live ✅", "#27AE60"))
+    .catch(() => updateStatus("Sync-Fehler ❌", "#e74c3c"));
 }
 
 function updateStatus(text, color) {
@@ -100,7 +97,6 @@ function updateStatus(text, color) {
 function drawMarkersOnMap() {
     if (!map) return;
     const bounds = map.getBounds();
-    
     Object.keys(activeMarkers).forEach(id => {
         const m = activeMarkers[id];
         if (!bounds.contains(m.getLatLng())) {
@@ -108,7 +104,6 @@ function drawMarkersOnMap() {
             delete activeMarkers[id];
         }
     });
-
     reportsData.forEach((r) => {
         const pos = L.latLng(r.lat, r.lng);
         if (bounds.contains(pos) && !activeMarkers[r.id]) {
@@ -118,7 +113,6 @@ function drawMarkersOnMap() {
             if (r.typ.includes("WC")) emoji = "🚽";
             if (r.typ.includes("Parkplatz")) emoji = "🅿️";
             if (r.typ.includes("Baustelle")) emoji = "🚧";
-
             let adminStyle = "";
             if (isAdminPage) {
                 if (r.votes <= -3 || r.status === "review") {
@@ -127,15 +121,12 @@ function drawMarkersOnMap() {
                     adminStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;"; 
                 }
             }
-
             const icon = L.divIcon({
                 html: `<div style="background:${r.farbe}; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:2px solid white; color:white; ${adminStyle}">${emoji}</div>`,
                 className: '', iconSize: [30, 30]
             });
-
             const m = L.marker([r.lat, r.lng], {icon}).addTo(map);
             const gMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}&travelmode=walking`;
-            
             let popup = `<div style="font-family:sans-serif; min-width:200px;">
                 <b>${r.typ}</b><br><p>${r.kommentar}</p>
                 <div style="background:#eee; padding:5px; border-radius:5px; text-align:center; margin-bottom:10px;">Vertrauen: ${r.votes || 0}</div>
@@ -146,12 +137,9 @@ function drawMarkersOnMap() {
                 <a href="${gMapsUrl}" target="_blank" style="text-decoration:none;">
                     <button style="background:#4285F4; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer;">🗺️ Navigation</button>
                 </a>`;
-
             if (isAdminPage) {
                 popup += `<button onclick="directDelete('${r.id}')" style="background:#e74c3c; color:white; border:none; padding:8px; width:100%; border-radius:5px; margin-top:5px; cursor:pointer;">🗑️ Löschen</button>`;
-                if (r.status === "new") {
-                    m.on('click', () => adminReviewDone(r.id));
-                }
+                if (r.status === "new") { m.on('click', () => adminReviewDone(r.id)); }
             }
             m.bindPopup(popup + `</div>`);
             activeMarkers[r.id] = m;
@@ -167,9 +155,9 @@ function openSelectionPopup(latlng) {
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Aufzug defekt', '#E67E22')" style="background:#E67E22; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🛗 Aufzug defekt</button>
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Baustelle', '#F1C40F')" style="background:#F1C40F; color:black; border:none; padding:10px; border-radius:5px; cursor:pointer;">🚧 Baustelle</button>
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Aufzug vorhanden', '#27AE60')" style="background:#27AE60; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🛗 Aufzug vorhanden</button>
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'WC barrierefrei', '#2ECC71')" style="background:#2ECC71; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🚽 WC barrierefrei</button>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'WC barrierefrei', '#2ECC71')" style="background:#2ECC71; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🚽 WC</button>
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Parkplatz', '#3498DB')" style="background:#3498DB; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🅿️ Parkplatz</button>
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Barrierefreier Ort', '#9B59B6')" style="background:#9B59B6; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">📍 Barrierefreier Ort</button>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Barrierefreier Ort', '#9B59B6')" style="background:#9B59B6; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">📍 Ort</button>
       </div>
     </div>`;
   L.popup().setLatLng(latlng).setContent(content).openOn(map);
@@ -179,41 +167,44 @@ function finalizeReport(lat, lng, typ, farbe) {
     const details = prompt(`Zusatzinfos:`, "");
     const newId = "id_" + Date.now();
     reportsData.push({ lat, lng, typ, farbe, kommentar: details || "", id: newId, votes: 0, status: "new" });
-    saveToCommunity(); 
-    drawMarkersOnMap(); 
+    drawMarkersOnMap();
     map.closePopup();
+    saveToCommunity();
 }
 
 function directDelete(id) {
     if (confirm("Löschen?")) { 
         reportsData = reportsData.filter(r => r.id !== id); 
-        saveToCommunity(); 
-        drawMarkersOnMap(); 
+        if (activeMarkers[id]) { map.removeLayer(activeMarkers[id]); delete activeMarkers[id]; }
+        drawMarkersOnMap();
+        saveToCommunity();
     }
 }
 
-async function vote(id, change) {
+function vote(id, change) {
     let myVotes = JSON.parse(localStorage.getItem('userVotes') || "{}");
-    if (myVotes[id]) {
-        alert("Bereits abgestimmt!");
-        return;
-    }
+    if (myVotes[id]) { alert("Bereits abgestimmt!"); return; }
     const report = reportsData.find(r => r.id === id);
     if (!report) return;
     report.votes = (report.votes || 0) + change;
     myVotes[id] = true;
     localStorage.setItem('userVotes', JSON.stringify(myVotes));
     if (report.votes <= -3) report.status = "review";
-    await saveToCommunity();
-    drawMarkersOnMap();
+    saveToCommunity();
+    map.closePopup();
+    setTimeout(() => {
+        Object.keys(activeMarkers).forEach(key => { map.removeLayer(activeMarkers[key]); });
+        activeMarkers = {};
+        drawMarkersOnMap();
+    }, 300);
 }
 
 function adminReviewDone(id) {
     const r = reportsData.find(item => item.id === id);
     if (r && r.status === "new") {
         r.status = "active";
-        saveToCommunity();
         drawMarkersOnMap();
+        saveToCommunity();
     }
 }
 
