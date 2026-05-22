@@ -302,4 +302,26 @@ function adminReviewDone(id) {
         drawMarkersOnMap();
     }
 }
+
+function downloadBackup() {
+    if (!isAdmin) return alert("Nur für Admins!");
+    
+    // Wir nehmen die aktuellen Daten aus deiner App
+    const dataStr = JSON.stringify({ markers: reportsData }, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    // Wir erstellen einen unsichtbaren Link zum Herunterladen
+    const exportFileDefaultName = 'stepfree_backup_' + new Date().toLocaleDateString() + '.json';
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+    
+    updateStatus("Backup erstellt! 💾", "#2ecc71");
+}
+
+// Damit der Button im HTML funktioniert
+window.downloadBackup = downloadBackup;
+
 window.onload = initApp;
