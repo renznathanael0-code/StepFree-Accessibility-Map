@@ -212,7 +212,7 @@ function askForCheck(id) {
         drawMarkersOnMap();
         alert("Vor-Ort-Check wurde angefordert!");
     }
-}
+ }
 
 function verifyByLocation(id) {
     updateStatus("Prüfe Standort...", "#3498db");
