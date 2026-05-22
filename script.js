@@ -1,65 +1,54 @@
 const isAdminPage = window.location.pathname.includes("admin.html");
 
 if (isAdminPage) {
-    const login = prompt("Willkommen im StepFree Admin-Bereich\nBitte Passwort eingeben:");
-    if (btoa(login) !== "ZldpUyE=") {
-        alert("Zugriff verweigert.");
-        window.location.href = "index.html";
+    const login = prompt("StepFree Admin-Bereich\nBitte Passwort eingeben:");
+    if (btoa(login) !== "ZldpUyE=") { 
+        alert("Zugriff verweigert!");
+        window.location.href = "index.html"; 
     }
 }
 
-const PANTRY_ID = "d9785260-5904-4964-ba0b-8389092f3adb";
-let isSyncing = false;
+const PANTRY_ID = "d9785260-5904-4964-ba0b-8389092f3adb"; 
+const BASKET_NAME = "freeway_stuttgart";
+const PANTRY_URL = `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`;
 
-// VERFEINERTES RASTER: Jetzt ca. 1,1km Quadrate statt 111km
-function getBasketUrl(lat, lng) {
-    const gridLat = (Math.floor(lat * 100) / 100).toFixed(2);
-    const gridLng = (Math.floor(lng * 100) / 100).toFixed(2);
-    return `https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/grid_${gridLat}_${gridLng}`;
-}
+let map, myLocationMarker, reportsData = [], activeMarkers = {};
 
-let map, myLocationMarker, reportsData = [],
-    activeMarkers = {};
-
-function updateStatus(text, color) {
-    const s = document.getElementById('sync-status');
-    if (s) {
-        s.innerHTML = text;
-        s.style.background = color;
-        s.style.display = 'block';
-    }
+// Distanzberechnung für den Vor-Ort-Check
+function getDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; 
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; // Kilometer
 }
 
 async function initApp() {
     const splash = document.getElementById('splash-screen');
-    map = L.map('map', { fadeAnimation: false }).setView([48.775, 9.182], 13);
-    
+    map = L.map('map').setView([48.775, 9.182], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    
     map.on('click', e => openSelectionPopup(e.latlng));
     setupLocationTracking();
-    
-    let loadTimeout;
-    map.on('moveend', function() {
-        if (isSyncing) return;
-        updateStatus("Synchronisiere...", "#3498db");
-        clearTimeout(loadTimeout);
-        loadTimeout = setTimeout(() => {
-            loadFromCommunity();
-        }, 400);
-    });
-    
-    loadFromCommunity();
-    
+
+    updateStatus("Lade Community-Daten...", "#3498db");
+    try {
+        await loadFromCommunity();
+        updateStatus("Community Live ✅", "#27AE60");
+    } catch (e) {
+        updateStatus("Eingeschränkt bereit ⚠️", "#E67E22");
+    }
+
     setTimeout(() => {
-        if (splash) {
+        if(splash) {
             splash.style.opacity = '0';
             setTimeout(() => {
                 splash.style.display = 'none';
                 map.invalidateSize();
-            }, 600);
+            }, 800);
         }
-    }, 1200);
+    }, 1000);
 }
 
 function setupLocationTracking() {
@@ -68,175 +57,237 @@ function setupLocationTracking() {
         className: '',
         iconSize: [18, 18]
     });
-    map.locate({ watch: true, enableHighAccuracy: true });
+    map.locate({watch: true, enableHighAccuracy: true});
     map.on('locationfound', e => {
         if (myLocationMarker) {
             myLocationMarker.setLatLng(e.latlng);
         } else {
-            myLocationMarker = L.marker(e.latlng, { icon: locationIcon }).addTo(map);
-            myLocationMarker.bindPopup("Sie befinden sich hier");
+            myLocationMarker = L.marker(e.latlng, {icon: locationIcon}).addTo(map);
+            myLocationMarker.bindPopup("Du bist hier");
             map.setView(e.latlng, 16);
         }
     });
 }
 
 async function loadFromCommunity() {
-    if (isSyncing) return;
-    const center = map.getCenter();
-    const url = getBasketUrl(center.lat, center.lng);
     try {
-        const response = await fetch(url);
+        const response = await fetch(PANTRY_URL);
         if (response.ok) {
             const result = await response.json();
-            if (!isSyncing) {
-                reportsData = result.markers || [];
-                drawMarkersOnMap();
-                updateStatus("Community Live ✅", "#27AE60");
-            }
-        } else {
-            // Falls das Raster noch nicht existiert
-            reportsData = [];
+            reportsData = result.markers || [];
             drawMarkersOnMap();
-            updateStatus("Region bereit ✅", "#27AE60");
         }
-    } catch (err) {
-        updateStatus("Verbindung prüfen", "#E67E22");
-    }
+    } catch (err) { console.error("Ladefehler:", err); }
 }
 
-async function saveToCommunity(markerToUpdate = null) {
-    isSyncing = true;
-    const ref = markerToUpdate || (reportsData.length > 0 ? reportsData[0] : map.getCenter());
-    const targetUrl = getBasketUrl(ref.lat, ref.lng);
-    updateStatus("Sichere Daten...", "#f39c12");
-    
+async function saveToCommunity() {
+    updateStatus("Speichere...", "#f39c12");
     try {
-        await fetch(targetUrl, {
+        await fetch(PANTRY_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ markers: reportsData })
         });
         updateStatus("Community Live ✅", "#27AE60");
-    } catch (err) {
-        updateStatus("Sync-Fehler ❌", "#E74C3C");
-    } finally {
-        setTimeout(() => { isSyncing = false; }, 1500);
+    } catch (err) { console.error("Speichern fehlgeschlagen."); }
+}
+
+function updateStatus(text, color) {
+    const s = document.getElementById('sync-status');
+    if(s) {
+        s.innerHTML = text;
+        s.style.background = color;
     }
 }
 
 function drawMarkersOnMap() {
+    const isAdminPage = window.location.pathname.includes("admin.html");
     Object.values(activeMarkers).forEach(m => map.removeLayer(m));
     activeMarkers = {};
-    
+
     reportsData.forEach((r, index) => {
+        
         let emoji = "📍";
         if (r.typ.includes("Treppe")) emoji = "🪜";
-        if (r.typ.includes("defekt") || r.typ.includes("Aufzug")) emoji = "🛗";
+        if (r.typ.includes("defekt")) emoji = "🛗";
         if (r.typ.includes("WC")) emoji = "🚽";
         if (r.typ.includes("Parkplatz")) emoji = "🅿️";
+        if (r.typ.includes("Aufzug")) emoji = "🛗";
         if (r.typ.includes("Baustelle")) emoji = "🚧";
-        
+
+       
+        let adminStyle = "";
+        if (isAdminPage) {
+            if (r.votes <= -3) {
+                adminStyle = "box-shadow: 0 0 15px 5px red; border: 2px solid red;"; 
+            } else if (r.status === "new") {
+                adminStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;"; 
+            }
+        }
+
         const icon = L.divIcon({
-            html: `<div style="background:${r.farbe}; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:2px solid white; color:white;">${emoji}</div>`,
-            className: '',
+            html: `<div style="background:${r.farbe}; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:2px solid white; color:white; ${adminStyle}">${emoji}</div>`,
+            className: '', 
             iconSize: [30, 30]
         });
+
+        const m = L.marker([r.lat, r.lng], {icon}).addTo(map);
         
-        const m = L.marker([r.lat, r.lng], { icon }).addTo(map);
+
+        if (isAdminPage && r.status === "new") {
+            m.on('click', () => adminReviewDone(r.id));
+        }
+
+        const gMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}`;
         
-        // Google Maps Navigation URL Fix
-        const gMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}&travelmode=walking`;
+        let popupContent = `<div style="font-family:sans-serif; min-width:200px;">`;
         
-        let popupContent = `<div style="font-family:sans-serif; min-width:200px;">
-                <b style="font-size:1.1em;">${r.typ}</b><br>
-                <p style="margin: 5px 0; color:#555;">${r.kommentar}</p>
-                <div style="display:flex; gap:5px; margin-bottom:10px;">
-                    <button onclick="vote('${r.id}', 1)" style="flex:1; background:#27AE60; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">✅</button>
-                    <button onclick="vote('${r.id}', -1)" style="flex:1; background:#E67E22; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">❌</button>
-                </div>
-                <a href="${gMapsUrl}" target="_blank" style="text-decoration:none;">
-                    <button style="background:#4285F4; color:white; border:none; padding:10px; width:100%; border-radius:5px; margin-bottom:10px; cursor:pointer; font-weight:bold;">📍 Route planen</button>
-                </a>`;
         
         if (isAdminPage) {
-            popupContent += `<button onclick="directDelete('${r.id}')" style="background:#e74c3c; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer;">🗑️ Löschen</button>`;
+            if (r.votes <= -3) popupContent += `<b style="color:red; font-size:10px;">⚠️ KRITISCH (VOTES)</b><br>`;
+            if (r.status === "new") popupContent += `<b style="color:#3498db; font-size:10px;">🆕 UNGEPRÜFT</b><br>`;
         }
-        popupContent += `</div>`;
+
+        popupContent += `
+                <b style="font-size:1.1em;">${r.typ}</b><br>
+                <p style="margin: 5px 0; color:#555;">${r.kommentar}</p>
+                <div style="background:#eee; padding:5px; border-radius:5px; text-align:center; margin-bottom:10px; font-size: 0.9em;">
+                    Community-Vertrauen: <b>${r.votes || 0}</b>
+                </div>`;
+
+        
+        if (isAdminPage && r.verifiedAt) {
+            popupContent += `
+                <div style="background:#D4EFDF; color:#1D8348; padding:8px; border-radius:5px; margin-bottom:10px; font-size:0.8em; border:1px solid #27AE60;">
+                    <b>✅ Check-In erfolgt:</b><br>${r.verifiedAt}
+                </div>`;
+        }
+
+        popupContent += `
+                <div style="display:flex; gap:5px; margin-bottom:10px;">
+                    <button onclick="vote('${r.id}', 1)" style="flex:1; background:#27AE60; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer; font-weight:bold;">✅</button>
+                    <button onclick="vote('${r.id}', -1)" style="flex:1; background:#E67E22; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer; font-weight:bold;">❌</button>
+                </div>`;
+
+
+        popupContent += `
+                <a href="${gMapsUrl}" target="_blank" style="text-decoration:none;">
+                    <button style="background:#4285F4; color:white; border:none; padding:10px; width:100%; border-radius:5px; margin-bottom:10px; cursor:pointer; font-weight:bold; display:flex; align-items:center; justify-content:center;">
+                        <span style="margin-right:8px;">🗺️</span> Navigation starten
+                    </button>
+                </a>`;
+
+
+        if (isAdminPage) {
+            popupContent += `
+                <div style="border-top:1px solid #ccc; padding-top:10px; margin-top:5px;">
+                    <button onclick="directDelete('${r.id}')" style="background:#e74c3c; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">🗑️ Löschen</button>
+                    <button onclick="askForCheck('${r.id}')" style="background:#3498db; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Check anfordern</button>
+                </div>`;
+        } else if (r.needsCheck) {
+            popupContent += `
+                <button onclick="verifyByLocation('${r.id}')" style="background:#f39c12; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Hier einchecken (GPS)</button>`;
+        }
+
+        popupContent += `</div>`; 
         m.bindPopup(popupContent);
         activeMarkers[index] = m;
-    });
-}
-
-function openSelectionPopup(latlng) {
-    const content = `
-    <div style="width: 260px; font-family: sans-serif;">
-      <b style="display: block; text-align: center; margin-bottom: 10px;">Neuer Eintrag</b>
-      <div style="display: flex; flex-direction: column; gap: 5px;">
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Treppe', '#E74C3C')" style="background:#E74C3C; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🪜 Treppe</button>
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Aufzug defekt', '#E67E22')" style="background:#E67E22; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🛗 Aufzug defekt</button>
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Baustelle / Sperrung', '#F1C40F')" style="background:#F1C40F; color:black; border:none; padding:10px; border-radius:5px; cursor:pointer;">🚧 Baustelle / Sperrung</button>
-        <hr style="margin:5px 0; border:0; border-top:1px solid #ccc;">
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Aufzug vorhanden', '#27AE60')" style="background:#27AE60; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🛗 Aufzug vorhanden</button>
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'WC barrierefrei', '#2ECC71')" style="background:#2ECC71; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🚽 WC barrierefrei</button>
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Parkplatz', '#3498DB')" style="background:#3498DB; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">🅿️ Parkplatz</button>
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Barrierefreier Ort', '#9B59B6')" style="background:#9B59B6; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">📍 Barrierefreier Ort</button>
-      </div>
-    </div>`;
-    L.popup().setLatLng(latlng).setContent(content).openOn(map);
-}
-
-async function finalizeReport(lat, lng, typ, farbe) {
-    const details = prompt("Möchten Sie Details hinzufügen?", "");
-    const newReport = { lat, lng, typ, farbe, kommentar: details || "", id: "id_" + Date.now(), votes: 0 };
-    
-    isSyncing = true;
-    reportsData.push(newReport);
-    drawMarkersOnMap();
-    map.closePopup();
-    
-    const targetUrl = getBasketUrl(lat, lng);
-    try {
-        let regionData = { markers: [] };
-        const response = await fetch(targetUrl);
-        if (response.ok) {
-            const result = await response.json();
-            regionData.markers = result.markers || [];
-        }
-        regionData.markers.push(newReport);
-        
-        await fetch(targetUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(regionData)
-        });
-        updateStatus("Community Live ✅", "#27AE60");
-    } catch (err) {
-        updateStatus("Sync-Fehler ❌", "#E74C3C");
-    } finally {
-        setTimeout(() => { isSyncing = false; }, 1500);
-    }
+    }); 
 }
 
 function directDelete(id) {
-    if (confirm("Eintrag löschen?")) {
-        isSyncing = true;
-        const reportToDelete = reportsData.find(r => r.id === id);
+    if (confirm("Diesen Punkt wirklich für alle löschen?")) {
         reportsData = reportsData.filter(r => r.id !== id);
+        saveToCommunity();
         drawMarkersOnMap();
-        saveToCommunity(reportToDelete);
     }
+}
+
+function askForCheck(id) {
+    const r = reportsData.find(item => item.id === id);
+    if (r) {
+        r.needsCheck = true;
+        r.status = "active"; 
+        saveToCommunity();
+        drawMarkersOnMap();
+        alert("Vor-Ort-Check wurde angefordert!");
+    }
+}
+
+function verifyByLocation(id) {
+    updateStatus("Prüfe Standort...", "#3498db");
+    navigator.geolocation.getCurrentPosition((pos) => {
+        const report = reportsData.find(r => r.id === id);
+        const dist = getDistance(pos.coords.latitude, pos.coords.longitude, report.lat, report.lng);
+
+        if (dist <= 0.05) { 
+            report.needsCheck = false;
+            report.verifiedAt = new Date().toLocaleString('de-DE');
+            saveToCommunity();
+            drawMarkersOnMap();
+            alert("Erfolgreich! Dein Standort wurde verifiziert und der Punkt bestätigt.");
+        } else {
+            alert(`Check-In fehlgeschlagen! Du bist ${Math.round(dist * 1000)}m entfernt. Du musst näher am Hindernis sein (max. 50m).`);
+        }
+        updateStatus("Community Live ✅", "#27AE60");
+    }, () => alert("GPS-Zugriff verweigert! Ohne Standort kein Check-In möglich."));
+}
+
+function openSelectionPopup(latlng) {
+  const content = `
+    <div style="width: 280px; font-family: sans-serif; padding: 10px;">
+      <b style="display: block; text-align: center; margin-bottom: 15px;">Eintrag hinzufügen</b>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Treppe', '#E74C3C')" style="background:#E74C3C; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">🪜 Treppe melden</button>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Aufzug defekt', '#E67E22')" style="background:#E67E22; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">🛗 Aufzug defekt</button>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Baustelle', '#F1C40F')" style="background:#F1C40F; color:black; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">🚧 Baustelle</button>
+        <hr>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Aufzug vorhanden', '#27AE60')" style="background:#27AE60; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">🛗 Aufzug vorhanden</button>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'WC barrierefrei', '#2ECC71')" style="background:#2ECC71; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">🚽 WC barrierefrei</button>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Parkplatz', '#3498DB')" style="background:#3498DB; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">🅿️ Parkplatz</button>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Barrierefreier Ort', '#9B59B6')" style="background:#9B59B6; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">📍 Barrierefreier Ort</button>
+      </div>
+    </div>`;
+  L.popup().setLatLng(latlng).setContent(content).openOn(map);
+}
+
+function finalizeReport(lat, lng, typ, farbe) {
+    const details = prompt(`Zusatzinfos für ${typ}:`, "");
+    reportsData.push({
+        lat: lat, lng: lng, typ: typ, farbe: farbe, 
+        kommentar: details || "", 
+        id: "id_" + Date.now(), 
+        votes: 0, 
+        status: "new" 
+    });
+    drawMarkersOnMap();
+    saveToCommunity();
+    map.closePopup();
 }
 
 async function vote(id, change) {
     const report = reportsData.find(r => r.id === id);
     if (!report) return;
+    
     let myVotes = JSON.parse(localStorage.getItem('userVotes') || "{}");
-    if (myVotes[id]) return;
+    if (myVotes[id]) return alert("Bereits abgestimmt!");
+    
     report.votes += change;
     myVotes[id] = true;
     localStorage.setItem('userVotes', JSON.stringify(myVotes));
-    saveToCommunity(report);
+    
+    if (report.votes <= -3) report.status = "review";
+    
+    saveToCommunity();
     drawMarkersOnMap();
 }
 
+function adminReviewDone(id) {
+    const r = reportsData.find(item => item.id === id);
+    if (r && r.status === "new") {
+        r.status = "active";
+        saveToCommunity();
+        drawMarkersOnMap();
+    }
+}
 window.onload = initApp;
