@@ -122,13 +122,23 @@ function updateStatus(text, color) {
 }
 
 function drawMarkersOnMap() {
+    if (!map) return; // Sicherheitsschalter
+
     const isAdminPage = window.location.pathname.includes("admin.html");
+    const bounds = map.getBounds(); // Das aktuelle Sichtfeld der Karte abfragen
+
+    // 1. Alle alten Marker von der Karte entfernen
     Object.values(activeMarkers).forEach(m => map.removeLayer(m));
     activeMarkers = {};
     
     reportsData.forEach((r, index) => {
-        // Bürger sehen jetzt IMMER alles. Nur Admins sehen die farbigen Warn-Ringe.
-        
+        const latLng = L.latLng(r.lat, r.lng);
+
+        // 2. PRÜFUNG: Liegt der Punkt im aktuellen Sichtfeld?
+        // Wenn nein, überspringen wir diesen Punkt einfach (spart CPU & Akku)
+        if (!bounds.contains(latLng)) return;
+
+        // --- Ab hier folgt dein bewährter Code für das Zeichnen ---
         let emoji = "📍";
         if (r.typ.includes("Treppe")) emoji = "🪜";
         if (r.typ.includes("defekt")) emoji = "🛗";
@@ -137,13 +147,12 @@ function drawMarkersOnMap() {
         if (r.typ.includes("Aufzug")) emoji = "🛗";
         if (r.typ.includes("Baustelle")) emoji = "🚧";
         
-        // MARKIERUNGEN NUR FÜR ADMINS
         let adminStyle = "";
         if (isAdminPage) {
             if (r.votes <= -3) {
-                adminStyle = "box-shadow: 0 0 15px 5px red; border: 2px solid red;"; // Viel Kritik
+                adminStyle = "box-shadow: 0 0 15px 5px red; border: 2px solid red;"; 
             } else if (r.status === "new") {
-                adminStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;"; // Ganz neu
+                adminStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;"; 
             }
         }
         
@@ -153,16 +162,13 @@ function drawMarkersOnMap() {
             iconSize: [30, 30]
         });
         
-        const m = L.marker([r.lat, r.lng], { icon }).addTo(map);
+        const m = L.marker(latLng, { icon }).addTo(map);
         
-        // Popup-Event für Admin: Markierung "Neu" entfernen beim Öffnen
         if (isAdminPage && r.status === "new") {
             m.on('click', () => adminReviewDone(r.id));
         }
         
         let popupContent = `<div style="font-family:sans-serif; min-width:200px;">`;
-        
-        // Admin-Info Header
         if (isAdminPage) {
             if (r.votes <= -3) popupContent += `<b style="color:red;">⚠️ KRITISCH (Votes)</b><br>`;
             if (r.status === "new") popupContent += `<b style="color:#3498db;">🆕 NEUER EINTRAG</b><br>`;
@@ -175,12 +181,8 @@ function drawMarkersOnMap() {
                     Vertrauen: <b>${r.votes || 0}</b>
                 </div>`;
         
-        // ZEITSTEMPEL NUR FÜR ADMIN
         if (isAdminPage && r.verifiedAt) {
-            popupContent += `
-                <div style="background:#D4EFDF; color:#1D8348; padding:8px; border-radius:5px; margin-bottom:10px; font-size:0.8em;">
-                    ✅ Check-In: ${r.verifiedAt}
-                </div>`;
+            popupContent += `<div style="background:#D4EFDF; color:#1D8348; padding:8px; border-radius:5px; margin-bottom:10px; font-size:0.8em;">✅ Check-In: ${r.verifiedAt}</div>`;
         }
         
         popupContent += `
@@ -196,14 +198,20 @@ function drawMarkersOnMap() {
                     <button onclick="askForCheck('${r.id}')" style="background:#3498db; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Check anfordern</button>
                 </div>`;
         } else if (r.needsCheck) {
-            popupContent += `
-                <button onclick="verifyByLocation('${r.id}')" style="background:#f39c12; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Hier einchecken</button>`;
+            popupContent += `<button onclick="verifyByLocation('${r.id}')" style="background:#f39c12; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Hier einchecken</button>`;
         }
         
         popupContent += `</div>`;
         m.bindPopup(popupContent);
         activeMarkers[index] = m;
     });
+}
+
+// 3. AUTOMATISIERUNG: Karte aktualisieren, wenn sich das Sichtfeld ändert
+// Füge diese zwei Zeilen UNTER deiner Funktion ein (am Ende deines Scripts):
+if (map) {
+    map.on('moveend', drawMarkersOnMap);
+    map.on('zoomend', drawMarkersOnMap);
 }
 
 function directDelete(id) {
