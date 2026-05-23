@@ -150,7 +150,7 @@ function drawMarkersOnMap() {
 
     const isAdminPage = window.location.pathname.includes("admin.html");
     const bounds = map.getBounds();
-    const filterValue = document.getElementById('typeFilter').value; // Filter-Wert abgreifen
+    const filterValue = document.getElementById('typeFilter').value;
 
     Object.values(activeMarkers).forEach(m => map.removeLayer(m));
     activeMarkers = {};
@@ -158,18 +158,12 @@ function drawMarkersOnMap() {
     reportsData.forEach((r, index) => {
         const latLng = L.latLng(r.lat, r.lng);
 
-        // --- NEU: FILTER-LOGIK ---
-        // Wenn nicht "alle" gewählt ist UND der Typ nicht zum Filter passt -> Überspringen
         if (filterValue !== "alle" && !r.typ.includes(filterValue)) {
             return;
         }
 
-        // Sichtfeld-Check (wie bisher)
         if (!bounds.contains(latLng)) return;
 
-        // ... ab hier folgt dein restlicher Code zum Zeichnen der Marker ...
-
-        // --- Ab hier folgt dein bewährter Code für das Zeichnen ---
         let emoji = "📍";
         if (r.typ.includes("Treppe")) emoji = "🪜";
         if (r.typ.includes("defekt")) emoji = "🛗";
@@ -199,41 +193,52 @@ function drawMarkersOnMap() {
             m.on('click', () => adminReviewDone(r.id));
         }
         
-        let popupContent = `<div style="font-family:sans-serif; min-width:200px;">`;
+        // --- POPUP INHALT ZUSAMMENBAUEN ---
+        let content = `<div style="font-family:sans-serif; min-width:200px;">`;
+        
         if (isAdminPage) {
-            if (r.votes <= -3) popupContent += `<b style="color:red;">⚠️ KRITISCH (Votes)</b><br>`;
-            if (r.status === "new") popupContent += `<b style="color:#3498db;">🆕 NEUER EINTRAG</b><br>`;
+            if (r.votes <= -3) content += `<b style="color:red;">⚠️ KRITISCH (Votes)</b><br>`;
+            if (r.status === "new") content += `<b style="color:#3498db;">🆕 NEUER EINTRAG</b><br>`;
         }
         
-        popupContent += `
+        content += `
                 <b style="font-size:1.1em;">${r.typ}</b><br>
-                <p style="margin: 5px 0; color:#555;">${r.kommentar}</p>
+                <p style="margin: 5px 0; color:#555;">${r.kommentar || ''}</p>
                 <div style="background:#eee; padding:5px; border-radius:5px; text-align:center; margin-bottom:10px; font-size: 0.9em;">
                     Vertrauen: <b>${r.votes || 0}</b>
                 </div>`;
         
         if (isAdminPage && r.verifiedAt) {
-            popupContent += `<div style="background:#D4EFDF; color:#1D8348; padding:8px; border-radius:5px; margin-bottom:10px; font-size:0.8em;">✅ Check-In: ${r.verifiedAt}</div>`;
+            content += `<div style="background:#D4EFDF; color:#1D8348; padding:8px; border-radius:5px; margin-bottom:10px; font-size:0.8em;">✅ Check-In: ${r.verifiedAt}</div>`;
         }
         
-        popupContent += `
+        content += `
                 <div style="display:flex; gap:5px; margin-bottom:10px;">
                     <button onclick="vote('${r.id}', 1)" style="flex:1; background:#27AE60; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">✅ Stimmt</button>
                     <button onclick="vote('${r.id}', -1)" style="flex:1; background:#E67E22; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">❌ Falsch</button>
                 </div>`;
         
+        // GOOGLE MAPS NAVIGATION LINK (Korrigiert)
+        const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}&travelmode=walking`;
+        
+        content += `
+                <a href="${googleUrl}" target="_blank" style="display:block; background:#4285F4; color:white; text-align:center; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:10px;">
+                    Route starten
+                </a>`;
+
         if (isAdminPage) {
-            popupContent += `
+            content += `
                 <div style="border-top:1px solid #ccc; padding-top:10px; margin-top:5px;">
                     <button onclick="directDelete('${r.id}')" style="background:#e74c3c; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">🗑️ Löschen</button>
                     <button onclick="askForCheck('${r.id}')" style="background:#3498db; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Check anfordern</button>
                 </div>`;
         } else if (r.needsCheck) {
-            popupContent += `<button onclick="verifyByLocation('${r.id}')" style="background:#f39c12; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Hier einchecken</button>`;
+            content += `<button onclick="verifyByLocation('${r.id}')" style="background:#f39c12; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Hier einchecken</button>`;
         }
         
-        popupContent += `</div>`;
-        m.bindPopup(popupContent);
+        content += `</div>`;
+
+        m.bindPopup(content);
         activeMarkers[index] = m;
     });
 }

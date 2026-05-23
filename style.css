@@ -73,21 +73,18 @@ body, html {
     border: 1px solid #ddd;
 }
 
-/* Suchleiste bündig machen */
+/* Die Suchleiste von Leaflet unter den Filter schieben */
 .leaflet-top.leaflet-right .leaflet-control {
-    margin-right: 10px !important; /* Abstand zum Bildschirmrand */
-    margin-top: 10px !important;
-    margin-bottom: 0 !important;   /* Wichtig: Kein Abstand nach unten zum Filter */
-}
-
-.leaflet-control-geocoder {
-    width: 250px !important;
-    border-radius: 4px 4px 0 0 !important; /* Nur oben abgerundet */
+    margin-top: 45px !important; /* Platz für den Filter (ca. 35px + 10px Abstand) */
+    margin-right: 10px !important;
+    border-radius: 0 0 4px 4px !important; /* Unten abgerundet */
+    border-top: none !important;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
-    border-bottom: 1px solid #ccc !important;
+    width: 250px !important;
 }
 
-/* Suchfeld-Input volle Breite */
-.leaflet-control-geocoder-form input {
-    width: 210px !important; /* Platz für die Lupe lassen */
+/* Damit die Suchvorschläge (Results) Platz haben */
+.leaflet-control-geocoder-results {
+    max-height: 200px;
+    overflow-y: auto;
 }
