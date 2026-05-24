@@ -20,16 +20,20 @@
     </div>
 
 <div id="filter-container" style="position:fixed; top:13px; right:12px; z-index:1001; width: 250px;">
-    <select id="typeFilter" onchange="drawMarkersOnMap()" style="width: 100%; padding:8px; border: none; border-radius: 4px 4px 0 0; font-family: sans-serif; cursor: pointer; background: white; box-shadow: 0 -1px 5px rgba(0,0,0,0.2); appearance: none; -webkit-appearance: none; border-bottom: 1px solid #eee;">
-        <option value="alle">🌍 Alle Kategorien</option>
-        <option value="Treppe">🪜 Treppen</option>
-        <option value="Aufzug defekt">❌ 🛗 Aufzüge defekt</option>
-        <option value="Aufzug vorhanden">✅ 🛗 Aufzüge okay</option>
-        <option value="Baustelle">🚧 Baustellen</option>
-        <option value="WC">🚽 WCs / Toiletten</option>
-        <option value="Parkplatz">🅿️ Parkplätze</option>
-        <option value="Barrierefreier Ort">📍 Barrierefreie Orte</option>
-    </select>
+<select id="typeFilter" onchange="drawMarkersOnMap()" ...>
+    <option value="alle">🌍 Alle Kategorien</option>
+    <option value="Kein barrierefreier Zugang">🚫 Kein Zugang</option>
+    <option value="Treppe">🪜 Treppen</option>
+    <option value="Höhenunterschied">🚉 ⚠️ Stufe am Zug</option>
+    <option value="Aufzug defekt">❌ 🛗 Aufzüge defekt</option>
+    <option value="Aufzug vorhanden">✅ 🛗 Aufzüge vorhanden</option>
+    <option value="Rampe vorhanden">📐 Rampe vorhanden</option>
+    <option value="Niveaugleicher Einstieg">🚉 ✅ Einstieg eben</option>
+    <option value="Baustelle">🚧 Baustellen</option>
+    <option value="WC">🚽 WCs / Toiletten</option>
+    <option value="Parkplatz">🅿️ Parkplätze</option>
+    <option value="Barrierefreier Ort">📍 Barrierefreie Orte</option>
+</select>
 </div>
 
 
