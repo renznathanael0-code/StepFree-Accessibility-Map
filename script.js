@@ -298,23 +298,23 @@ function openSelectionPopup(latlng) {
   const content = `
     <div style="width: 280px; font-family: sans-serif; padding: 10px; max-height: 450px; overflow-y: auto;">
       <b style="display: block; text-align: center; margin-bottom: 15px;">Eintrag hinzufügen</b>
+      <strong>Hindernisse</strong><br><br>
       <div style="display: flex; flex-direction: column; gap: 8px;">
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Kein barrierefreier Zugang', '#34495E')" style="background:#34495E; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">🚫 Kein barrierefreier Zugang</button>
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Treppe', '#E74C3C')" style="background:#E74C3C; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">🪜 Treppe melden</button>
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Höhenunterschied', '#D35400')" style="background:#D35400; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">🚉 ⚠️ Stufe am Zug</button>
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Aufzug defekt', '#E67E22')" style="background:#E67E22; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">🛗 Aufzug defekt</button>
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Baustelle', '#F1C40F')" style="background:#F1C40F; color:black; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">🚧 Baustelle</button>
-
-        
         <hr style="margin: 5px 0; border: none; border-top: 1px solid #ccc;">
-        
-        <hr style="margin: 5px 0; border: none; border-top: 1px solid #ccc;">
+        <strong>Barrierefreiheit im Alltag</strong><br>
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Aufzug vorhanden', '#27AE60')" style="background:#27AE60; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">🛗 Aufzug vorhanden</button>
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Rampe vorhanden', '#16A085')" style="background:#16A085; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">📐 Rampe vorhanden</button>
-        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Niveaugleicher Einstieg', '#2980B9')" style="background:#2980B9; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">🚉 ✅ Einstieg eben</button>
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'WC barrierefrei', '#2ECC71')" style="background:#2ECC71; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">🚽 WC barrierefrei</button>
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Parkplatz', '#3498DB')" style="background:#3498DB; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">🅿️ Parkplatz</button>
         <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Barrierefreier Ort', '#9B59B6')" style="background:#9B59B6; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">📍 Barrierefreier Ort</button>
+        <hr style="margin: 5px 0; border: none; border-top: 1px solid #ccc;">
+        <strong>Barrierefreiheit / Hindernisse am Bahnsteig</strong><br>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Höhenunterschied', '#D35400')" style="background:#D35400; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">🚉 ⚠️ Stufe am Zug</button>
+        <button onclick="finalizeReport(${latlng.lat}, ${latlng.lng}, 'Niveaugleicher Einstieg', '#2980B9')" style="background:#2980B9; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">🚉 ✅ Einstieg eben</button>
       </div>
     </div>`;
   L.popup().setLatLng(latlng).setContent(content).openOn(map);
