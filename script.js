@@ -32,32 +32,40 @@ async function initApp() {
     map.on('click', e => openSelectionPopup(e.latlng));
     setupLocationTracking();
 
-// Suchleiste hinzufügen
-L.Control.geocoder({
-    defaultMarkGeocode: false,
-    placeholder: "Stadt oder Straße suchen...",
-    errorMessage: "Nichts gefunden."
-})
-.on('markgeocode', function(e) {
-    var bbox = e.geocode.bbox;
-    var poly = L.polygon([
-        bbox.getSouthEast(),
-        bbox.getNorthEast(),
-        bbox.getNorthWest(),
-        bbox.getSouthWest()
-    ]);
-    map.fitBounds(poly.getBounds()); // Zoomt zum gefundenen Ort
-})
-.addTo(map);
+    // --- GEOCODER IN HEADER VERSCHIEBEN ---
+    const geocoder = L.Control.geocoder({
+        defaultMarkGeocode: false,
+        placeholder: "Stadt oder Straße suchen...",
+        errorMessage: "Nichts gefunden."
+    })
+    .on('markgeocode', function(e) {
+        const bbox = e.geocode.bbox;
+        const poly = L.polygon([
+            bbox.getSouthEast(),
+            bbox.getNorthEast(),
+            bbox.getNorthWest(),
+            bbox.getSouthWest()
+        ]);
+        map.fitBounds(poly.getBounds());
+    });
 
+    // Erstellt das HTML-Element des Geocoders
+    const geocoderElement = geocoder.onAdd(map);
+    // Schiebt es in den weißen Bereich über der Karte
+    const searchWrapper = document.getElementById('search-wrapper');
+    if (searchWrapper) {
+        searchWrapper.appendChild(geocoderElement);
+    } else {
+        // Fallback: Falls der Header im HTML fehlt, doch auf die Karte
+        geocoder.addTo(map);
+    }
 
     // Daten laden
     await loadFromCommunity();
 
-    // --- DIESE ZEILEN SIND ENTSCHEIDEND ---
-    map.on('moveend', drawMarkersOnMap); // Wenn Schieben fertig -> neu zeichnen
-    map.on('zoomend', drawMarkersOnMap); // Wenn Zoomen fertig -> neu zeichnen
-    // --------------------------------------
+    // Event-Listener für Kartenbewegung
+    map.on('moveend', drawMarkersOnMap);
+    map.on('zoomend', drawMarkersOnMap);
 
     if(splash) {
         setTimeout(() => {
@@ -65,12 +73,12 @@ L.Control.geocoder({
             setTimeout(() => {
                 splash.style.display = 'none';
                 map.invalidateSize();
-                // Einmal manuell aufrufen, falls am Start noch nichts da ist
                 drawMarkersOnMap(); 
             }, 800);
         }, 1000);
     }
 }
+
 
 function setupLocationTracking() {
     const locationIcon = L.divIcon({

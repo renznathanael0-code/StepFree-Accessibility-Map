@@ -19,39 +19,42 @@
         <div id="sync-status">Verbindung wird aufgebaut...</div>
     </div>
 
-<div id="filter-container" style="position:fixed; top:13px; right:12px; z-index:1001; width: 250px;">
-<select id="typeFilter" onchange="drawMarkersOnMap()" ...>
-    <option value="alle">🌍 Alle Kategorien</option>
-    <option value="Kein barrierefreier Zugang">🚫 Kein Zugang</option>
-    <option value="Treppe">🪜 Treppen</option>
-    <option value="Höhenunterschied">🚉 ⚠️ Stufe am Zug</option>
-    <option value="Aufzug defekt">❌ 🛗 Aufzüge defekt</option>
-    <option value="Aufzug vorhanden">✅ 🛗 Aufzüge vorhanden</option>
-    <option value="Rampe vorhanden">📐 Rampe vorhanden</option>
-    <option value="Niveaugleicher Einstieg">🚉 ✅ Einstieg eben</option>
-    <option value="Baustelle">🚧 Baustellen</option>
-    <option value="WC">🚽 WCs / Toiletten</option>
-    <option value="Parkplatz">🅿️ Parkplätze</option>
-    <option value="Barrierefreier Ort">📍 Barrierefreie Orte</option>
-</select>
-</div>
+<header id="app-header">
+    <div class="header-content">
+        <div id="search-wrapper">
+            </div>
+        <div id="filter-wrapper">
+            <select id="typeFilter" onchange="drawMarkersOnMap()">
+                <option value="alle">🌍 Alle Kategorien</option>
+                <option value="Kein barrierefreier Zugang">🚫 Kein Zugang</option>
+                <option value="Treppe">🪜 Treppen</option>
+                <option value="Aufzug defekt">❌ 🛗 Aufzüge defekt</option>
+                <option value="Aufzug vorhanden">✅ 🛗 Aufzüge vorhanden</option>
+                <option value="Rampe vorhanden">📐 Rampe vorhanden</option>
+                <option value="Baustelle">🚧 Baustellen</option>
+                <option value="WC">🚽 WCs / Toiletten</option>
+                <option value="Parkplatz">🅿️ Parkplätze</option>
+                <option value="Barrierefreier Ort">📍 Barrierefreie Orte</option>
+                <option value="Niveaugleicher Einstieg">🚉 ✅ Einstieg eben</option>
+                <option value="Höhenunterschied">🚉 ⚠️ Stufe am Zug</option>
+            </select>
+        </div>
+    </div>
+</header>
 
+<div id="map"></div>
 
-    <div id="map"></div>
     <div id="map-legend" style="position: fixed; bottom: 20px; left: 10px; background: white; padding: 10px; border-radius: 8px; z-index: 1000; box-shadow: 0 0 10px rgba(0,0,0,0.2); font-size: 12px;">
-   <strong>Legende</strong>
-    <strong>Hindernisse</strong><br>
+   <strong>Legende</strong><br>
     🚫 Kein barrierefreier Zugang <br>
     🪜 Treppe/Stufe<br>
     🛗 Aufzug Defekt<br>
     🚧 Baustelle/Sperrung<br>
-    <strong>Barrierefreiheit im Alltag</strong><br>
     🛗 Aufzug vorhanden<br>
     📐 Rampe vorhanden <br>
     🚽 Barrierefreies WC<br>
     🅿️ Behinderten-Parkplatz<br>
     📍 Barrierefreier Ort<br>
-    <strong>Barrierefreieheit / Hindernisse am Bahnsteig</strong><br>
     ⚠️ Stufe am Zug <br>
     ✅ Niveaugleicher Einstieg zum Zug 
 </div>
