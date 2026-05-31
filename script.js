@@ -389,4 +389,12 @@ function downloadBackup() {
 // Damit der Button im HTML funktioniert
 window.downloadBackup = downloadBackup;
 
+function toggleMenu() {
+    const menu = document.getElementById('side-menu');
+    const overlay = document.getElementById('menu-overlay');
+    
+    menu.classList.toggle('open');
+    overlay.classList.toggle('show');
+}
+
 window.onload = initApp;

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anleitung – StepFree</title>
+    <link rel="stylesheet" href="style.css"> <style>
+        body {
+            overflow-y: auto; /* Anleitung muss scrollbar sein */
+            background-color: #f8f9fa;
+            font-family: sans-serif;
+            display: block; /* Flex-Layout vom Body aufheben */
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .guide-card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        .step {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .step-icon {
+            font-size: 24px;
+            background: #f0f4f8;
+            padding: 10px;
+            border-radius: 12px;
+            min-width: 45px;
+            text-align: center;
+        }
+        .step-text h3 {
+            margin: 0 0 5px 0;
+            color: #2c3e50;
+        }
+        .step-text p {
+            margin: 0;
+            color: #555;
+            line-height: 1.5;
+        }
+        .back-button {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .color-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <a href="index.html" class="back-button">← Zurück zur Karte</a>
+    
+    <h1 style="color: #2c3e50;">So nutzt du StepFree</h1>
+    <p style="color: #7f8c8d; margin-bottom: 30px;">Gemeinsam machen wir die Welt barrierefreier. Hier erfährst du, wie du Hindernisse meldest und Orte findest.</p>
+
+    <div class="guide-card">
+        <div class="step">
+            <div class="step-icon">📍</div>
+            <div class="step-text">
+                <h3>Eintrag hinzufügen</h3>
+                <p>Klicke einfach auf eine Stelle in der Karte, um eine Barriere oder einen barrierefreien Ort zu melden. Es öffnet sich sofort das Auswahlmenü.</p>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-icon">🔍</div>
+            <div class="step-text">
+                <h3>Suchen & Finden</h3>
+                <p>Nutze die Suchleiste oben, um zu einem bestimmten Bahnhof oder einer Adresse zu springen. Mit dem Filter daneben kannst du gezielt nach Aufzügen, WCs oder Rampen suchen.</p>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-icon">🚉</div>
+            <div class="step-text">
+                <h3>Bahnsteig-Check</h3>
+                <p>Achte besonders auf Meldungen am Gleis. Wir markieren <b>Höhenunterschiede</b> am Zug separat, damit du weißt, ob du beim Einstieg Hilfe brauchst.</p>
+            </div>
+        </div>
+    </div>
+
+    <h2 style="color: #2c3e50;">Bedeutung der Farben</h2>
+    <div class="guide-card">
+        <p><span class="color-dot" style="background: #E74C3C;"></span> <b>Rot:</b> Kritische Hindernisse (Treppen, defekte Aufzüge)</p>
+        <p><span class="color-dot" style="background: #27AE60;"></span> <b>Grün:</b> Barrierefreie Zugänge & Aufzüge</p>
+        <p><span class="color-dot" style="background: #3498DB;"></span> <b>Blau:</b> Infrastruktur (Parkplätze, Bahnhöfe)</p>
+        <p><span class="color-dot" style="background: #F1C40F;"></span> <b>Gelb:</b> Baustellen & temporäre Sperrungen</p>
+    </div>
+
+    <footer style="text-align: center; color: #bdc3c7; font-size: 14px; margin-top: 40px;">
+        StepFree-Accessibility Map &copy; 2026
+    </footer>
+</div>
+
+</body>
+</html>

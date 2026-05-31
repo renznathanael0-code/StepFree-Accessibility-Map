@@ -21,26 +21,34 @@
 
 <header id="app-header">
     <div class="header-content">
-        <div id="search-wrapper">
-            </div>
+        <div id="menu-icon" onclick="toggleMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+        
+        <div id="search-wrapper"></div>
+        
         <div id="filter-wrapper">
             <select id="typeFilter" onchange="drawMarkersOnMap()">
-                <option value="alle">🌍 Alle Kategorien</option>
-                <option value="Kein barrierefreier Zugang">🚫 Kein Zugang</option>
-                <option value="Treppe">🪜 Treppen</option>
-                <option value="Aufzug defekt">❌ 🛗 Aufzüge defekt</option>
-                <option value="Aufzug vorhanden">✅ 🛗 Aufzüge vorhanden</option>
-                <option value="Rampe vorhanden">📐 Rampe vorhanden</option>
-                <option value="Baustelle">🚧 Baustellen</option>
-                <option value="WC">🚽 WCs / Toiletten</option>
-                <option value="Parkplatz">🅿️ Parkplätze</option>
-                <option value="Barrierefreier Ort">📍 Barrierefreie Orte</option>
-                <option value="Niveaugleicher Einstieg">🚉 ✅ Einstieg eben</option>
-                <option value="Höhenunterschied">🚉 ⚠️ Stufe am Zug</option>
-            </select>
+                <option value="alle">🌍 Filter</option>
+                </select>
         </div>
     </div>
 </header>
+
+<div id="side-menu">
+    <div class="menu-header">
+        <h3>StepFree Menü</h3>
+        <span class="close-btn" onclick="toggleMenu()">&times;</span>
+    </div>
+    <nav>
+        <a href="anleitung.html" class="menu-item">📖 Anleitung & Hilfe</a>
+        <hr>
+        <a href="admin.html" class="menu-item">⚙️ Admin-Bereich</a>
+    </nav>
+</div>
+<div id="menu-overlay" onclick="toggleMenu()"></div>
 
 <div id="map"></div>
 
