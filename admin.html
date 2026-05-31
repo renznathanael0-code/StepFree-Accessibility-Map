@@ -24,8 +24,14 @@
     
 <header id="app-header">
     <div class="header-content">
-        <div id="search-wrapper">
-            </div>
+        <div id="menu-icon" onclick="toggleMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+        
+        <div id="search-wrapper"></div>
+        
         <div id="filter-wrapper">
             <select id="typeFilter" onchange="drawMarkersOnMap()">
                 <option value="alle">🌍 Alle Kategorien</option>
@@ -44,6 +50,17 @@
         </div>
     </div>
 </header>
+
+<div id="side-menu">
+    <div class="menu-header">
+        <h3>StepFree Menü</h3>
+        <span class="close-btn" onclick="toggleMenu()">&times;</span>
+    </div>
+    <nav>
+        <a href="index.html" class="menu-item">Startseite</a>
+    </nav>
+</div>
+<div id="menu-overlay" onclick="toggleMenu()"></div>
 
 <div id="map"></div>
 
