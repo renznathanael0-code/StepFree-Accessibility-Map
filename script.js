@@ -32,33 +32,23 @@ async function initApp() {
     map.on('click', e => openSelectionPopup(e.latlng));
     setupLocationTracking();
 
-    // --- GEOCODER IN HEADER VERSCHIEBEN ---
-    const geocoder = L.Control.geocoder({
-        defaultMarkGeocode: false,
-        placeholder: "Stadt oder Straße suchen...",
-        errorMessage: "Nichts gefunden."
-    })
-    .on('markgeocode', function(e) {
-        const bbox = e.geocode.bbox;
-        const poly = L.polygon([
-            bbox.getSouthEast(),
-            bbox.getNorthEast(),
-            bbox.getNorthWest(),
-            bbox.getSouthWest()
-        ]);
-        map.fitBounds(poly.getBounds());
-    });
-
-    // Erstellt das HTML-Element des Geocoders
-    const geocoderElement = geocoder.onAdd(map);
-    // Schiebt es in den weißen Bereich über der Karte
-    const searchWrapper = document.getElementById('search-wrapper');
-    if (searchWrapper) {
-        searchWrapper.appendChild(geocoderElement);
-    } else {
-        // Fallback: Falls der Header im HTML fehlt, doch auf die Karte
-        geocoder.addTo(map);
-    }
+// Suchleiste hinzufügen
+L.Control.geocoder({
+    defaultMarkGeocode: false,
+    placeholder: "Stadt oder Straße suchen...",
+    errorMessage: "Nichts gefunden."
+})
+.on('markgeocode', function(e) {
+    var bbox = e.geocode.bbox;
+    var poly = L.polygon([
+        bbox.getSouthEast(),
+        bbox.getNorthEast(),
+        bbox.getNorthWest(),
+        bbox.getSouthWest()
+    ]);
+    map.fitBounds(poly.getBounds()); // Zoomt zum gefundenen Ort
+})
+.addTo(map);
 
     // Daten laden
     await loadFromCommunity();
