@@ -401,4 +401,13 @@ function toggleMenu() {
     overlay.classList.toggle('show');
 }
 
+// Funktion zum Auf- und Zuklappen der Legende
+function toggleLegend() {
+    const legend = document.getElementById('map-legend');
+    if (legend) {
+        legend.classList.toggle('collapsed');
+    }
+}
+
+
 window.onload = initApp;

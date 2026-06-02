@@ -8,52 +8,64 @@ body, html {
     height: 100%;
     overflow: hidden;
     background-color: white;
-    display: flex;
-    flex-direction: column;
 }
 
 /* Erlaubt normales Scrollen auf reinen Inhaltsseiten (wie anleitung.html) */
 body:not(:has(#map)) {
     overflow-y: auto !important;
-    display: block !important;
 }
 
-/* KARTE: Füllt exakt den Rest des Bildschirms aus */
+/* KARTE: Füllt jetzt den absolut KOMPLETTEN Bildschirm aus */
 #map {
-    flex-grow: 1;
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
+    height: 100%;
     z-index: 1;
 }
 
 /* ==========================================================================
-   2. SCHLANKER HEADER (Suche entfernt, Filter zentriert)
+   2. DER HEADER ALS SCHWEBENDE INSEL (FLOATING BAR)
    ========================================================================== */
 #app-header {
-    background: white;
-    height: 60px; 
-    box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    /* Macht den Header zu einer schwebenden Insel über der Karte */
+    position: absolute;
+    top: 4px;            /* Abstand zum oberen Bildschirmrand */
+    left: 50%;
+    transform: translateX(-50%); /* Zentriert die Insel exakt mittig */
+    
+    /* Maße der Insel auf dem iPad */
+    width: calc(100% - 32px);
+    max-width: 500px;     /* Schick und kompakt, zieht sich nicht über den ganzen Screen */
+    height: 54px;         /* Etwas flacher, damit es sportlicher aussieht */
+    
+    /* Design: Cleane weiße Kapsel */
+    background: rgba(255, 255, 255, 0.95); /* Minimal transparent für den Premium-Look */
+    backdrop-filter: blur(8px);            /* Filtert die Karte im Hintergrund weich */
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 30px;                   /* Schöne, komplett runde Ecken */
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    
+    /* Layer-Hierarchie (über der Karte, aber unter dem Seitenmenü) */
     z-index: 2000;
-    flex-shrink: 0;
     display: flex;
-    align-items: center; 
+    align-items: center;
 }
 
 .header-content {
     display: flex;
     flex-direction: row; 
     align-items: center;
-    justify-content: space-between; /* Verteilt Hamburger nach links, Filter nach rechts */
     width: 100%;
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 0 12px;
+    padding: 0 20px; /* Mehr seitlicher Abstand im runden Design */
     box-sizing: border-box;
 }
 
-/* HAMBURGER ICON (DREI STRICHE) */
+/* HAMBURGER ICON (Links in der Insel) */
 #menu-icon {
-    width: 25px;
-    height: 18px;
+    width: 22px;
+    height: 16px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -71,23 +83,32 @@ body:not(:has(#map)) {
 
 /* CONTAINER FÜR DEN FILTER */
 #filter-wrapper {
-    flex-shrink: 0;
-    min-width: 140px; /* Leicht vergrößert für bessere Bedienung im leeren Header */
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+    margin-right: 22px; /* Ausgleich für die Breite des Hamburger Icons */
 }
 
-/* FILTER DROPDOWN */
+/* FILTER DROPDOWN (Perfekt eingepasst in die Insel) */
 #typeFilter {
     width: 100%;
-    height: 40px; 
-    border-radius: 8px;
-    border: 1px solid #ddd;
-    background: #f5f5f5;
-    padding: 0 8px;
+    max-width: 180px; 
+    height: 36px; 
+    border-radius: 20px; /* Passt sich den runden Ecken der Insel an */
+    border: none;        /* Sieht rahmenlos in der Insel cleaner aus */
+    background: #f0f2f5;
+    padding: 0 12px;
     font-size: 14px;
+    font-weight: 600;
+    color: #2c3e50;
     cursor: pointer;
     outline: none;
+    text-align: center;
+    
+    /* Schickes mobiles Dropdown-Styling */
+    -webkit-appearance: none;
+    appearance: none;
 }
-
 
 /* ==========================================================================
    5. SEITENMENÜ & METADATEN-OVERLAY
@@ -233,4 +254,78 @@ hr {
     min-width: 200px;
     box-shadow: none;
     border: 1px solid #ddd;
+}
+
+/* ==========================================================================
+   7. COLLAPSIBLE ADMIN LEGENDE (UNTEN LINKS & ERHÖHT)
+   ========================================================================== */
+#map-legend {
+    position: fixed;
+    bottom: 24px;          
+    left: 12px;            
+    right: auto;           
+    width: 230px;          /* Minimal breiter für das "🛠️ Admin-Konsole" */
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    z-index: 2000; 
+    overflow: hidden;
+    
+    /* Transition für das Auf- und Zuklappen */
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    max-height: 450px;     /* Erhöht auf 450px, damit der Admin-Bereich locker Platz hat */
+}
+
+/* Klickbarer Header-Bereich */
+.legend-header {
+    background: #f8f9fa;
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+    user-select: none;
+}
+
+.legend-toggle-icon {
+    font-size: 11px;
+    color: #7f8c8d;
+    transition: transform 0.3s ease;
+    transform: rotate(180deg); 
+}
+
+/* Der eigentliche Inhalt */
+.legend-content {
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;              
+    font-family: sans-serif;
+    font-size: 13px;
+    color: #333;
+    line-height: 1.4;      
+}
+
+/* Trennlinie für den Admin-Bereich */
+.legend-divider {
+    border: none;
+    border-top: 1px solid #ddd;
+    margin: 6px 0;
+    width: 100%;
+}
+
+/* --- DER ZUGEKLAPPTE ZUSTAND (COLLAPSED) --- */
+#map-legend.collapsed {
+    max-height: 39px;      
+}
+
+#map-legend.collapsed .legend-toggle-icon {
+    transform: rotate(0deg); 
+}
+
+.legend-header:active {
+    background: #e9ecef;
 }

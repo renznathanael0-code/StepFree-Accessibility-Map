@@ -63,19 +63,27 @@
 
 <div id="map"></div>
 
-    <div id="map-legend" style="position: fixed; bottom: 20px; left: 10px; background: white; padding: 10px; border-radius: 8px; z-index: 1000; box-shadow: 0 0 10px rgba(0,0,0,0.2); font-size: 12px;">
-   <strong>Legende</strong><br>
-    🚫 Kein barrierefreier Zugang <br>
-    🪜 Treppe/Stufe<br>
-    🛗 Aufzug Defekt<br>
-    🚧 Baustelle/Sperrung<br>
-    🛗 Aufzug vorhanden<br>
-    📐 Rampe vorhanden <br>
-    🚽 Barrierefreies WC<br>
-    🅿️ Behinderten-Parkplatz<br>
-    📍 Barrierefreier Ort<br>
-    ⚠️ Stufe am Zug <br>
-    ✅ Niveaugleicher Einstieg zum Zug 
+<div id="map-legend" class="collapsed">
+    
+    <div class="legend-header" onclick="toggleLegend()">
+        <strong>🗺️ Legende</strong>
+        <span class="legend-toggle-icon">▲</span>
+    </div>
+    
+    <div class="legend-content">
+        🚫 Kein barrierefreier Zugang<br>
+        🪜 Treppe/Stufe<br>
+        🛗 Aufzug Defekt<br>
+        🚧 Baustelle/Sperrung<br>
+        🛗 Aufzug vorhanden<br>
+        📐 Rampe vorhanden<br>
+        🚽 Barrierefreies WC<br>
+        🅿️ Behinderten-Parkplatz<br>
+        📍 Barrierefreier Ort<br>
+        ⚠️ Stufe am Zug<br>
+        ✅ Niveaugleicher Einstieg zum Zug
+    </div>
+
 </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
