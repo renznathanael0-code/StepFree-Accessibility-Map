@@ -320,13 +320,27 @@ function openSelectionPopup(latlng) {
 
 function finalizeReport(lat, lng, typ, farbe) {
     const details = prompt(`Zusatzinfos für ${typ}:`, "");
+    
+    // --- ABBRECHEN-CHECK ---
+    // Wenn details exakt null ist, hat der User auf "Abbrechen" geklickt.
+    // Mit "return;" brechen wir die Funktion sofort ab.
+    if (details === null) {
+        map.closePopup(); // Schließt das aktuelle Auswahl-Popup sauber
+        return; 
+    }
+    
+    // Wenn er auf OK drückt, läuft der Code ganz normal weiter (auch bei leerem Text)
     reportsData.push({
-        lat: lat, lng: lng, typ: typ, farbe: farbe, 
-        kommentar: details || "", 
+        lat: lat, 
+        lng: lng, 
+        typ: typ, 
+        farbe: farbe, 
+        kommentar: details || "", // Falls OK ohne Text gedrückt wurde
         id: "id_" + Date.now(), 
         votes: 0, 
         status: "new" 
     });
+    
     drawMarkersOnMap();
     saveToCommunity();
     map.closePopup();
