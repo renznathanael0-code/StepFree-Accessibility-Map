@@ -4,24 +4,67 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anleitung – StepFree</title>
-    <link rel="stylesheet" href="style.css"> <style>
+    <link rel="stylesheet" href="style.css"> 
+    <style>
         body {
             overflow-y: auto; /* Anleitung muss scrollbar sein */
             background-color: #f8f9fa;
             font-family: sans-serif;
             display: block; /* Flex-Layout vom Body aufheben */
+            scroll-behavior: smooth; /* Sorgt für weiches Scrollen beim Klicken auf das Inhaltsverzeichnis */
         }
         .container {
-            max-width: 600px;
+            max-width: 650px; /* Minimal breiter für mehr Lesekomfort */
             margin: 0 auto;
             padding: 20px;
         }
-        .guide-card {
-            background: white;
+        /* Styling für das neue Inhaltsverzeichnis */
+        .toc-card {
+            background: #f0f4f8;
             padding: 20px;
             border-radius: 15px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(0,0,0,0.03);
+        }
+        .toc-card h3 {
+            margin-top: 0;
+            color: #2c3e50;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .toc-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .toc-list li {
+            margin-bottom: 10px;
+        }
+        .toc-list li:last-child {
+            margin-bottom: 0;
+        }
+        .toc-list a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 15px;
+            transition: color 0.2s;
+        }
+        .toc-list a:hover {
+            color: #2980b9;
+            text-decoration: underline;
+        }
+        .guide-card {
+            background: white;
+            padding: 24px;
+            border-radius: 15px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        /* Verhindert, dass die Überschrift nach dem Klick unter den Bildschirmrand rutscht */
+        .guide-section {
+            scroll-margin-top: 20px;
         }
         .step {
             display: flex;
@@ -29,22 +72,27 @@
             gap: 15px;
             margin-bottom: 25px;
         }
+        .step:last-child {
+            margin-bottom: 0;
+        }
         .step-icon {
             font-size: 24px;
-            background: #f0f4f8;
             padding: 10px;
             border-radius: 12px;
             min-width: 45px;
             text-align: center;
+            flex-shrink: 0;
         }
         .step-text h3 {
-            margin: 0 0 5px 0;
+            margin: 0 0 6px 0;
             color: #2c3e50;
+            font-size: 16px;
         }
         .step-text p {
             margin: 0;
             color: #555;
             line-height: 1.5;
+            font-size: 14.5px;
         }
         .back-button {
             display: inline-block;
@@ -52,13 +100,28 @@
             color: #3498db;
             text-decoration: none;
             font-weight: bold;
+            transition: transform 0.2s;
         }
-        .color-dot {
+        .back-button:hover {
+            transform: translateX(-3px);
+        }
+        .color-badge {
             display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 5px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+        .tip-box {
+            background: #fff9e6;
+            border-left: 4px solid #f1c40f;
+            padding: 12px 15px;
+            border-radius: 0 8px 8px 0;
+            margin-top: 10px;
+            font-size: 13.5px;
+            color: #665200;
         }
     </style>
 </head>
@@ -67,45 +130,250 @@
 <div class="container">
     <a href="index.html" class="back-button">← Zurück zur Karte</a>
     
-    <h1 style="color: #2c3e50;">So nutzt du StepFree</h1>
-    <p style="color: #7f8c8d; margin-bottom: 30px;">Gemeinsam machen wir die Welt barrierefreier. Hier erfährst du, wie du Hindernisse meldest und Orte findest.</p>
+    <h1 style="color: #2c3e50; margin-bottom: 5px;">Handbuch & Anleitung</h1>
+    <p style="color: #7f8c8d; margin-bottom: 25px; font-size: 15px;">Version 1.2 – Stand: Juni 2026</p>
 
     <div class="guide-card">
-        <div class="step">
-            <div class="step-icon">📍</div>
-            <div class="step-text">
-                <h3>Eintrag hinzufügen</h3>
-                <p>Klicke einfach auf eine Stelle in der Karte, um eine Barriere oder einen barrierefreien Ort zu melden. Es öffnet sich sofort das Auswahlmenü.</p>
+        <h3 style="color: #2c3e50; margin-top: 0;">Vorwort</h3>
+        <p style="color: #555; line-height: 1.6; margin: 0; font-size: 15px;">
+            Willkommen bei <b>StepFree</b>! Mobilitätseinschränkungen, Kinderwagen oder schweres Gepäck machen alltägliche Wege im öffentlichen Raum oder an Bahnhöfen oft zu einer unvorhersehbaren Herausforderung. Diese App wurde entwickelt, um Barrieren sichtbar zu machen und barrierefreie Wege verlässlich zu planen. Durch das Zusammenspiel aus Echtzeit-Meldungen und einer engagierten Community schaffen wir gemeinsam maximale Transparenz und ein Stück mehr Freiheit im Alltag. Schön, dass du dabei bist!
+        </p>
+    </div>
+
+    <div class="toc-card">
+        <h3>Inhalt der Anleitung</h3>
+        <ul class="toc-list">
+            <li><a href="#kategorien">1. Definition der Kategorien</a></li>
+            <li><a href="#eintrag">2. Einträge auf der Karte hinzufügen</a></li>
+            <li><a href="#suche-filter">3. Suchen & Filtern richtig nutzen</a></li>
+            <li><a href="#navigation">4. Routen & Navigation starten</a></li>
+            <li><a href="#voting">5. Voting & Check-In (Effektive Nutzung)</a></li>
+            <li><a href="#pwa">6. Als App auf dem Smartphone speichern</a></li>
+        </ul>
+    </div>
+
+    <div class="guide-section" id="kategorien">
+        <h2 style="color: #2c3e50; margin-bottom: 15px;">1. Definition der Kategorien</h2>
+        
+        <div class="guide-card" style="border-left: 5px solid #E74C3C;">
+            <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px;">⚠️ Hindernisse</h3>
+            
+            <div class="step">
+                <div class="step-icon" style="background: #34495E; color: white;">🚫</div>
+                <div class="step-text">
+                    <span class="color-badge" style="background: #34495E;">Dunkelgrau</span>
+                    <h3>Kein barrierefreier Zugang</h3>
+                    <p>Orte, Geschäfte oder öffentliche Gebäude, die für Menschen mit Mobilitätseinschränkungen (z. B. aufgrund von schweren Drehtüren oder hohen Absätzen) absolut unzugänglich sind.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-icon" style="background: #E74C3C; color: white;">🪜</div>
+                <div class="step-text">
+                    <span class="color-badge" style="background: #E74C3C;">Rot</span>
+                    <h3>Treppe melden</h3>
+                    <p>Stufen und Treppen ohne alternative Rampe oder Aufzug, die ein Weiterkommen mit Rollstuhl, Rollator oder Kinderwagen blockieren.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-icon" style="background: #E67E22; color: white;">🛗</div>
+                <div class="step-text">
+                    <span class="color-badge" style="background: #E67E22;">Orange</span>
+                    <h3>Aufzug defekt</h3>
+                    <p>Akute technische Störungen oder Ausfälle von Aufzügen an Bahnhöfen, in Parkhäusern oder öffentlichen Gebäuden.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-icon" style="background: #F1C40F; color: black;">🚧</div>
+                <div class="step-text">
+                    <span class="color-badge" style="background: #F1C40F; color: black;">Gelb</span>
+                    <h3>Baustelle</h3>
+                    <p>Temporäre Bauarbeiten, Sperrungen von Gehwegen oder aufgerissener Asphalt, der kurzfristig ein Hindernis darstellt.</p>
+                </div>
             </div>
         </div>
 
-        <div class="step">
-            <div class="step-icon">🔍</div>
-            <div class="step-text">
-                <h3>Suchen & Finden</h3>
-                <p>Nutze die Suchleiste oben, um zu einem bestimmten Bahnhof oder einer Adresse zu springen. Mit dem Filter daneben kannst du gezielt nach Aufzügen, WCs oder Rampen suchen.</p>
+        <div class="guide-card" style="border-left: 5px solid #27AE60;">
+            <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px;">✨ Barrierefreiheit im Alltag</h3>
+            
+            <div class="step">
+                <div class="step-icon" style="background: #27AE60; color: white;">🛗</div>
+                <div class="step-text">
+                    <span class="color-badge" style="background: #27AE60;">Dunkelgrün</span>
+                    <h3>Aufzug vorhanden</h3>
+                    <p>Ein voll funktionstüchtiger Personenaufzug, der Etagenwechsel oder den Zugang zu Gleisen barrierefrei ermöglicht.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-icon" style="background: #16A085; color: white;">📐</div>
+                <div class="step-text">
+                    <span class="color-badge" style="background: #16A085;">Türkis</span>
+                    <h3>Rampe vorhanden</h3>
+                    <p>Fest installierte oder mobile Rampen mit mäßiger Steigung, die Treppenstufen erfolgreich umgehen.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-icon" style="background: #2ECC71; color: white;">🚽</div>
+                <div class="step-text">
+                    <span class="color-badge" style="background: #2ECC71;">Hellgrün</span>
+                    <h3>WC barrierefrei</h3>
+                    <p>Spezielle, geräumige Toiletten für Menschen mit Behinderung (oftmals zugänglich über das Euroschlüssel-System).</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-icon" style="background: #3498DB; color: white;">🅿️</div>
+                <div class="step-text">
+                    <span class="color-badge" style="background: #3498DB;">Blau</span>
+                    <h3>Parkplatz</h3>
+                    <p>Offiziell ausgewiesene und extra breite Behindertenparkplätze in der Nähe von Eingängen oder Bahnhöfen.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-icon" style="background: #9B59B6; color: white;">📍</div>
+                <div class="step-text">
+                    <span class="color-badge" style="background: #9B59B6;">Lila</span>
+                    <h3>Barrierefreier Ort</h3>
+                    <p>Allgemeine Orte, Cafés, Kinos oder Parks, die sich durch ein besonders zugängliches, ebenerdiges Gesamtkonzept auszeichnen.</p>
+                </div>
             </div>
         </div>
 
-        <div class="step">
-            <div class="step-icon">🚉</div>
-            <div class="step-text">
-                <h3>Bahnsteig-Check</h3>
-                <p>Achte besonders auf Meldungen am Gleis. Wir markieren <b>Höhenunterschiede</b> am Zug separat, damit du weißt, ob du beim Einstieg Hilfe brauchst.</p>
+        <div class="guide-card" style="border-left: 5px solid #D35400;">
+            <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px;">🚉 Barrierefreiheit / Hindernisse am Bahnsteig</h3>
+            
+            <div class="step">
+                <div class="step-icon" style="background: #D35400; color: white;">⚠️</div>
+                <div class="step-text">
+                    <span class="color-badge" style="background: #D35400;">Dunkelorange</span>
+                    <h3>Stufe am Zug (Höhenunterschied)</h3>
+                    <p>Ein kritischer Höhen- oder Spaltunterschied zwischen der Bahnsteigkante und dem Zug. Hier wird beim Einstieg oft die Einstiegshilfe des Zugpersonals (z. B. eine Rampe) benötigt.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-icon" style="background: #2980B9; color: white;">✅</div>
+                <div class="step-text">
+                    <span class="color-badge" style="background: #2980B9;">Marineblau</span>
+                    <h3>Einstieg eben (Niveaugleich)</h3>
+                    <p>Ein perfekt ausgebauter Bahnsteig, bei dem der Einstieg in den Zug vollkommen stufenlos und ohne Spalt direkt mit dem Rollstuhl befahrbar ist.</p>
+                </div>
             </div>
         </div>
     </div>
 
-    <h2 style="color: #2c3e50;">Bedeutung der Farben</h2>
-    <div class="guide-card">
-        <p><span class="color-dot" style="background: #E74C3C;"></span> <b>Rot:</b> Kritische Hindernisse (Treppen, defekte Aufzüge)</p>
-        <p><span class="color-dot" style="background: #27AE60;"></span> <b>Grün:</b> Barrierefreie Zugänge & Aufzüge</p>
-        <p><span class="color-dot" style="background: #3498DB;"></span> <b>Blau:</b> Infrastruktur (Parkplätze, Bahnhöfe)</p>
-        <p><span class="color-dot" style="background: #F1C40F;"></span> <b>Gelb:</b> Baustellen & temporäre Sperrungen</p>
+    <div class="guide-section" id="eintrag">
+        <h2 style="color: #2c3e50; margin-bottom: 15px;">2. Einträge auf der Karte hinzufügen</h2>
+        <div class="guide-card">
+            <div class="step">
+                <div class="step-icon" style="background: #f0f4f8;">📍</div>
+                <div class="step-text">
+                    <h3>Karte anklicken und melden</h3>
+                    <p>Siehst du ein neues Hindernis oder einen barrierefreien Ort? Klicke oder tippe einfach direkt auf die entsprechende Stelle auf der Karte. Es öffnet sich sofort das Meldefenster. Wähle die passende Kategorie, gib eine kurze, präzise Beschreibung ein und lade den Eintrag hoch, um anderen Nutzern zu helfen.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-icon" style="background: #f0f4f8;">🚉</div>
+                <div class="step-text">
+                    <h3>Der Bahnsteig-Check</h3>
+                    <p>Achte an Bahnhöfen besonders auf den Einstieg zum Zug. Falls es einen unüberwindbaren Höhenunterschied zwischen Bahnsteigkante und Zug gibt, trage dies bitte explizit ein, damit Reisende wissen, ob sie den Mobilitätsservice der Bahn anfordern müssen.</p>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <footer style="text-align: center; color: #bdc3c7; font-size: 14px; margin-top: 40px;">
-        StepFree-Accessibility Map &copy; 2026
+    <div class="guide-section" id="suche-filter">
+        <h2 style="color: #2c3e50; margin-bottom: 15px;">3. Suchen & Filtern richtig nutzen</h2>
+        <div class="guide-card">
+            <div class="step">
+                <div class="step-icon" style="background: #f0f4f8;">🔍</div>
+                <div class="step-text">
+                    <h3>Die Suchleiste (Unten Links)</h3>
+                    <p>Direkt unter den Zoom-Buttons findest du die Lupe. Klicke darauf und tippe eine Adresse, eine Straße oder einen bestimmten Bahnhof ein. Die Karte springt sofort an den gewünschten Ort, sodass du die Barrierefreiheit vorab prüfen kannst.</p>
+                </div>
+            </div>
+<div class="step">
+    <div class="step-icon" style="background: #f0f4f8;">≡</div>
+    <div class="step-text">
+        <h3>Die Header-Insel & Filter (Oben Mitte)</h3>
+        <p>Die schwebende Insel oben in der Mitte beherbergt das Menü und das Filter-Dropdown. Wenn du gezielt nur nach bestimmten Dingen (z.B. nur funktionierende Aufzüge oder nur Behinderten-WCs) suchst, stelle das Dropdown um. Alle nicht relevanten Marker werden ausgeblendet, um die Übersicht zu wahren.</p>
+    </div>
+</div>
+
+        </div>
+    </div>
+
+    <div class="guide-section" id="navigation">
+        <h2 style="color: #2c3e50; margin-bottom: 15px;">4. Routen & Navigation starten</h2>
+        <div class="guide-card">
+            <div class="step">
+                <div class="step-icon" style="background: #f0f4f8;">🗺️</div>
+                <div class="step-text">
+                    <h3>Nahtlose Weiterleitung</h3>
+                    <p>Wenn du einen Marker auf der Karte anklickst, öffnet sich dessen Info-Popup. Um dich direkt dorthin navigieren zu lassen, findest du im Fenster den blauen Button <b>"Route in Google Maps starten"</b>. Ein Klick darauf öffnet sicher die Navigation in einem neuen Fenster oder direkt in deiner Google Maps App.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="guide-section" id="voting">
+        <h2 style="color: #2c3e50; margin-bottom: 15px;">5. Voting & Check-In (Effektive Nutzung)</h2>
+        <div class="guide-card">
+            <div class="step">
+                <div class="step-icon" style="background: #f0f4f8;">👍</div>
+                <div class="step-text">
+                    <h3>Einträge bewerten (Richtig / Falsch)</h3>
+                    <p>Die Zuverlässigkeit von StepFree lebt von der Community. Im Popup jedes Markers findest du Buttons, um eine Meldung als <b>"Richtig"</b> oder <b>"Falsch"</b> zu bewerten:</p>
+                    <p style="margin-top: 8px;">🔹 Erreicht ein Punkt <b>+3 Bewertungen</b>, erhält er auf der Karte einen <b>grün leuchtenden Schatten</b> – das Zeichen für maximale Zuverlässigkeit.</p>
+                    <p style="margin-top: 5px;">🔹 Sinkt ein Punkt auf <b>-3 Bewertungen</b>, wird automatisch eine Überprüfung durch das Admin-Team eingeleitet, um Falschmeldungen sofort auszusortieren.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-icon" style="background: #f0f4f8;">🧭</div>
+                <div class="step-text">
+                    <h3>Der Live-Check-In (Standort-Verifizierung)</h3>
+                    <p>Manchmal fordert das Admin-Team für einen unklaren Marker eine Überprüfung an. Wenn du auf der Karte einen Punkt siehst, bei dem ein Check-In aktiv ist, kannst du diesen verifizieren: Sobald du dich physisch im <b>Umkreis von 50 Metern</b> um diesen Ort befindest, schaltet sich die Funktion in deiner App frei. Mit deinem Klick vor Ort bestätigst du die Richtigkeit der Meldung und hilfst, die Karte fehlerfrei zu halten.</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="guide-section" id="pwa">
+        <h2 style="color: #2c3e50; margin-bottom: 15px;">6. Als App auf dem Smartphone speichern</h2>
+        <div class="guide-card">
+            <p style="color: #555; line-height: 1.5; margin-top: 0;">Du kannst StepFree wie eine ganz normale App auf deinem Smartphone installieren – völlig ohne App-Store. Dadurch hast du sie unterwegs mit nur einem Klick sofort parat:</p>
+            
+                      <div class="step" style="margin-top: 15px;">
+                <div class="step-icon" style="background: #f0f4f8; font-size: 16px; font-weight: bold; color: #2c3e50;">iOS</div>
+                <div class="step-text">
+                    <h3>Anleitung für iPhone (Safari Browser)</h3>
+                    <p>Öffne die StepFree-Webseite in Safari. Tippe unten in der Leiste auf das <b>Teilen-Symbol</b> (Quadrat mit Pfeil nach oben). Scrolle etwas nach unten und wähle den Punkt <b>"Zum Home-Bildschirm"</b> aus. Bestätige mit "Hinzufügen".</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-icon" style="background: #f0f4f8; font-size: 16px; font-weight: bold; color: #2c3e50;">AND</div>
+                <div class="step-text">
+                    <h3>Anleitung für Android (Google Chrome)</h3>
+                    <p>Öffne die StepFree-Webseite in Chrome. Tippe oben rechts auf die <b>drei Punkte</b>. Wähle im Menü den Punkt <b>"App installieren"</b> oder <b>"Zum Startbildschirm hinzufügen"</b> aus und folge den kurzen Anweisungen.</p>
+                </div>
+            </div>
+
+            <div class="tip-box">
+                💡 <b>Tipp:</b> Nach dem Speichern verschwindet die Adressleiste des Browsers komplett, und StepFree läuft im bildschirmfüllenden, edlen Vollbildmodus!
+            </div>
+        </div>
+    </div>
+
+    <footer style="text-align: center; color: #bdc3c7; font-size: 14px; margin-top: 40px; margin-bottom: 20px;">
+        StepFree - Accessibility Map &copy; 2026
     </footer>
 </div>
 
