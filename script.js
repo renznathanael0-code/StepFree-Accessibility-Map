@@ -32,8 +32,9 @@ async function initApp() {
     map.on('click', e => openSelectionPopup(e.latlng));
     setupLocationTracking();
 
-// Suchleiste hinzufügen
+// Suchleiste hinzufügen (Jetzt unten rechts positioniert)
 L.Control.geocoder({
+    position: 'bottomright', // <-- DAS HIER setzt die Lupe nach unten rechts!
     defaultMarkGeocode: false,
     placeholder: "Stadt oder Straße suchen...",
     errorMessage: "Nichts gefunden."

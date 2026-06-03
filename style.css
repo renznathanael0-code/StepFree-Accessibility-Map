@@ -26,7 +26,7 @@ body:not(:has(#map)) {
 }
 
 /* ==========================================================================
-   2. DER HEADER ALS SCHWEBENDE INSEL (ZENTRIERT & KOMPAKT)
+   2. DER HEADER ALS SCHWEBENDE INSEL (ZENTRIERT & ENTZERRT)
    ========================================================================= */
 #app-header {
     position: absolute;
@@ -41,18 +41,17 @@ body:not(:has(#map)) {
     display: flex;
     align-items: center;
 
-    /* --- PERFEKT MITTIG (Standard für iPad & große Screens) --- */
+    /* --- PERFEKT MITTIG --- */
     left: 50%;
     transform: translateX(-50%); 
     width: calc(100% - 32px);
-    max-width: 320px;     /* Edle, zentrierte Breite auf dem iPad */
+    max-width: 340px;     /* Mehr Gesamtbreite auf dem iPad für ein edles Layout */
 }
 
-/* --- MOBILE OPTIMIERUNG (Bleibt mittig, wird aber schmaler fürs Handy) --- */
+/* --- MOBILE OPTIMIERUNG (Ausbalanciert fürs Handy) --- */
 @media (max-width: 600px) {
     #app-header {
-        /* Bleibt über left: 50% zentriert, zieht sich aber enger zusammen */
-        max-width: 220px;  /* So schmal, dass links bei den Zoom-Buttons Luft bleibt */
+        max-width: 270px;  /* Spürbar breiter als vorher (220px)! Der Filter hat jetzt richtig Luft und kollidiert oben mit nichts mehr */
     }
 }
 
@@ -61,7 +60,7 @@ body:not(:has(#map)) {
     flex-direction: row; 
     align-items: center;
     width: 100%;
-    padding: 0 12px;      
+    padding: 0 14px;      /* Minimal mehr Innenabstand für einen sauberen Look */
     box-sizing: border-box;
 }
 
@@ -89,19 +88,20 @@ body:not(:has(#map)) {
     flex-grow: 1;
     display: flex;
     justify-content: center;
-    margin-right: 20px;   
+    margin-left: 10px;    /* Abstand zum Hamburger-Icon links */
+    margin-right: 10px;   /* Symmetrischer Abstand nach rechts */
 }
 
-/* FILTER DROPDOWN */
+/* FILTER DROPDOWN (Jetzt entquetscht) */
 #typeFilter {
     width: 100%;
-    max-width: 150px;     
+    max-width: 190px;     /* Maximaler Platz für die Kategorien-Schrift */
     height: 30px;         
     border-radius: 15px; 
     border: none;        
     background: #f0f2f5;
-    padding: 0 6px;       
-    font-size: 13px;      
+    padding: 0 12px;      /* Mehr Fleisch links und rechts im Dropdown */
+    font-size: 14px;      /* Angenehme Schriftgröße – kein Zusammenkneifen der Augen mehr */
     font-weight: 600;
     color: #2c3e50;
     cursor: pointer;
@@ -355,4 +355,18 @@ hr {
         width: calc(100% - 70px) !important; /* Nutzt den Platz bis fast ganz nach links aus */
         max-width: none !important;
     }
+}
+
+/* Richtet den Geocoder unten rechts sauber aus und lässt die Vorschläge nach oben aufklappen */
+.leaflet-bottom.leaflet-right .leaflet-control-geocoder {
+    margin-bottom: 24px !important;
+    /* Hält etwas Abstand zum Leaflet-Logo ganz unten */
+    margin-right: 12px !important;
+}
+
+/* Die Autocomplete-Vorschläge klappen jetzt nach oben auf */
+.leaflet-control-geocoder-suggestions {
+    top: auto !important;
+    bottom: 100% !important;
+    margin-bottom: 8px !important;
 }
