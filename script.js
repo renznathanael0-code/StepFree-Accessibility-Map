@@ -175,29 +175,24 @@ function drawMarkersOnMap() {
         if (r.typ.includes("Rampe")) emoji = "📐"; 
         if (r.typ.includes("Kein barrierefreier")) emoji = "🚫";
     
-        // --- ADMIN & USER FARB-LOGIK ---
+        // --- NEUE VEREINTE ADMIN & USER FARB-LOGIK ---
         let adminStyle = "";
-        let markerFarbe = r.farbe; // Standardfarbe aus den Daten nutzen
+        let markerFarbe = r.farbe; // Nutzt die originale Farbe des Punktes (z.B. Blau, Orange...)
 
-        if (isAdminPage) {
+        if (r.status === "confirmed") {
+            // BESTÄTIGT: Leuchtet jetzt bei ALLEN (User + Admin) exakt gleich grün!
+            adminStyle = "box-shadow: 0 0 15px 5px #2ecc71; border: 2px solid #2ecc71;";
+        } else if (isAdminPage) {
+            // ANDERE STATUS-FARBEN (Nur sichtbar auf der Admin-Seite)
             if (r.votes <= -3) {
                 // Rot bei -3 oder schlechter (In Prüfung / Kritisch)
                 adminStyle = "box-shadow: 0 0 15px 5px red; border: 2px solid red;"; 
-            } else if (r.status === "confirmed") {
-                // Bereits vom Admin bestätigte Punkte leuchten auch beim Admin grün
-                adminStyle = "box-shadow: 0 0 15px 5px #2ecc71; border: 2px solid #2ecc71;";
             } else if (r.votes >= 3) {
-                // NEU: Wenn 3 Leute "Stimmt" gesagt haben -> Leuchtet beim Admin GRÜN (Bereit für Freigabe)
+                // Bereit für Freigabe (Community-Vorauswahl ab 3 Stimmen)
                 adminStyle = "box-shadow: 0 0 15px 5px #2ecc71; border: 2px solid #2ecc71;"; 
             } else if (r.status === "new") {
-                // Blau für komplett neue Punkte
+                // Blau für komplett neue Community-Punkte
                 adminStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;"; 
-            }
-        } else {
-            // LOGIK FÜR NORMALE NUTZER
-            // Wenn der Admin den Punkt bestätigt hat, überschreiben wir die Farbe für den User mit Grün!
-            if (r.status === "confirmed") {
-                markerFarbe = "#2ecc71"; // Ein schönes Community-Grün
             }
         }
         
@@ -255,7 +250,7 @@ function drawMarkersOnMap() {
             content += `
                 <div style="border-top:1px solid #ccc; padding-top:10px; margin-top:5px;">`;
             
-            // NEU: Wenn der Punkt bereit zur Freigabe ist und noch nicht bestätigt wurde, bekommt der Admin den "Bestätigen"-Button
+            // Wenn der Punkt bereit zur Freigabe ist und noch nicht bestätigt wurde, bekommt der Admin den "Bestätigen"-Button
             if (r.votes >= 3 && r.status !== "confirmed") {
                 content += `<button onclick="confirmByAdmin('${r.id}')" style="background:#2ecc71; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">👁️ Für User freigeben</button>`;
             }
