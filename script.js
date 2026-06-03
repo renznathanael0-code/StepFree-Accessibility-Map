@@ -32,9 +32,9 @@ async function initApp() {
     map.on('click', e => openSelectionPopup(e.latlng));
     setupLocationTracking();
 
-// Suchleiste hinzufügen (Jetzt unten rechts positioniert)
+// Suchleiste hinzufügen (Jetzt oben links unter den Zoom-Buttons)
 L.Control.geocoder({
-    position: 'bottomright', // <-- DAS HIER setzt die Lupe nach unten rechts!
+    position: 'topleft', // <-- HIER auf 'topleft' ändern!
     defaultMarkGeocode: false,
     placeholder: "Stadt oder Straße suchen...",
     errorMessage: "Nichts gefunden."
@@ -47,7 +47,7 @@ L.Control.geocoder({
         bbox.getNorthWest(),
         bbox.getSouthWest()
     ]);
-    map.fitBounds(poly.getBounds()); // Zoomt zum gefundenen Ort
+    map.fitBounds(poly.getBounds());
 })
 .addTo(map);
 

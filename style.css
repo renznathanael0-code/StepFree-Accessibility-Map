@@ -51,7 +51,7 @@ body:not(:has(#map)) {
 /* --- MOBILE OPTIMIERUNG (Ausbalanciert fürs Handy) --- */
 @media (max-width: 600px) {
     #app-header {
-        max-width: 270px;  /* Spürbar breiter als vorher (220px)! Der Filter hat jetzt richtig Luft und kollidiert oben mit nichts mehr */
+        max-width: 270px;  /* Spürbar breiter! Der Filter hat jetzt richtig Luft */
     }
 }
 
@@ -258,11 +258,11 @@ hr {
 }
 
 /* ==========================================================================
-   7. COLLAPSIBLE ADMIN LEGENDE (UNTEN LINKS & ERHÖHT)
+   7. COLLAPSIBLE ADMIN LEGENDE (UNTEN LINKS & ENTSPANNT TIEFER)
    ========================================================================== */
 #map-legend {
     position: fixed;
-    bottom: 24px;          /* Auf dem iPad bleibt sie schön weit unten */
+    bottom: 24px;          /* Schöne tiefe Position auf dem iPad & Desktop */
     left: 12px;            
     right: auto;           
     width: 230px;          
@@ -279,10 +279,10 @@ hr {
     max-height: 450px;     
 }
 
-/* --- DYNAMISCHE ERHÖHUNG NUR FÜR SMARTPHONES --- */
+/* --- OPTIMIERTE ERHÖHUNG FÜR SMARTPHONES --- */
 @media (max-width: 600px) {
     #map-legend {
-        bottom: 85px;      /* Schiebt die Legende auf dem Handy höher, damit unten alles frei bleibt */
+        bottom: 34px;      /* Da unten rechts jetzt frei ist, kann die Legende auch am Handy wieder entspannt weiter runter! (Vorher 85px) */
     }
 }
 
@@ -339,41 +339,26 @@ hr {
 }
 
 /* ==========================================================================
-   SMARTPHONE-RETTUNG: INSEL WEICHT DER LEAFLET-SUCHE
-   ========================================================================= */
+   8. GECODER SUCHE OBEN LINKS (UNTER ZOOM-BUTTONS)
+   ========================================================================== */
 
-@media (max-width: 600px) {
-    /* 1. Wenn die Leaflet-Suche AUFGEKLAPPT ist (.search-exp), verstecken wir den Header */
-    .leaflet-control-search.search-exp ~ #app-header,
-    body:has(.leaflet-control-search.search-exp) #app-header {
-        opacity: 0;
-        pointer-events: none;
-        transform: translate(-50%, -20px); /* Weiches wegbewegen nach oben */
-        transition: opacity 0.2s ease, transform 0.2s ease;
-    }
-
-    /* 2. Standard-Transition für den Header auf dem Handy, damit das Ein-/Ausblenden edel aussieht */
-    #app-header {
-        transition: opacity 0.25s ease, transform 0.25s ease;
-    }
-    
-    /* 3. Wir geben der aufklappenden Suche auf dem Handy die volle Breite, damit man super tippen kann */
-    .leaflet-control-search.search-exp {
-        width: calc(100% - 70px) !important; /* Nutzt den Platz bis fast ganz nach links aus */
-        max-width: none !important;
-    }
+/* Abstand zwischen Zoom-Buttons und der neuen Position der Suchleiste */
+.leaflet-top.leaflet-left .leaflet-control-geocoder {
+    margin-top: 1px !important;
+    margin-left: 10px !important;
 }
 
-/* Richtet den Geocoder unten rechts sauber aus und lässt die Vorschläge nach oben aufklappen */
-.leaflet-bottom.leaflet-right .leaflet-control-geocoder {
-    margin-bottom: 24px !important;
-    /* Hält etwas Abstand zum Leaflet-Logo ganz unten */
-    margin-right: 12px !important;
-}
-
-/* Die Autocomplete-Vorschläge klappen jetzt nach oben auf */
+/* Zwingt die Autocomplete-Vorschläge nach UNTEN aufzugehen, da oben die Buttons sind */
 .leaflet-control-geocoder-suggestions {
-    top: auto !important;
-    bottom: 100% !important;
-    margin-bottom: 8px !important;
+    top: 100% !important;
+    bottom: auto !important;
+    margin-top: 4px !important;
+}
+
+/* --- SMARTPHONE-SICHERUNG FÜR DIE SUCHE OBEN LINKS --- */
+@media (max-width: 600px) {
+    /* Begrenzt das geöffnete Suchfeld auf dem Handy, damit es nicht in den zentrierten Header hineinrast */
+    .leaflet-control-geocoder.leaflet-control-geocoder-expanded {
+        max-width: 170px !important; 
+    }
 }
