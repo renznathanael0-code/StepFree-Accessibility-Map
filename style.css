@@ -262,10 +262,10 @@ hr {
    ========================================================================== */
 #map-legend {
     position: fixed;
-    bottom: 24px;          
+    bottom: 24px;          /* Auf dem iPad bleibt sie schön weit unten */
     left: 12px;            
     right: auto;           
-    width: 230px;          /* Minimal breiter für das "🛠️ Admin-Konsole" */
+    width: 230px;          
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(8px);
     border: 1px solid rgba(0, 0, 0, 0.08);
@@ -275,8 +275,15 @@ hr {
     overflow: hidden;
     
     /* Transition für das Auf- und Zuklappen */
-    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    max-height: 450px;     /* Erhöht auf 450px, damit der Admin-Bereich locker Platz hat */
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.3s ease;
+    max-height: 450px;     
+}
+
+/* --- DYNAMISCHE ERHÖHUNG NUR FÜR SMARTPHONES --- */
+@media (max-width: 600px) {
+    #map-legend {
+        bottom: 85px;      /* Schiebt die Legende auf dem Handy höher, damit unten alles frei bleibt */
+    }
 }
 
 /* Klickbarer Header-Bereich */
