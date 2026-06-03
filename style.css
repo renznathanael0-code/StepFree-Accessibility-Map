@@ -26,18 +26,19 @@ body:not(:has(#map)) {
 }
 
 /* ==========================================================================
-   2. DER HEADER ALS SCHWEBENDE INSEL (DIÄT-VERSION FÜR SMARTPHONES)
+   2. DER HEADER ALS SCHWEBENDE INSEL (STARR LINKS AUSGERICHTET)
    ========================================================================= */
 #app-header {
     position: absolute;
     top: 6px;            /* Minimal tiefer für einen saubereren Look */
-    left: 50%;
-    transform: translateX(-50%); 
     
-    /* NEU: Extrem kompakt auf dem Smartphone, maximal 280px breit! */
-    width: calc(100% - 32px);
-    max-width: 280px;     /* Vorher 500px -> Jetzt super schmal und weicht Buttons aus! */
-    height: 44px;         /* Von 54px auf 44px gekürzt (flacher & sportlicher) */
+    /* NEU: Keine Zentrierung mehr, damit die Zoom-Buttons links geschützt sind! */
+    left: 50px;          /* Rückt genau weit genug ein, um RECHTS neben den Zoom-Buttons zu sitzen */
+    right: 16px;         /* Läuft flexibel bis zum rechten Bildschirmrand */
+    
+    /* Maximale Breite gedeckelt, damit die Kapsel auf Tablets/PC nicht endlos lang zieht */
+    max-width: 320px;     
+    height: 44px;         /* Flach und sportlich */
     
     background: rgba(255, 255, 255, 0.95); 
     backdrop-filter: blur(8px);            
@@ -55,7 +56,7 @@ body:not(:has(#map)) {
     flex-direction: row; 
     align-items: center;
     width: 100%;
-    padding: 0 12px;      /* Von 20px auf 12px reduziert -> Spart massiv Weißraum links/rechts */
+    padding: 0 12px;      /* Weniger Weißraum links/rechts */
     box-sizing: border-box;
 }
 
@@ -90,11 +91,11 @@ body:not(:has(#map)) {
 #typeFilter {
     width: 100%;
     max-width: 160px;     /* Leicht schmaler für perfekten Sitz */
-    height: 30px;         /* Von 36px auf 30px geschrumpft */
+    height: 30px;         
     border-radius: 15px; 
     border: none;        
     background: #f0f2f5;
-    padding: 0 8px;       /* Weniger Innenabstand */
+    padding: 0 8px;       
     font-size: 13px;      /* Schrift minimal kleiner, damit lange Filternamen passen */
     font-weight: 600;
     color: #2c3e50;
