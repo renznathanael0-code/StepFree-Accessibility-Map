@@ -331,3 +331,28 @@ hr {
     background: #e9ecef;
 }
 
+/* ==========================================================================
+   SMARTPHONE-RETTUNG: INSEL WEICHT DER LEAFLET-SUCHE
+   ========================================================================= */
+
+@media (max-width: 600px) {
+    /* 1. Wenn die Leaflet-Suche AUFGEKLAPPT ist (.search-exp), verstecken wir den Header */
+    .leaflet-control-search.search-exp ~ #app-header,
+    body:has(.leaflet-control-search.search-exp) #app-header {
+        opacity: 0;
+        pointer-events: none;
+        transform: translate(-50%, -20px); /* Weiches wegbewegen nach oben */
+        transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    /* 2. Standard-Transition für den Header auf dem Handy, damit das Ein-/Ausblenden edel aussieht */
+    #app-header {
+        transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    
+    /* 3. Wir geben der aufklappenden Suche auf dem Handy die volle Breite, damit man super tippen kann */
+    .leaflet-control-search.search-exp {
+        width: calc(100% - 70px) !important; /* Nutzt den Platz bis fast ganz nach links aus */
+        max-width: none !important;
+    }
+}
