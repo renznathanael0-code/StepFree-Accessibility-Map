@@ -244,7 +244,7 @@ function drawMarkersOnMap() {
         
         content += `
                 <a href="${googleUrl}" target="_blank" style="display:block; background:#4285F4; color:white; text-align:center; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:10px;">
-                    Route starten
+                    Route in Google Maps starten
                 </a>`;
 
         if (isAdminPage) {
