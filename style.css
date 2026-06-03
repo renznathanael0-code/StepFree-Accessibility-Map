@@ -26,29 +26,34 @@ body:not(:has(#map)) {
 }
 
 /* ==========================================================================
-   2. DER HEADER ALS SCHWEBENDE INSEL (STARR LINKS AUSGERICHTET)
+   2. DER HEADER ALS SCHWEBENDE INSEL (ZENTRIERT & KOMPAKT)
    ========================================================================= */
 #app-header {
     position: absolute;
-    top: 6px;            /* Minimal tiefer für einen saubereren Look */
-    
-    /* NEU: Keine Zentrierung mehr, damit die Zoom-Buttons links geschützt sind! */
-    left: 50px;          /* Rückt genau weit genug ein, um RECHTS neben den Zoom-Buttons zu sitzen */
-    right: 16px;         /* Läuft flexibel bis zum rechten Bildschirmrand */
-    
-    /* Maximale Breite gedeckelt, damit die Kapsel auf Tablets/PC nicht endlos lang zieht */
-    max-width: 320px;     
-    height: 44px;         /* Flach und sportlich */
-    
+    top: 6px;            
+    height: 44px;         
     background: rgba(255, 255, 255, 0.95); 
     backdrop-filter: blur(8px);            
     border: 1px solid rgba(0, 0, 0, 0.06);
-    border-radius: 22px;                   /* Radius an neue Höhe angepasst */
+    border-radius: 22px;                   
     box-shadow: 0 3px 12px rgba(0, 0, 0, 0.12);
-    
     z-index: 2000;
     display: flex;
     align-items: center;
+
+    /* --- PERFEKT MITTIG (Standard für iPad & große Screens) --- */
+    left: 50%;
+    transform: translateX(-50%); 
+    width: calc(100% - 32px);
+    max-width: 320px;     /* Edle, zentrierte Breite auf dem iPad */
+}
+
+/* --- MOBILE OPTIMIERUNG (Bleibt mittig, wird aber schmaler fürs Handy) --- */
+@media (max-width: 600px) {
+    #app-header {
+        /* Bleibt über left: 50% zentriert, zieht sich aber enger zusammen */
+        max-width: 220px;  /* So schmal, dass links bei den Zoom-Buttons Luft bleibt */
+    }
 }
 
 .header-content {
@@ -56,11 +61,11 @@ body:not(:has(#map)) {
     flex-direction: row; 
     align-items: center;
     width: 100%;
-    padding: 0 12px;      /* Weniger Weißraum links/rechts */
+    padding: 0 12px;      
     box-sizing: border-box;
 }
 
-/* HAMBURGER ICON (Bleibt links, wird minimal feiner) */
+/* HAMBURGER ICON */
 #menu-icon {
     width: 20px;
     height: 14px;
@@ -84,25 +89,24 @@ body:not(:has(#map)) {
     flex-grow: 1;
     display: flex;
     justify-content: center;
-    margin-right: 20px;   /* Angepasst an das schmälere Icon */
+    margin-right: 20px;   
 }
 
-/* FILTER DROPDOWN (Kompakt in die schmale Kapsel gepresst) */
+/* FILTER DROPDOWN */
 #typeFilter {
     width: 100%;
-    max-width: 160px;     /* Leicht schmaler für perfekten Sitz */
+    max-width: 150px;     
     height: 30px;         
     border-radius: 15px; 
     border: none;        
     background: #f0f2f5;
-    padding: 0 8px;       
-    font-size: 13px;      /* Schrift minimal kleiner, damit lange Filternamen passen */
+    padding: 0 6px;       
+    font-size: 13px;      
     font-weight: 600;
     color: #2c3e50;
     cursor: pointer;
     outline: none;
     text-align: center;
-    
     -webkit-appearance: none;
     appearance: none;
 }
@@ -326,3 +330,4 @@ hr {
 .legend-header:active {
     background: #e9ecef;
 }
+
