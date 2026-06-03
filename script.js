@@ -161,37 +161,55 @@ function drawMarkersOnMap() {
         }
 
         if (!bounds.contains(latLng)) return;
-// Innerhalb der drawMarkersOnMap Funktion:
-let emoji = "📍";
-if (r.typ.includes("Treppe")) emoji = "🪜";
-if (r.typ.includes("defekt")) emoji = "🛗";
-if (r.typ.includes("WC")) emoji = "🚽";
-if (r.typ.includes("Parkplatz")) emoji = "🅿️";
-if (r.typ.includes("Aufzug")) emoji = "🛗";
-if (r.typ.includes("Baustelle")) emoji = "🚧";
-// NEUE EMOJIS
-if (r.typ.includes("Niveaugleich")) emoji = "✅"; // Grüner Haken für Bahnsteig
-if (r.typ.includes("Höhenunterschied")) emoji = "⚠️"; // Warnung für Stufe
-if (r.typ.includes("Rampe")) emoji = "📐"; 
-if (r.typ.includes("Kein barrierefreier")) emoji = "🚫";
+
+        // EMOJIS FESTLEGEN
+        let emoji = "📍";
+        if (r.typ.includes("Treppe")) emoji = "🪜";
+        if (r.typ.includes("defekt")) emoji = "🛗";
+        if (r.typ.includes("WC")) emoji = "🚽";
+        if (r.typ.includes("Parkplatz")) emoji = "🅿️";
+        if (r.typ.includes("Aufzug")) emoji = "🛗";
+        if (r.typ.includes("Baustelle")) emoji = "🚧";
+        if (r.typ.includes("Niveaugleich")) emoji = "✅"; 
+        if (r.typ.includes("Höhenunterschied")) emoji = "⚠️"; 
+        if (r.typ.includes("Rampe")) emoji = "📐"; 
+        if (r.typ.includes("Kein barrierefreier")) emoji = "🚫";
     
+        // --- ADMIN & USER FARB-LOGIK ---
         let adminStyle = "";
+        let markerFarbe = r.farbe; // Standardfarbe aus den Daten nutzen
+
         if (isAdminPage) {
             if (r.votes <= -3) {
+                // Rot bei -3 oder schlechter (In Prüfung / Kritisch)
                 adminStyle = "box-shadow: 0 0 15px 5px red; border: 2px solid red;"; 
+            } else if (r.status === "confirmed") {
+                // Bereits vom Admin bestätigte Punkte leuchten auch beim Admin grün
+                adminStyle = "box-shadow: 0 0 15px 5px #2ecc71; border: 2px solid #2ecc71;";
+            } else if (r.votes >= 3) {
+                // NEU: Wenn 3 Leute "Stimmt" gesagt haben -> Leuchtet beim Admin GRÜN (Bereit für Freigabe)
+                adminStyle = "box-shadow: 0 0 15px 5px #2ecc71; border: 2px solid #2ecc71;"; 
             } else if (r.status === "new") {
+                // Blau für komplett neue Punkte
                 adminStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;"; 
+            }
+        } else {
+            // LOGIK FÜR NORMALE NUTZER
+            // Wenn der Admin den Punkt bestätigt hat, überschreiben wir die Farbe für den User mit Grün!
+            if (r.status === "confirmed") {
+                markerFarbe = "#2ecc71"; // Ein schönes Community-Grün
             }
         }
         
         const icon = L.divIcon({
-            html: `<div style="background:${r.farbe}; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:2px solid white; color:white; ${adminStyle}">${emoji}</div>`,
+            html: `<div style="background:${markerFarbe}; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:2px solid white; color:white; ${adminStyle}">${emoji}</div>`,
             className: '',
             iconSize: [30, 30]
         });
         
         const m = L.marker(latLng, { icon }).addTo(map);
         
+        // Klick auf den Marker im Admin-Bereich (Entfernt "Neu"-Status)
         if (isAdminPage && r.status === "new") {
             m.on('click', () => adminReviewDone(r.id));
         }
@@ -201,7 +219,11 @@ if (r.typ.includes("Kein barrierefreier")) emoji = "🚫";
         
         if (isAdminPage) {
             if (r.votes <= -3) content += `<b style="color:red;">⚠️ KRITISCH (Votes)</b><br>`;
-            if (r.status === "new") content += `<b style="color:#3498db;">🆕 NEUER EINTRAG</b><br>`;
+            else if (r.status === "confirmed") content += `<b style="color:#2ecc71;">✅ VOM ADMIN BESTÄTIGT</b><br>`;
+            else if (r.votes >= 3) content += `<b style="color:#2ecc71;">🔥 FREIGABE BEREIT ($\ge 3$ Votes)</b><br>`;
+            else if (r.status === "new") content += `<b style="color:#3498db;">🆕 NEUER EINTRAG</b><br>`;
+        } else if (r.status === "confirmed") {
+            content += `<b style="color:#2ecc71;">🌟 Offiziell Bestätigt</b><br>`;
         }
         
         content += `
@@ -221,7 +243,7 @@ if (r.typ.includes("Kein barrierefreier")) emoji = "🚫";
                     <button onclick="vote('${r.id}', -1)" style="flex:1; background:#E67E22; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">❌ Falsch</button>
                 </div>`;
         
-        // GOOGLE MAPS NAVIGATION LINK (Korrigiert)
+        // GOOGLE MAPS NAVIGATION LINK
         const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}&travelmode=walking`;
         
         content += `
@@ -231,7 +253,14 @@ if (r.typ.includes("Kein barrierefreier")) emoji = "🚫";
 
         if (isAdminPage) {
             content += `
-                <div style="border-top:1px solid #ccc; padding-top:10px; margin-top:5px;">
+                <div style="border-top:1px solid #ccc; padding-top:10px; margin-top:5px;">`;
+            
+            // NEU: Wenn der Punkt bereit zur Freigabe ist und noch nicht bestätigt wurde, bekommt der Admin den "Bestätigen"-Button
+            if (r.votes >= 3 && r.status !== "confirmed") {
+                content += `<button onclick="confirmByAdmin('${r.id}')" style="background:#2ecc71; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">👁️ Für User freigeben</button>`;
+            }
+
+            content += `
                     <button onclick="directDelete('${r.id}')" style="background:#e74c3c; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">🗑️ Löschen</button>
                     <button onclick="askForCheck('${r.id}')" style="background:#3498db; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Check anfordern</button>
                 </div>`;
@@ -246,12 +275,11 @@ if (r.typ.includes("Kein barrierefreier")) emoji = "🚫";
     });
 }
 
-// 3. AUTOMATISIERUNG: Karte aktualisieren, wenn sich das Sichtfeld ändert
-// Füge diese zwei Zeilen UNTER deiner Funktion ein (am Ende deines Scripts):
 if (map) {
     map.on('moveend', drawMarkersOnMap);
     map.on('zoomend', drawMarkersOnMap);
 }
+
 
 function directDelete(id) {
     if (confirm("Diesen Punkt wirklich für alle löschen?")) {
@@ -260,6 +288,23 @@ function directDelete(id) {
         drawMarkersOnMap();
     }
 }
+
+function confirmByAdmin(id) {
+    // Den passenden Report in den Daten suchen
+    const report = reportsData.find(r => r.id === id);
+    if (report) {
+        report.status = "confirmed"; // Status auf confirmed setzen
+        
+        // Karte neu zeichnen & Daten in der Community/LocalStorage speichern
+        drawMarkersOnMap();
+        if (typeof saveToCommunity === "function") {
+            saveToCommunity();
+        }
+        
+        alert("Eintrag erfolgreich verifiziert! Er leuchtet nun bei allen Usern grün.");
+    }
+}
+
 
 function askForCheck(id) {
     const r = reportsData.find(item => item.id === id);
