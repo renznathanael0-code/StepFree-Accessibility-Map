@@ -80,12 +80,89 @@
             color: #2c3e50;
             margin-bottom: 15px;
         }
+        /* Schwebende Header-Insel für Unterseiten */
+.header-insel {
+    position: sticky;
+    top: 15px;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    padding: 10px 20px;
+    border-radius: 30px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.brand-title {
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 18px;
+    text-decoration: none;
+}
+
+/* Hamburger Button */
+.menu-trigger {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #2c3e50;
+    cursor: pointer;
+    padding: 5px;
+    line-height: 1;
+}
+
+/* Das ausklappbare Menü-Panel */
+.menu-panel {
+    display: none; /* Standardmäßig unsichtbar */
+    position: absolute;
+    top: 65px;
+    right: 10px;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    width: 200px;
+    padding: 10px 0;
+}
+
+.menu-panel.show {
+    display: block; /* Wird per JavaScript sichtbar geschaltet */
+}
+
+.menu-panel a {
+    display: block;
+    padding: 12px 20px;
+    color: #2c3e50;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 15px;
+}
+
+.menu-panel a:hover {
+    background-color: #f8f9fa;
+    color: #3498db;
+}
+
     </style>
 </head>
 <body>
 
 <div class="container">
-    <a href="index.html" class="back-button">← Zurück zur Karte</a>
+ <div class="header-insel">
+    <a href="index.html" class="brand-title">StepFree</a>
+    <button class="menu-trigger" onclick="toggleMenu()">≡</button>
+    
+    <div class="menu-panel" id="dropdownMenu">
+        <a href="index.html">🗺️ Zurück zur Karte</a>
+        <a href="anleitung.html">📖 Anleitung & Hilfe</a>
+    </div>
+</div>
+
     
     <div class="guide-card">
         <h1>Datenschutzerklärung</h1>
@@ -141,6 +218,25 @@
         StepFree - Accessibility Map &copy; 2026
     </footer>
 </div>
+<script>
+function toggleMenu() {
+    const menu = document.getElementById('dropdownMenu');
+    menu.classList.toggle('show');
+}
+
+// Schließt das Menü, wenn man irgendwo anders hinklickt
+window.onclick = function(event) {
+    if (!event.target.matches('.menu-trigger')) {
+        const dropdowns = document.getElementsByClassName("menu-panel");
+        for (let i = 0; i < dropdowns.length; i++) {
+            const openDropdown = dropdowns[i];
+            if (openDropdown.classList.contains('show')) {
+                openDropdown.classList.remove('show');
+            }
+        }
+    }
+}
+</script>
 
 </body>
 </html>
