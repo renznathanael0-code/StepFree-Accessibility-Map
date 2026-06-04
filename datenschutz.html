@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Datenschutzerklärung & Impressum – StepFree</title>
+    <link rel="stylesheet" href="style.css"> 
+    <style>
+        body {
+            overflow-y: auto; /* Seite muss scrollbar sein */
+            background-color: #f8f9fa;
+            font-family: sans-serif;
+            display: block; /* Flex-Layout vom Body aufheben */
+            scroll-behavior: smooth;
+            line-height: 1.6;
+            color: #333;
+        }
+        .container {
+            max-width: 650px; /* Gleiche Breite wie die Anleitung für Konsistenz */
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .guide-card {
+            background: white;
+            padding: 24px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+        }
+        h1 { 
+            color: #2c3e50; 
+            font-size: 24px;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        h2 { 
+            color: #2c3e50; 
+            font-size: 18px;
+            margin-top: 25px; 
+            margin-bottom: 10px;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 5px;
+        }
+        ul { 
+            padding-left: 20px; 
+            margin-bottom: 15px;
+        }
+        li {
+            margin-bottom: 8px;
+            font-size: 14.5px;
+            color: #555;
+        }
+        p {
+            font-size: 14.5px;
+            color: #555;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        .back-button {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        .back-button:hover {
+            transform: translateX(-3px);
+        }
+        /* Perfekt abgestimmte Impressum-Box im Design deiner App-Karten */
+        .footer-box { 
+            background-color: #f0f4f8; 
+            border: 1px solid rgba(0,0,0,0.03); 
+            padding: 24px; 
+            margin-top: 40px; 
+            border-radius: 15px; 
+        }
+        .footer-box h1 {
+            font-size: 20px;
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <a href="index.html" class="back-button">← Zurück zur Karte</a>
+    
+    <div class="guide-card">
+        <h1>Datenschutzerklärung</h1>
+        <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 25px;">Stand: Juni 2026</p>
+        
+        <p>Der Schutz deiner Privatsphäre ist uns ein zentrales Anliegen. Diese Web-App ist so konzipiert, dass sie komplett anonym und ohne Registrierung genutzt werden kann. Im Folgenden informieren wir dich darüber, wie Daten verarbeitet werden.</p>
+
+        <h2>1. Verantwortlicher</h2>
+        <p>Verantwortlich für die Datenverarbeitung dieser Web-App ist der Entwickler von StepFree (siehe Impressum unten).</p>
+
+        <h2>2. Hosting über GitHub Pages</h2>
+        <p>Diese Web-App wird auf GitHub Pages (GitHub Inc., 88 Colin P. Kelly Jr. St., San Francisco, CA 94107, USA) gehostet. Beim Aufruf der Webseite erfasst GitHub automatisch sogenannte Logfiles (u.a. deine IP-Adresse, Browsertyp, Datum und Uhrzeit des Aufrufs). Dies ist technisch notwendig, um dir die Webseite anzuzeigen und die Sicherheit zu gewährleisten. Weitere Informationen findest du in der Datenschutzerklärung von GitHub.</p>
+
+        <h2>3. Datenbank-Dienstleister (Google Firebase)</h2>
+        <p>Für das Speichern und Anzeigen der barrierefreien Orte und Hindernisse in Echtzeit nutzt diese App Google Firebase (Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland).</p>
+        <ul>
+            <li><strong>Anonyme Nutzung:</strong> Es werden keine personenbezogenen Daten wie Namen, E-Mails oder Telefonnummern erfasst oder in der Firebase-Datenbank gespeichert.</li>
+            <li><strong>Einträge und Votes:</strong> Wenn du ein Hindernis meldest oder abstimmst, werden ausschließlich die geografischen Koordinaten (Breiten- und Längengrad), der ausgewählte Typ des Hindernisses und dein optionaler Kommentar an Firebase übermittelt.</li>
+            <li><strong>Technische Daten:</strong> Zur Bereitstellung der Echtzeit-Verbindung verarbeitet Firebase im Hintergrund technisch notwendige Daten (wie z. B. deine IP-Adresse beim Verbindungsaufbau). Diese Daten werden nicht genutzt, um dich persönlich zu identifizieren.</li>
+        </ul>
+
+        <h2>4. Standortdaten (GPS)</h2>
+        <p>Diese App nutzt die Geolocation-API deines Browsers, um deinen aktuellen Standort auf der Karte anzuzeigen und für den Vor-Ort-Check-in zu nutzen. Dies geschieht ausschließlich dann, wenn du der App über die standardmäßige Abfrage deines Browsers ausdrücklich die Erlaubnis dazu erteilt hast. Deine Standortdaten werden zu keinem Zeitpunkt dauerhaft auf einem Server gespeichert oder mit deiner Person verknüpft.</p>
+
+        <h2>5. Weiterleitung zu externen Kartendiensten (Google Maps)</h2>
+        <p>Wenn du in den Info-Fenstern der Karte auf den Button <b>"Route in Google Maps starten"</b> klickst, wirst du auf die externen Server von Google Maps (Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland) weitergeleitet. Bei dieser Weiterleitung werden Daten (wie z.B. deine IP-Adresse und die Koordinaten des Ziels) an Google übertragen. Hierauf haben wir keinen Einfluss. Es gilt die Datenschutzerklärung von Google.</p>
+
+        <h2>6. Lokale Speicherung (LocalStorage)</h2>
+        <p>Um zu verhindern, dass Nutzer innerhalb kurzer Zeit mehrfach für denselben Punkt abstimmen, speichert die App eine anonyme Kennung (ID) des bewerteten Punktes lokal in deinem Browser (LocalStorage). Diese Daten verbleiben ausschließlich auf deinem Gerät und werden nicht an uns oder Dritte weitergegeben. Du kannst diesen Speicher jederzeit in den Einstellungen deines Browsers löschen.</p>
+
+        <h2>7. Deine Rechte</h2>
+        <p>Da wir keine personenbezogenen Daten oder Profile von dir speichern, können wir keine Auskunft über deine Daten geben oder diese löschen, da wir sie im System keiner echten Person zuordnen können. Bei Fragen kannst du dich jedoch jederzeit an uns wenden.</p>
+    </div>
+
+    <div class="footer-box">
+        <h1>Impressum</h1>
+        <p><strong>Dienstanbieter und Verantwortlicher für diese Webseite:</strong></p>
+        <p style="line-height: 1.5; font-family: monospace; background: rgba(0,0,0,0.02); padding: 10px; border-radius: 8px; color: #2c3e50;">
+            Nathanael Renz<br>
+            Steingartenstraße 41/1<br>
+            70794 Filderstadt
+        </p>
+        
+        <p style="margin-top: 15px;"><strong>Kontaktmöglichkeit:</strong></p>
+        <p>E-Mail: <a href="mailto:[Deine-Email]" style="color: #3498db; text-decoration: none; font-weight: bold;">nathanael.renz@gmx.de</a></p>
+        
+        <p style="margin-top: 20px; font-style: italic; font-size: 13px; color: #7f8c8d;">
+            Hinweis: Dies ist eine rein private, nicht-kommerzielle Webseite, die im Rahmen eines ehrenamtlichen Inklusionsprojekts betrieben wird. Es werden keinerlei Einnahmen erzielt.
+        </p>
+    </div>
+
+    <footer style="text-align: center; color: #bdc3c7; font-size: 13px; margin-top: 40px; margin-bottom: 20px;">
+        StepFree - Accessibility Map &copy; 2026
+    </footer>
+</div>
+
+</body>
+</html>
