@@ -416,19 +416,45 @@ function adminReviewDone(id) {
 function downloadBackup() {
     if (!isAdmin) return alert("Nur für Admins!");
     
-    // Wir nehmen die aktuellen Daten aus deiner App
-    const dataStr = JSON.stringify({ markers: reportsData }, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    
-    // Wir erstellen einen unsichtbaren Link zum Herunterladen
-    const exportFileDefaultName = 'stepfree_backup_' + new Date().toLocaleDateString() + '.json';
-    
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-    
-    updateStatus("Backup erstellt! 💾", "#2ecc71");
+    updateStatus("Lade Live-Daten für Backup... ⏳", "#3498db");
+
+    // 1. Wir holen uns die absolut frischen und vollständigen Daten direkt von Firebase
+    // Ersetze 'markers' durch den exakten Namen deines Firebase-Knotens (z.B. 'reports' oder 'locations')
+    firebase.database().ref('markers').once('value').then((snapshot) => {
+        const fullData = snapshot.val();
+        
+        if (!fullData) {
+            updateStatus("Fehler: Keine Daten in Firebase gefunden! ❌", "#e74c3c");
+            return;
+        }
+
+        // 2. Wir konvertieren die Daten in einen formatierten JSON-String
+        const dataStr = JSON.stringify(fullData, null, 2);
+        
+        // 3. WICHTIG: Ein Blob verhindert Browser-Blockaden bei großen Datenmengen
+        const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
+        const dataUri = URL.createObjectURL(blob);
+        
+        // 4. Dynamischen Dateinamen mit ISO-Datum bauen (sieht sauberer aus: YYYY-MM-DD)
+        const dateStr = new Date().toISOString().split('T')[0];
+        const exportFileDefaultName = `stepfree_backup_${dateStr}.json`;
+        
+        // 5. Den unsichtbaren Download-Link triggern
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        document.body.appendChild(linkElement); // Kurz einhängen für bessere Browser-Kompatibilität
+        linkElement.click();
+        
+        // Aufräumen
+        document.body.removeChild(linkElement);
+        URL.revokeObjectURL(dataUri);
+        
+        updateStatus("Backup erfolgreich exportiert! 💾", "#2ecc71");
+    }).catch((error) => {
+        console.error("Backup-Fehler:", error);
+        updateStatus("Backup fehlgeschlagen! ❌", "#e74c3c");
+    });
 }
 
 // Damit der Button im HTML funktioniert
