@@ -414,51 +414,72 @@ function adminReviewDone(id) {
 }
 
 function downloadBackup() {
-    if (!isAdmin) return alert("Nur für Admins!");
-    
-    updateStatus("Lade Live-Daten für Backup... ⏳", "#3498db");
+    // TEST 1: Lebt die Funktion überhaupt?
+    alert("Backup-Prozess gestartet...");
 
-    // 1. Wir holen uns die absolut frischen und vollständigen Daten direkt von Firebase
-    // Ersetze 'markers' durch den exakten Namen deines Firebase-Knotens (z.B. 'reports' oder 'locations')
-    firebase.database().ref('markers').once('value').then((snapshot) => {
-        const fullData = snapshot.val();
+    try {
+        // Wir holen die Daten direkt aus den geladenen Berichten deiner App
+        // Falls deine Variable anders heißt (z.B. 'markersData'), passe den Namen an
+        const datenQuelle = typeof reportsData !== 'undefined' ? reportsData : null;
         
-        if (!fullData) {
-            updateStatus("Fehler: Keine Daten in Firebase gefunden! ❌", "#e74c3c");
+        if (!datenQuelle) {
+            alert("Fehler: 'reportsData' ist in der App nicht definiert oder leer!");
             return;
         }
 
-        // 2. Wir konvertieren die Daten in einen formatierten JSON-String
-        const dataStr = JSON.stringify(fullData, null, 2);
+        // TEST 2: Wie viele Einträge haben wir im Speicher?
+        const anzahl = Object.keys(datenQuelle).length;
+        alert("Gefundene Einträge im Speicher: " + anzahl);
+
+        if (anzahl === 0) {
+            alert("Abbruch: Keine Marker im Speicher vorhanden.");
+            return;
+        }
+
+        // JSON-String generieren
+        const dataStr = JSON.stringify(datenQuelle, null, 2);
         
-        // 3. WICHTIG: Ein Blob verhindert Browser-Blockaden bei großen Datenmengen
+        // Ein Blob ist am iPad Pflicht, da Safari normale Daten-URIs oft blockiert!
         const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
         const dataUri = URL.createObjectURL(blob);
         
-        // 4. Dynamischen Dateinamen mit ISO-Datum bauen (sieht sauberer aus: YYYY-MM-DD)
+        // Dateiname generieren
         const dateStr = new Date().toISOString().split('T')[0];
-        const exportFileDefaultName = `stepfree_backup_${dateStr}.json`;
+        const dateiname = 'stepfree_backup_' + dateStr + '.json';
         
-        // 5. Den unsichtbaren Download-Link triggern
+        // Download-Link generieren und zwingend ins Dokument einhängen (wichtig für iOS/Safari!)
         const linkElement = document.createElement('a');
-        linkElement.setAttribute('href', dataUri);
-        linkElement.setAttribute('download', exportFileDefaultName);
-        document.body.appendChild(linkElement); // Kurz einhängen für bessere Browser-Kompatibilität
+        linkElement.href = dataUri;
+        linkElement.download = dateiname;
+        linkElement.innerText = "[Download-Link]";
+        linkElement.style.display = 'none';
+        
+        document.body.appendChild(linkElement);
+        
+        // Den Klick triggern
         linkElement.click();
         
-        // Aufräumen
-        document.body.removeChild(linkElement);
-        URL.revokeObjectURL(dataUri);
+        // Nach dem Klick aufräumen
+        setTimeout(() => {
+            document.body.removeChild(linkElement);
+            URL.revokeObjectURL(dataUri);
+        }, 100);
         
-        updateStatus("Backup erfolgreich exportiert! 💾", "#2ecc71");
-    }).catch((error) => {
-        console.error("Backup-Fehler:", error);
-        updateStatus("Backup fehlgeschlagen! ❌", "#e74c3c");
-    });
+        // Status-Update (falls deine Funktion updateStatus existiert)
+        if (typeof updateStatus === 'function') {
+            updateStatus("Backup erstellt! 💾", "#2ecc71");
+        } else {
+            alert("Backup sollte jetzt heruntergeladen sein!");
+        }
+
+    } catch (fehler) {
+        alert("Kritischer Fehler in der Backup-Funktion:\n" + fehler.message);
+    }
 }
 
 // Damit der Button im HTML funktioniert
 window.downloadBackup = downloadBackup;
+
 
 function toggleMenu() {
     const menu = document.getElementById('side-menu');
