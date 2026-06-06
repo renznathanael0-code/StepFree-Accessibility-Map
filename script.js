@@ -414,66 +414,48 @@ function adminReviewDone(id) {
 }
 
 function downloadBackup() {
-    // TEST 1: Lebt die Funktion überhaupt?
-    alert("Backup-Prozess gestartet...");
-
+    // Die echte Admin-Sperre greift wieder, sobald das Passwort-Prompt im Echtbetrieb läuft
+    if (!isAdmin) return alert("Nur für Admins!");
+    
     try {
-        // Wir holen die Daten direkt aus den geladenen Berichten deiner App
-        // Falls deine Variable anders heißt (z.B. 'markersData'), passe den Namen an
         const datenQuelle = typeof reportsData !== 'undefined' ? reportsData : null;
         
         if (!datenQuelle) {
-            alert("Fehler: 'reportsData' ist in der App nicht definiert oder leer!");
+            if (typeof updateStatus === 'function') updateStatus("Fehler: Keine Daten! ❌", "#e74c3c");
             return;
         }
 
-        // TEST 2: Wie viele Einträge haben wir im Speicher?
-        const anzahl = Object.keys(datenQuelle).length;
-        alert("Gefundene Einträge im Speicher: " + anzahl);
-
-        if (anzahl === 0) {
-            alert("Abbruch: Keine Marker im Speicher vorhanden.");
-            return;
-        }
-
-        // JSON-String generieren
+        // JSON-String und Blob generieren (sicher für iOS & große Datenmengen)
         const dataStr = JSON.stringify(datenQuelle, null, 2);
-        
-        // Ein Blob ist am iPad Pflicht, da Safari normale Daten-URIs oft blockiert!
         const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
         const dataUri = URL.createObjectURL(blob);
         
-        // Dateiname generieren
+        // Dateiname mit ISO-Datum (YYYY-MM-DD)
         const dateStr = new Date().toISOString().split('T')[0];
         const dateiname = 'stepfree_backup_' + dateStr + '.json';
         
-        // Download-Link generieren und zwingend ins Dokument einhängen (wichtig für iOS/Safari!)
+        // Unsichtbaren Link erstellen und in den Body einhängen (Wichtig für Safari/iPad!)
         const linkElement = document.createElement('a');
         linkElement.href = dataUri;
         linkElement.download = dateiname;
-        linkElement.innerText = "[Download-Link]";
         linkElement.style.display = 'none';
         
         document.body.appendChild(linkElement);
-        
-        // Den Klick triggern
         linkElement.click();
         
-        // Nach dem Klick aufräumen
+        // Speicherbereinigung nach dem Download
         setTimeout(() => {
             document.body.removeChild(linkElement);
             URL.revokeObjectURL(dataUri);
         }, 100);
         
-        // Status-Update (falls deine Funktion updateStatus existiert)
         if (typeof updateStatus === 'function') {
             updateStatus("Backup erstellt! 💾", "#2ecc71");
-        } else {
-            alert("Backup sollte jetzt heruntergeladen sein!");
         }
 
     } catch (fehler) {
-        alert("Kritischer Fehler in der Backup-Funktion:\n" + fehler.message);
+        console.error("Backup-Fehler:", fehler);
+        if (typeof updateStatus === 'function') updateStatus("Kritischer Fehler! ❌", "#e74c3c");
     }
 }
 
