@@ -414,66 +414,46 @@ function adminReviewDone(id) {
 }
 
 function downloadBackup() {
-    // 1. Status-Update (falls vorhanden) oder Konsolen-Info
     if (typeof updateStatus === 'function') {
-        updateStatus("Lade Live-Daten aus Firebase... ⏳", "#3498db");
-    } else {
-        alert("Backup gestartet, lade Daten...");
+        updateStatus("Lade Live-Daten für Backup... ⏳", "#3498db");
     }
-    
-    // 2. DEINE FIREBASE URL HIER EINTRAGEN
-    // Ersetze das unten durch deine echte Firebase-Realtime-Database URL!
-    // Am Ende muss das /markers.json (oder wie dein Knoten heißt) stehen!
-    const firebaseDbUrl = "https://DEIN-PROJEKTNAME-DEFAULT-RTDB.firebaseio.com/markers.json";
 
-    // 3. Wir holen die Daten direkt per fetch-Befehl von Firebase (funktioniert überall!)
-    fetch(firebaseDbUrl)
-    .then(response => {
-        if (!response.ok) throw new Error("Netzwerk-Fehler beim Laden der Firebase-Daten");
-        return response.json();
-    })
-    .then(data => {
+    // Wir holen die Daten über das offizielle SDK, das umgeht den Netzwerkfehler!
+    // Passe 'markers' an den Namen deines Knotens an, falls er anders heißt
+    firebase.database().ref('markers').once('value').then((snapshot) => {
+        const data = snapshot.val();
+        
         if (!data) {
-            alert("Fehler: Keine Daten in Firebase gefunden oder Knotenname falsch!");
+            alert("Fehler: Keine Daten in Firebase gefunden!");
             return;
         }
 
-        // 4. JSON-String und Blob generieren (sicher für iOS)
+        // Der bewährte iPad-Sicherheits-Download
         const dataStr = JSON.stringify(data, null, 2);
         const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
         const dataUri = URL.createObjectURL(blob);
         
-        // Dateiname mit ISO-Datum
         const dateStr = new Date().toISOString().split('T')[0];
-        const dateiname = 'stepfree_backup_' + dateStr + '.json';
-        
-        // 5. Den unsichtbaren Link erstellen und ins Dokument einhängen (Wichtig für iPad!)
         const linkElement = document.createElement('a');
         linkElement.href = dataUri;
-        linkElement.download = dateiname;
+        linkElement.download = `stepfree_backup_${dateStr}.json`;
         linkElement.style.display = 'none';
         
         document.body.appendChild(linkElement);
         linkElement.click();
         
-        // Aufräumen
         setTimeout(() => {
             document.body.removeChild(linkElement);
             URL.revokeObjectURL(dataUri);
         }, 100);
         
         if (typeof updateStatus === 'function') {
-            updateStatus("Backup erfolgreich exportiert! 💾", "#2ecc71");
-        } else {
-            alert("Backup erfolgreich heruntergeladen!");
+            updateStatus("Backup erfolgreich! 💾", "#2ecc71");
         }
-    })
-    .catch(fehler => {
-        console.error("Backup-Fehler:", fehler);
-        alert("Kritischer Fehler beim Backup:\n" + fehler.message);
+    }).catch((fehler) => {
+        alert("Fehler beim Firebase-Zugriff:\n" + fehler.message);
     });
 }
-
 window.downloadBackup = downloadBackup;
 
 function toggleMenu() {
