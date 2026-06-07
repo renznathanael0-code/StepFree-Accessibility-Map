@@ -6,12 +6,15 @@
     <title>Anleitung – StepFree</title>
     <link rel="stylesheet" href="style.css"> 
     <style>
+        html {
+            scroll-behavior: smooth; /* Aktiviert weiches Scrollen für die gesamte Seite */
+        }
         body {
             overflow-y: auto; /* Anleitung muss scrollbar sein */
             background-color: #f8f9fa;
             font-family: sans-serif;
-            display: block; /* Flex-Layout vom Body aufheben */
-            scroll-behavior: smooth; /* Sorgt für weiches Scrollen beim Klicken auf das Inhaltsverzeichnis */
+            margin: 0;
+            padding: 0;
         }
         .container {
             max-width: 650px; /* Minimal breiter für mehr Lesekomfort */
@@ -62,10 +65,13 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             margin-bottom: 30px;
         }
-        /* Verhindert, dass die Überschrift nach dem Klick unter den Bildschirmrand rutscht */
+        
+        /* FIX: Sorgt dafür, dass der Browser beim Springen exakt 100px Platz für den Header lässt */
         .guide-section {
-            scroll-margin-top: 20px;
+            display: block;
+            scroll-margin-top: 100px;
         }
+        
         .step {
             display: flex;
             align-items: flex-start;
@@ -123,74 +129,74 @@
             font-size: 13.5px;
             color: #665200;
         }
+        
         /* Schwebende Header-Insel für Unterseiten */
-.header-insel {
-    position: sticky;
-    top: 15px;
-    z-index: 1000;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    padding: 10px 20px;
-    border-radius: 30px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-}
+        .header-insel {
+            position: sticky;
+            top: 15px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 10px 20px;
+            border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
 
-.brand-title {
-    font-weight: bold;
-    color: #2c3e50;
-    font-size: 18px;
-    text-decoration: none;
-}
+        .brand-title {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 18px;
+            text-decoration: none;
+        }
 
-/* Hamburger Button */
-.menu-trigger {
-    background: none;
-    border: none;
-    font-size: 24px;
-    color: #2c3e50;
-    cursor: pointer;
-    padding: 5px;
-    line-height: 1;
-}
+        /* Hamburger Button */
+        .menu-trigger {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #2c3e50;
+            cursor: pointer;
+            padding: 5px;
+            line-height: 1;
+        }
 
-/* Das ausklappbare Menü-Panel */
-.menu-panel {
-    display: none; /* Standardmäßig unsichtbar */
-    position: absolute;
-    top: 65px;
-    right: 10px;
-    background: white;
-    border-radius: 15px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    width: 200px;
-    padding: 10px 0;
-}
+        /* Das ausklappbare Menü-Panel */
+        .menu-panel {
+            display: none; /* Standardmäßig unsichtbar */
+            position: absolute;
+            top: 65px;
+            right: 10px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            width: 200px;
+            padding: 10px 0;
+        }
 
-.menu-panel.show {
-    display: block; /* Wird per JavaScript sichtbar geschaltet */
-}
+        .menu-panel.show {
+            display: block; /* Wird per JavaScript sichtbar geschaltet */
+        }
 
-.menu-panel a {
-    display: block;
-    padding: 12px 20px;
-    color: #2c3e50;
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 15px;
-}
+        .menu-panel a {
+            display: block;
+            padding: 12px 20px;
+            color: #2c3e50;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 15px;
+        }
 
-.menu-panel a:hover {
-    background-color: #f8f9fa;
-    color: #3498db;
-}
-
+        .menu-panel a:hover {
+            background-color: #f8f9fa;
+            color: #3498db;
+        }
     </style>
 </head>
 <body>
@@ -277,7 +283,7 @@
             <div class="step">
                 <div class="step-icon" style="background: #27AE60; color: white;">🛗</div>
                 <div class="step-text">
-                    <span class="color-badge" style="background: #27AE60;">Dunkelgrün</span>
+                    <span class="color-badge" style="background: #27AE60;">Dunkelgreen</span>
                     <h3>Aufzug vorhanden</h3>
                     <p>Ein voll funktionstüchtiger Personenaufzug, der Etagenwechsel oder den Zugang zu Gleisen barrierefrei ermöglicht.</p>
                 </div>
@@ -373,14 +379,13 @@
                     <p>Direkt unter den Zoom-Buttons findest du die Lupe. Klicke darauf und tippe eine Adresse, eine Straße oder einen bestimmten Bahnhof ein. Die Karte springt sofort an den gewünschten Ort, sodass du die Barrierefreiheit vorab prüfen kannst.</p>
                 </div>
             </div>
-<div class="step">
-    <div class="step-icon" style="background: #f0f4f8;">≡</div>
-    <div class="step-text">
-        <h3>Die Header-Insel & Filter (Oben Mitte)</h3>
-        <p>Die schwebende Insel oben in der Mitte beherbergt das Menü und das Filter-Dropdown. Wenn du gezielt nur nach bestimmten Dingen (z.B. nur funktionierende Aufzüge oder nur Behinderten-WCs) suchst, stelle das Dropdown um. Alle nicht relevanten Marker werden ausgeblendet, um die Übersicht zu wahren.</p>
-    </div>
-</div>
-
+            <div class="step">
+                <div class="step-icon" style="background: #f0f4f8;">≡</div>
+                <div class="step-text">
+                    <h3>Die Header-Insel & Filter (Oben Mitte)</h3>
+                    <p>Die schwebende Insel oben in der Mitte beherbergt das Menü und das Filter-Dropdown. Wenn du gezielt nur nach bestimmten Dingen (z.B. nur funktionierende Aufzüge oder nur Behinderten-WCs) suchst, stelle das Dropdown um. Alle nicht relevanten Marker werden ausgeblendet, um die Übersicht zu wahren.</p>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -417,7 +422,6 @@
                     <p>Manchmal fordert das Admin-Team für einen unklaren Marker eine Überprüfung an. Wenn du auf der Karte einen Punkt siehst, bei dem ein Check-In aktiv ist, kannst du diesen verifizieren: Sobald du dich physisch im <b>Umkreis von 50 Metern</b> um diesen Ort befindest, schaltet sich die Funktion in deiner App frei. Mit deinem Klick vor Ort bestätigst du die Richtigkeit der Meldung und hilfst, die Karte fehlerfrei zu halten.</p>
                 </div>
             </div>
-
         </div>
     </div>
 
@@ -426,11 +430,11 @@
         <div class="guide-card">
             <p style="color: #555; line-height: 1.5; margin-top: 0;">Du kannst StepFree wie eine ganz normale App auf deinem Smartphone installieren – völlig ohne App-Store. Dadurch hast du sie unterwegs mit nur einem Klick sofort parat:</p>
             
-                      <div class="step" style="margin-top: 15px;">
+            <div class="step" style="margin-top: 15px;">
                 <div class="step-icon" style="background: #f0f4f8; font-size: 16px; font-weight: bold; color: #2c3e50;">iOS</div>
                 <div class="step-text">
                     <h3>Anleitung für iPhone (Safari Browser)</h3>
-                    <p>Öffne die StepFree-Webseite in Safari. Tippe unten in der Leiste auf das <b>Teilen-Symbol</b> (Quadrat mit Pfeil nach oben). Scrolle etwas nach unten und wähle den Punkt <b>"Zum Home-Bildschirm"</b> aus. Bestätige mit "Hinzufügen".</p>
+                    <p>Öffne die StepFree-Webseite in Safari. Tippe unten in der Leiste auf das <b>Teilen-Symbol</b> (Quadrat mit Pfeil nach oben). Scrolle etwas nach unten und wähle den point <b>"Zum Home-Bildschirm"</b> aus. Bestätige mit "Hinzufügen".</p>
                 </div>
             </div>
 
@@ -452,13 +456,13 @@
         StepFree - Accessibility Map &copy; 2026
     </footer>
 </div>
+
 <script>
 function toggleMenu() {
     const menu = document.getElementById('dropdownMenu');
     menu.classList.toggle('show');
 }
 
-// Schließt das Menü, wenn man irgendwo anders hinklickt
 window.onclick = function(event) {
     if (!event.target.matches('.menu-trigger')) {
         const dropdowns = document.getElementsByClassName("menu-panel");
@@ -471,6 +475,5 @@ window.onclick = function(event) {
     }
 }
 </script>
-
 </body>
 </html>
