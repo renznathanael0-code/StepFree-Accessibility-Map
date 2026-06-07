@@ -414,27 +414,40 @@ function adminReviewDone(id) {
 }
 
 function downloadBackup() {
-    // Die echte Admin-Sperre greift wieder, sobald das Passwort-Prompt im Echtbetrieb läuft
-    if (!isAdmin) return alert("Nur für Admins!");
+    // 1. Status-Update (falls vorhanden) oder Konsolen-Info
+    if (typeof updateStatus === 'function') {
+        updateStatus("Lade Live-Daten aus Firebase... ⏳", "#3498db");
+    } else {
+        alert("Backup gestartet, lade Daten...");
+    }
     
-    try {
-        const datenQuelle = typeof reportsData !== 'undefined' ? reportsData : null;
-        
-        if (!datenQuelle) {
-            if (typeof updateStatus === 'function') updateStatus("Fehler: Keine Daten! ❌", "#e74c3c");
+    // 2. DEINE FIREBASE URL HIER EINTRAGEN
+    // Ersetze das unten durch deine echte Firebase-Realtime-Database URL!
+    // Am Ende muss das /markers.json (oder wie dein Knoten heißt) stehen!
+    const firebaseDbUrl = "https://DEIN-PROJEKTNAME-DEFAULT-RTDB.firebaseio.com/markers.json";
+
+    // 3. Wir holen die Daten direkt per fetch-Befehl von Firebase (funktioniert überall!)
+    fetch(firebaseDbUrl)
+    .then(response => {
+        if (!response.ok) throw new Error("Netzwerk-Fehler beim Laden der Firebase-Daten");
+        return response.json();
+    })
+    .then(data => {
+        if (!data) {
+            alert("Fehler: Keine Daten in Firebase gefunden oder Knotenname falsch!");
             return;
         }
 
-        // JSON-String und Blob generieren (sicher für iOS & große Datenmengen)
-        const dataStr = JSON.stringify(datenQuelle, null, 2);
+        // 4. JSON-String und Blob generieren (sicher für iOS)
+        const dataStr = JSON.stringify(data, null, 2);
         const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
         const dataUri = URL.createObjectURL(blob);
         
-        // Dateiname mit ISO-Datum (YYYY-MM-DD)
+        // Dateiname mit ISO-Datum
         const dateStr = new Date().toISOString().split('T')[0];
         const dateiname = 'stepfree_backup_' + dateStr + '.json';
         
-        // Unsichtbaren Link erstellen und in den Body einhängen (Wichtig für Safari/iPad!)
+        // 5. Den unsichtbaren Link erstellen und ins Dokument einhängen (Wichtig für iPad!)
         const linkElement = document.createElement('a');
         linkElement.href = dataUri;
         linkElement.download = dateiname;
@@ -443,25 +456,25 @@ function downloadBackup() {
         document.body.appendChild(linkElement);
         linkElement.click();
         
-        // Speicherbereinigung nach dem Download
+        // Aufräumen
         setTimeout(() => {
             document.body.removeChild(linkElement);
             URL.revokeObjectURL(dataUri);
         }, 100);
         
         if (typeof updateStatus === 'function') {
-            updateStatus("Backup erstellt! 💾", "#2ecc71");
+            updateStatus("Backup erfolgreich exportiert! 💾", "#2ecc71");
+        } else {
+            alert("Backup erfolgreich heruntergeladen!");
         }
-
-    } catch (fehler) {
+    })
+    .catch(fehler => {
         console.error("Backup-Fehler:", fehler);
-        if (typeof updateStatus === 'function') updateStatus("Kritischer Fehler! ❌", "#e74c3c");
-    }
+        alert("Kritischer Fehler beim Backup:\n" + fehler.message);
+    });
 }
 
-// Damit der Button im HTML funktioniert
 window.downloadBackup = downloadBackup;
-
 
 function toggleMenu() {
     const menu = document.getElementById('side-menu');
