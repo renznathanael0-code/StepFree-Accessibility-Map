@@ -415,45 +415,56 @@ function adminReviewDone(id) {
 
 function downloadBackup() {
     if (typeof updateStatus === 'function') {
-        updateStatus("Lade Live-Daten für Backup... ⏳", "#3498db");
+        updateStatus("Erstelle Backup... ⏳", "#3498db");
     }
 
-    // Wir holen die Daten über das offizielle SDK, das umgeht den Netzwerkfehler!
-    // Passe 'markers' an den Namen deines Knotens an, falls er anders heißt
-    firebase.database().ref('markers').once('value').then((snapshot) => {
-        const data = snapshot.val();
+    try {
+        const datenQuelle = typeof reportsData !== 'undefined' ? reportsData : null;
         
-        if (!data) {
-            alert("Fehler: Keine Daten in Firebase gefunden!");
+        if (!datenQuelle) {
+            if (typeof updateStatus === 'function') updateStatus("Fehler: Keine Daten im Speicher! ❌", "#e74c3c");
             return;
         }
 
-        // Der bewährte iPad-Sicherheits-Download
-        const dataStr = JSON.stringify(data, null, 2);
+        // JSON-String generieren
+        const dataStr = JSON.stringify(datenQuelle, null, 2);
+        
+        // Der funktionierende Blob-Weg fürs iPad
         const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
         const dataUri = URL.createObjectURL(blob);
         
+        // Dateiname mit aktuellem Datum
         const dateStr = new Date().toISOString().split('T')[0];
+        const dateiname = 'stepfree_backup_' + dateStr + '.json';
+        
+        // Link erstellen und zwingend in den Body einhängen (iOS-Fix!)
         const linkElement = document.createElement('a');
         linkElement.href = dataUri;
-        linkElement.download = `stepfree_backup_${dateStr}.json`;
+        linkElement.download = dateiname;
         linkElement.style.display = 'none';
         
         document.body.appendChild(linkElement);
         linkElement.click();
         
+        // Nach dem Klick aufräumen
         setTimeout(() => {
             document.body.removeChild(linkElement);
             URL.revokeObjectURL(dataUri);
         }, 100);
         
         if (typeof updateStatus === 'function') {
-            updateStatus("Backup erfolgreich! 💾", "#2ecc71");
+            updateStatus("Backup erfolgreich erstellt! 💾", "#2ecc71");
         }
-    }).catch((fehler) => {
-        alert("Fehler beim Firebase-Zugriff:\n" + fehler.message);
-    });
+
+    } catch (fehler) {
+        console.error("Backup-Fehler:", fehler);
+        if (typeof updateStatus === 'function') {
+            updateStatus("Kritischer Fehler! ❌", "#e74c3c");
+        }
+    }
 }
+
+// Damit der Button im HTML funktioniert
 window.downloadBackup = downloadBackup;
 
 function toggleMenu() {
