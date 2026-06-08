@@ -10,10 +10,8 @@ if (isAdminPage) {
 
 const DATA_URL = "https://stepfree-7c252-default-rtdb.europe-west1.firebasedatabase.app/mapdata.json";
 let map, myLocationMarker, reportsData = [], activeMarkers = {};
-// Globale Variable für die aktuell ausgewählten Filter-Badges
 let activeSelectedFilters = [];
 
-// Distanzberechnung für den Vor-Ort-Check
 function getDistance(lat1, lon1, lat2, lon2) {
     const R = 6371; 
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -21,20 +19,17 @@ function getDistance(lat1, lon1, lat2, lon2) {
     const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
               Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c; // Kilometer
+    return R * c; 
 }
 
 async function initApp() {
     const splash = document.getElementById('splash-screen');
-    
-    // Karte initialisieren
     map = L.map('map').setView([48.775, 9.182], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     
     map.on('click', e => openSelectionPopup(e.latlng));
     setupLocationTracking();
 
-    // Suchleiste hinzufügen
     L.Control.geocoder({
         position: 'topleft',
         defaultMarkGeocode: false,
@@ -43,20 +38,13 @@ async function initApp() {
     })
     .on('markgeocode', function(e) {
         var bbox = e.geocode.bbox;
-        var poly = L.polygon([
-            bbox.getSouthEast(),
-            bbox.getNorthEast(),
-            bbox.getNorthWest(),
-            bbox.getSouthWest()
-        ]);
+        var poly = L.polygon([bbox.getSouthEast(), bbox.getNorthEast(), bbox.getNorthWest(), bbox.getSouthWest()]);
         map.fitBounds(poly.getBounds());
     })
     .addTo(map);
 
-    // Daten laden
     await loadFromCommunity();
 
-    // Event-Listener für Kartenbewegung
     map.on('moveend', drawMarkersOnMap);
     map.on('zoomend', drawMarkersOnMap);
 
@@ -99,6 +87,16 @@ async function loadFromCommunity() {
             
             if (result && result.markers) {
                 reportsData = result.markers;
+                
+                // --- AUTOMATISCHE BEREINIGUNG BEIM LADEN ---
+                // Filtert abgelaufene temporäre Marker direkt heraus
+                const jetzt = Date.now();
+                const valideMarker = reportsData.filter(r => !r.expiresAt || r.expiresAt > jetzt);
+                
+                if (valideMarker.length !== reportsData.length) {
+                    reportsData = valideMarker;
+                    saveToCommunity(); // Datenbank im Hintergrund aufräumen
+                }
             } else {
                 reportsData = [];
             }
@@ -142,25 +140,20 @@ function updateStatus(text, color) {
     }
 }
 
-// --- FUNKTIONEN FÜR DIE FILTER-BADGES ---
 function toggleFilterBadge(button) {
     const value = button.getAttribute('data-value');
     
     if (activeSelectedFilters.includes(value)) {
-        // Deaktivieren: Aus dem Array löschen und Button zurücksetzen
         activeSelectedFilters = activeSelectedFilters.filter(f => f !== value);
         button.style.background = "#f0f3f4";
         button.style.color = "#2c3e50";
         button.style.borderColor = "#d5dbdb";
     } else {
-        // Aktivieren: Ins Array werfen und Button blau färben
         activeSelectedFilters.push(value);
         button.style.background = "#3498db";
         button.style.color = "white";
         button.style.borderColor = "#2980b9";
     }
-    
-    // Karte sofort aktualisieren
     drawMarkersOnMap();
 }
 
@@ -180,22 +173,21 @@ function drawMarkersOnMap() {
 
     const isAdminPage = window.location.pathname.includes("admin.html");
     const bounds = map.getBounds();
+    const jetzt = Date.now();
 
     Object.values(activeMarkers).forEach(m => map.removeLayer(m));
     activeMarkers = {};
     
     reportsData.forEach((r, index) => {
+        // Falls ein abgelaufener Marker noch existiert, nicht zeichnen
+        if (r.expiresAt && r.expiresAt < jetzt) return;
+
         const latLng = L.latLng(r.lat, r.lng);
         if (!bounds.contains(latLng)) return;
 
-        // Abwärtskompatibilität: Konvertiert alte Strings sauber in Arrays
         let markerTypes = Array.isArray(r.typ) ? r.typ : [r.typ];
-        
-        // Altdaten-Korrektur für einheitliches Matching
         markerTypes = markerTypes.map(t => t === "WC barrierefrei" ? "WC" : t);
 
-        // --- MULTI-FILTER-MATCHING LOGIK (ODER-Modus) ---
-        // Wenn Filter gewählt sind, muss der Marker mindestens EINEN davon erfüllen
         if (activeSelectedFilters.length > 0) {
             const matchesAny = activeSelectedFilters.some(filter => {
                 return markerTypes.some(t => t.includes(filter) || filter.includes(t));
@@ -203,7 +195,7 @@ function drawMarkersOnMap() {
             if (!matchesAny) return; 
         }
 
-        // --- EMOJI & FARB-LOGIK ---
+        // --- EMOJI & FARB-LOGIK ERWEITERT ---
         let emoji = "📍";
         let markerFarbe = r.farbe || "#9B59B6"; 
 
@@ -216,6 +208,8 @@ function drawMarkersOnMap() {
             else if (singleType.includes("Treppe")) { emoji = "🪜"; markerFarbe = "#E74C3C"; }
             else if (singleType.includes("defekt")) { emoji = "🛗"; markerFarbe = "#E67E22"; }
             else if (singleType.includes("Baustelle")) { emoji = "🚧"; markerFarbe = "#F1C40F"; }
+            else if (singleType.includes("E-Scooter")) { emoji = "🛴"; markerFarbe = "#D35400"; } // Orange-Rot
+            else if (singleType.includes("Mülltonne")) { emoji = "🗑️"; markerFarbe = "#7F8C8D"; } // Grau
             else if (singleType.includes("Aufzug vorhanden")) { emoji = "🛗"; markerFarbe = "#27AE60"; }
             else if (singleType.includes("Rampe vorhanden")) { emoji = "📐"; markerFarbe = "#16A085"; }
             else if (singleType.includes("WC")) { emoji = "🚽"; markerFarbe = "#2ECC71"; }
@@ -267,6 +261,12 @@ function drawMarkersOnMap() {
         });
         content += `</div>`;
 
+        // Zeigt verbleibende Zeit für temporäre Meldungen an
+        if (r.expiresAt) {
+            const restStunden = Math.round((r.expiresAt - jetzt) / (1000 * 60 * 60));
+            content += `<p style="margin: 2px 0; font-size: 0.85em; color: #e67e22;">⏱️ Automatisch weg in ca. <b>${restStunden} Std.</b></p>`;
+        }
+
         content += `
                 <p style="margin: 8px 0; color:#555; font-style:italic;">"${r.kommentar || 'Keine Zusatzinfos'}"</p>
                 <div style="background:#eee; padding:5px; border-radius:5px; text-align:center; margin-bottom:10px; font-size: 0.9em;">
@@ -289,8 +289,13 @@ function drawMarkersOnMap() {
                     <button onclick="directDelete('${r.id}')" style="background:#e74c3c; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">🗑️ Löschen</button>
                     <button onclick="askForCheck('${r.id}')" style="background:#3498db; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Check anfordern</button>
                 </div>`;
-        } else if (r.needsCheck) {
-            content += `<button onclick="verifyByLocation('${r.id}')" style="background:#f39c12; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Hier einchecken</button>`;
+        } else {
+            // --- LOGIK FÜR AUTOMATISCHEN VOR-ORT-CHECK ---
+            // Wenn es Scooter, Mülltonnen oder Baustellen sind, ODER vom Admin ein Check erzwungen wurde
+            const isTempType = markerTypes.some(t => t.includes("E-Scooter") || t.includes("Mülltonne") || t.includes("Baustelle"));
+            if (r.needsCheck || isTempType) {
+                content += `<button onclick="verifyByLocation('${r.id}')" style="background:#f39c12; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Hier einchecken & bestätigen</button>`;
+            }
         }
         
         content += `</div>`;
@@ -329,18 +334,38 @@ function askForCheck(id) {
     }
 }
 
+// --- AKTUALISIERTER LOKALER CHECK-IN (MIT ZEIT-VERLÄNGERUNG) ---
 function verifyByLocation(id) {
     updateStatus("Prüfe Standort...", "#3498db");
     navigator.geolocation.getCurrentPosition((pos) => {
         const report = reportsData.find(r => r.id === id);
+        if (!report) return;
+
         const dist = getDistance(pos.coords.latitude, pos.coords.longitude, report.lat, report.lng);
 
-        if (dist <= 0.05) { 
-            report.needsCheck = false;
+        if (dist <= 0.05) { // 50 Meter Radius
+            let markerTypes = Array.isArray(report.typ) ? report.typ : [report.typ];
+            
+            // Ablaufzeiten neu berechnen / verlängern
+            const einTag = 24 * 60 * 60 * 1000;
+            const siebenTage = 7 * einTag;
+            const basisZeit = report.expiresAt && report.expiresAt > Date.now() ? report.expiresAt : Date.now();
+
+            if (markerTypes.some(t => t.includes("E-Scooter") || t.includes("Mülltonne"))) {
+                report.expiresAt = basisZeit + einTag; // Um 24h verlängern
+                alert("Erfolgreich eingecheckt! Das Hindernis wurde um 24 Stunden verlängert.");
+            } else if (markerTypes.some(t => t.includes("Baustelle"))) {
+                report.expiresAt = basisZeit + siebenTage; // Um 7 Tage verlängern
+                alert("Erfolgreich eingecheckt! Die Baustelle wurde um 7 Tage verlängert.");
+            } else {
+                // Normaler Admin-Check-In
+                report.needsCheck = false;
+                alert("Erfolgreich verifiziert!");
+            }
+
             report.verifiedAt = new Date().toLocaleString('de-DE');
             saveToCommunity();
             drawMarkersOnMap();
-            alert("Erfolgreich verifiziert!");
         } else {
             alert(`Check-In fehlgeschlagen! Du bist ${Math.round(dist * 1000)}m entfernt.`);
         }
@@ -361,6 +386,8 @@ function openSelectionPopup(latlng) {
           <label><input type="checkbox" name="typ" value="Treppe"> 🪜 Treppe melden</label>
           <label><input type="checkbox" name="typ" value="Aufzug defekt"> 🛗 Aufzug defekt</label>
           <label><input type="checkbox" name="typ" value="Baustelle"> 🚧 Baustelle</label>
+          <label><input type="checkbox" name="typ" value="E-Scooter"> 🛴 E-Scooter im Weg</label>
+          <label><input type="checkbox" name="typ" value="Mülltonne"> 🗑️ Mülltonne blockiert</label>
           
           <hr style="margin: 5px 0; border: none; border-top: 1px solid #ccc;">
           
@@ -380,7 +407,7 @@ function openSelectionPopup(latlng) {
           <hr style="margin: 8px 0; border: none; border-top: 1px solid #ccc;">
           
           <strong>Zusatzinformationen:</strong>
-          <input type="text" id="multiDetails" placeholder="optional..." style="padding: 8px; border: 1px solid #ccc; border-radius: 6px; width: 93%;">
+          <input type="text" id="multiDetails" placeholder="z.B. Rampe im 1. OG, WC im EG..." style="padding: 8px; border: 1px solid #ccc; border-radius: 6px; width: 93%;">
           
           <button type="submit" style="background:#27AE60; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:10px; font-size:1em;">💾 Eintrag speichern</button>
         </div>
@@ -389,6 +416,7 @@ function openSelectionPopup(latlng) {
   L.popup().setLatLng(latlng).setContent(content).openOn(map);
 }
 
+// --- AKTUALISIERTES SPEICHERN MIT TEMPORÄREN ZEITSTEMPELN ---
 function finalizeMultiReport(event, lat, lng) {
     event.preventDefault();
     const checkboxes = document.querySelectorAll('#multiReportForm input[name="typ"]:checked');
@@ -401,6 +429,17 @@ function finalizeMultiReport(event, lat, lng) {
     
     const kommentarText = document.getElementById('multiDetails').value;
     
+    // Fristen berechnen
+    const einTag = 24 * 60 * 60 * 1000;
+    const siebenTage = 7 * einTag;
+    let ablaufZeit = null;
+
+    if (gewaehlteTypen.some(t => t === "E-Scooter" || t === "Mülltonne")) {
+        ablaufZeit = Date.now() + einTag;
+    } else if (gewaehlteTypen.some(t => t === "Baustelle")) {
+        ablaufZeit = Date.now() + siebenTage;
+    }
+    
     reportsData.push({
         lat: lat, 
         lng: lng, 
@@ -409,7 +448,8 @@ function finalizeMultiReport(event, lat, lng) {
         kommentar: kommentarText || "", 
         id: "id_" + Date.now(), 
         votes: 0, 
-        status: "new" 
+        status: "new",
+        expiresAt: ablaufZeit // Wird in Firebase mitgespeichert
     });
     
     drawMarkersOnMap();
