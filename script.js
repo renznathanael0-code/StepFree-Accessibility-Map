@@ -2,16 +2,23 @@ const isAdminPage = window.location.pathname.includes("admin.html");
 
 if (isAdminPage) {
     setTimeout(async () => {
-        // Tippe hier zwischen die Anführungszeichen DEIN Wunschpasswort ein:
-        const meinNeuesPasswort = "FwiS!"; 
+        // 1. Tippe HIER zwischen die Anführungszeichen dein Wunschpasswort ein:
+        const meinNeuesPasswort = "HIER_DEIN_PASSWORT_REINSCHREIBEN"; 
         
+        // Hash berechnen
         const msgBuffer = new TextEncoder().encode(meinNeuesPasswort);
         const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         
-        // Zeigt dir den exakten Hash an
-        alert("Kopiere diesen Hash:\n\n" + hashHex);
+        // Schreibt den Hash als Textfeld ganz oben auf die Seite, damit du ihn kopieren kannst
+        document.body.insertAdjacentHTML('afterbegin', `
+            <div style="position:fixed; top:10px; left:10px; z-index:99999; background:white; padding:20px; border:3px solid #3498db; border-radius:8px; font-family:sans-serif;">
+                <p style="margin:0 0 10px 0; font-weight:bold; color:#2c3e50;">Kopiere diesen Hash für deinen Code:</p>
+                <input type="text" value="${hashHex}" readonly style="width:500px; padding:10px; font-size:14px; font-family:monospace;" onclick="this.select()">
+                <p style="margin:10px 0 0 0; font-size:12px; color:#7f8c8d;">(Einfach in das Feld klicken, Rechtsklick -> Kopieren)</p>
+            </div>
+        `);
     }, 100);
 }
 
