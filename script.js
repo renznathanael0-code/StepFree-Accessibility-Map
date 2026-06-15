@@ -2,10 +2,29 @@ const isAdminPage = window.location.pathname.includes("admin.html");
 
 if (isAdminPage) {
     const login = prompt("StepFree Admin-Bereich\nBitte Passwort eingeben:");
-    if (btoa(login) !== "ZldpUyE=") { 
-        alert("Zugriff verweigert!");
-        window.location.href = "index.html"; 
+    
+    // Funktion zur Erstellung eines unumkehrbaren SHA-256 Hashes
+    async function checkAdminPassword(password) {
+        if (!password) return false;
+        // Wandelt das eingegebene Passwort in ein Byte-Array um
+        const msgBuffer = new TextEncoder().encode(password);
+        // Hasht das Passwort mit dem Krypto-Modul des Browsers (SHA-256)
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        // Wandelt das Ergebnis in einen lesbaren Hex-String um
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        // Das ist der unumkehrbare Hash für das NEUE Passwort "sFiS!"
+        return hashHex === "6015cbb9bf5a770be8db75b758253fe9844be059f8a37912e737970d4734563a";
     }
+
+    // Prüfung ausführen
+    checkAdminPassword(login).then(isValid => {
+        if (!isValid) {
+            alert("Zugriff verweigert!");
+            window.location.href = "index.html"; 
+        }
+    });
 }
 
 const DATA_URL = "https://stepfree-7c252-default-rtdb.europe-west1.firebasedatabase.app/mapdata.json";
