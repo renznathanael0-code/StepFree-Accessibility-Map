@@ -2,24 +2,26 @@ const isAdminPage = window.location.pathname.includes("admin.html");
 
 if (isAdminPage) {
     setTimeout(async () => {
-        // 1. Tippe HIER zwischen die Anführungszeichen dein Wunschpasswort ein:
-        const meinNeuesPasswort = "HIER_DEIN_PASSWORT_REINSCHREIBEN"; 
+        const login = prompt("StepFree Admin-Bereich\nBitte Passwort eingeben:");
         
-        // Hash berechnen
-        const msgBuffer = new TextEncoder().encode(meinNeuesPasswort);
+        if (!login) {
+            window.location.href = "index.html";
+            return;
+        }
+
+        const msgBuffer = new TextEncoder().encode(login);
         const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         
-        // Schreibt den Hash als Textfeld ganz oben auf die Seite, damit du ihn kopieren kannst
-        document.body.insertAdjacentHTML('afterbegin', `
-            <div style="position:fixed; top:10px; left:10px; z-index:99999; background:white; padding:20px; border:3px solid #3498db; border-radius:8px; font-family:sans-serif;">
-                <p style="margin:0 0 10px 0; font-weight:bold; color:#2c3e50;">Kopiere diesen Hash für deinen Code:</p>
-                <input type="text" value="${hashHex}" readonly style="width:500px; padding:10px; font-size:14px; font-family:monospace;" onclick="this.select()">
-                <p style="margin:10px 0 0 0; font-size:12px; color:#7f8c8d;">(Einfach in das Feld klicken, Rechtsklick -> Kopieren)</p>
-            </div>
-        `);
-    }, 100);
+        // FÜGE HIER DEINEN KOPIERTEN HASH EIN:
+        if (hashHex === "b6e97cdceff5afead6676708d2261e8a915078ff0f2fa77856aae786ad6ac78c") {
+            console.log("Admin erfolgreich eingeloggt.");
+        } else {
+            alert("Zugriff verweigert!");
+            window.location.href = "index.html";
+        }
+    }, 100); 
 }
 
 const DATA_URL = "https://stepfree-7c252-default-rtdb.europe-west1.firebasedatabase.app/mapdata.json";
