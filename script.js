@@ -14,7 +14,7 @@ if (isAdminPage) {
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         
-        // Das ist der unumkehrbare Hash für das NEUE Passwort "sFiS!"
+        
         return hashHex === "6015cbb9bf5a770be8db75b758253fe9844be059f8a37912e737970d4734563a";
     }
 
