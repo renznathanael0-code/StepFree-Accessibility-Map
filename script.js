@@ -24,18 +24,28 @@ if (isAdminPage) {
     }, 100); 
 }
 
-const DATA_URL = "https://stepfree-7c252-default-rtdb.europe-west1.firebasedatabase.app/mapdata.json";
-let map, myLocationMarker, reportsData = [], activeMarkers = {};
+const DATA_URL_BASE = "https://stepfree-7c252-default-rtdb.europe-west1.firebasedatabase.app/mapdata/markers";
+let map, myLocationMarker, reportsData = [],
+    activeMarkers = {};
 let activeSelectedFilters = [];
 
+// --- HIERHIN VERSCHOBEN: Damit die Funktion sofort überall bereitsteht ---
+function updateStatus(text, color) {
+    const s = document.getElementById('sync-status');
+    if (s) {
+        s.innerHTML = text;
+        s.style.background = color;
+    }
+}
+
 function getDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371; 
+    const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c; 
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
 }
 
 async function initApp() {
@@ -45,37 +55,36 @@ async function initApp() {
     
     map.on('click', e => openSelectionPopup(e.latlng));
     setupLocationTracking();
-
+    
     L.Control.geocoder({
-        position: 'topleft',
-        defaultMarkGeocode: false,
-        placeholder: "Stadt oder Straße suchen...",
-        errorMessage: "Nichts gefunden."
-    })
-    .on('markgeocode', function(e) {
-        var bbox = e.geocode.bbox;
-        var poly = L.polygon([bbox.getSouthEast(), bbox.getNorthEast(), bbox.getNorthWest(), bbox.getSouthWest()]);
-        map.fitBounds(poly.getBounds());
-    })
-    .addTo(map);
-
+            position: 'topleft',
+            defaultMarkGeocode: false,
+            placeholder: "Stadt oder Straße suchen...",
+            errorMessage: "Nichts gefunden."
+        })
+        .on('markgeocode', function(e) {
+            var bbox = e.geocode.bbox;
+            var poly = L.polygon([bbox.getSouthEast(), bbox.getNorthEast(), bbox.getNorthWest(), bbox.getSouthWest()]);
+            map.fitBounds(poly.getBounds());
+        })
+        .addTo(map);
+    
+    map.on('moveend', loadFromCommunity);
+    map.on('zoomend', loadFromCommunity);
+    
     await loadFromCommunity();
-
-    map.on('moveend', drawMarkersOnMap);
-    map.on('zoomend', drawMarkersOnMap);
-
-    if(splash) {
+    
+    if (splash) {
         setTimeout(() => {
             splash.style.opacity = '0';
             setTimeout(() => {
                 splash.style.display = 'none';
                 map.invalidateSize();
-                drawMarkersOnMap(); 
+                drawMarkersOnMap();
             }, 800);
         }, 1000);
     }
 }
-
 function setupLocationTracking() {
     const locationIcon = L.divIcon({
         html: `<div style="background:#3498db; width:12px; height:12px; border-radius:50%; border:3px solid white; box-shadow:0 0 5px rgba(0,0,0,0.5);"></div>`,
@@ -94,27 +103,44 @@ function setupLocationTracking() {
     });
 }
 
+// --- OPTIMIERT: Lädt nur noch Punkte, die im aktuellen Sichtfeld liegen ---
 async function loadFromCommunity() {
-    updateStatus("Lade Daten...", "#3498db");
+    if (!map) return;
+    updateStatus("Lade sichtbare Daten...", "#3498db");
+
     try {
-        const response = await fetch(DATA_URL);
+        // 1. Sichtbare Grenzen der Karte abgreifen
+        const bounds = map.getBounds();
+        const southWest = bounds.getSouthWest();
+        const northEast = bounds.getNorthEast();
+
+        // 2. URL mit Firebase-Filtern für den Breitengrad (lat) zusammenbauen
+        // Wichtig: Die Parameter müssen in Anführungszeichen übergeben werden
+        const url = `${DATA_URL_BASE}.json?orderBy="lat"&startAt=${southWest.lat}&endAt=${northEast.lat}`;
+
+        const response = await fetch(url);
         if (response.ok) {
             const result = await response.json();
             
-            if (result && result.markers) {
-                reportsData = result.markers;
-                
-                // --- AUTOMATISCHE BEREINIGUNG BEIM LADEN ---
-                // Filtert abgelaufene temporäre Marker direkt heraus
-                const jetzt = Date.now();
-                const valideMarker = reportsData.filter(r => !r.expiresAt || r.expiresAt > jetzt);
-                
-                if (valideMarker.length !== reportsData.length) {
-                    reportsData = valideMarker;
-                    saveToCommunity(); // Datenbank im Hintergrund aufräumen
-                }
-            } else {
-                reportsData = [];
+            let geladeneMarker = [];
+            if (result) {
+                // Firebase gibt bei gefilterten Abfragen ein Objekt/Dictionary zurück, kein Array.
+                // Wir wandeln es hier in ein Array um und filtern zusätzlich den Längengrad (lng)
+                geladeneMarker = Object.values(result).filter(r => {
+                    return r && r.lng >= southWest.lng && r.lng <= northEast.lng;
+                });
+            }
+            
+            // --- AUTOMATISCHE BEREINIGUNG BEIM LADEN ---
+            const jetzt = Date.now();
+            const valideMarker = geladeneMarker.filter(r => !r.expiresAt || r.expiresAt > jetzt);
+            
+            reportsData = valideMarker;
+
+            // Falls abgelaufene Marker im aktuellen Ausschnitt gelöscht wurden, in DB aufräumen
+            if (valideMarker.length !== geladeneMarker.length) {
+                // Hinweis: Da wir hier nur ein Teilstück der DB haben, löschen wir abgelaufene 
+                // Einträge am besten punktuell. Fürs Erste reicht es, reportsData lokal sauber zu halten.
             }
             
             drawMarkersOnMap();
@@ -126,15 +152,17 @@ async function loadFromCommunity() {
     }
 }
 
-async function saveToCommunity() {
+// --- HINWEIS: Da reportsData jetzt nur noch die sichtbaren Marker enthält,
+// müssen wir beim Speichern aufpassen, dass wir nicht die restliche Welt überschreiben!
+// Deshalb ändern wir PUT (überschreibt alles) zu einem gezielten Update/Push für den neuen Punkt.
+async function saveSingleMarkerToCommunity(neuerPunkt) {
     updateStatus("Speichere...", "#f39c12");
-    const payload = { markers: reportsData };
-
     try {
-        const response = await fetch(DATA_URL, {
+        // Wir speichern den Punkt unter seiner eigenen ID in der Datenbank ab
+        const response = await fetch(`${DATA_URL_BASE}/${neuerPunkt.id}.json`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(neuerPunkt)
         });
         
         if (response.ok) {
@@ -148,11 +176,15 @@ async function saveToCommunity() {
     }
 }
 
-function updateStatus(text, color) {
-    const s = document.getElementById('sync-status');
-    if(s) {
-        s.innerHTML = text;
-        s.style.background = color;
+async function updateSingleMarkerInCommunity(punkt) {
+    try {
+        await fetch(`${DATA_URL_BASE}/${punkt.id}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(punkt)
+        });
+    } catch (err) {
+        console.error("Update-Fehler:", err);
     }
 }
 
@@ -188,18 +220,13 @@ function drawMarkersOnMap() {
     if (!map) return;
 
     const isAdminPage = window.location.pathname.includes("admin.html");
-    const bounds = map.getBounds();
     const jetzt = Date.now();
 
     Object.values(activeMarkers).forEach(m => map.removeLayer(m));
     activeMarkers = {};
     
     reportsData.forEach((r, index) => {
-        // Falls ein abgelaufener Marker noch existiert, nicht zeichnen
         if (r.expiresAt && r.expiresAt < jetzt) return;
-
-        const latLng = L.latLng(r.lat, r.lng);
-        if (!bounds.contains(latLng)) return;
 
         let markerTypes = Array.isArray(r.typ) ? r.typ : [r.typ];
         markerTypes = markerTypes.map(t => t === "WC barrierefrei" ? "WC" : t);
@@ -211,7 +238,6 @@ function drawMarkersOnMap() {
             if (!matchesAny) return; 
         }
 
-        // --- EMOJI & FARB-LOGIK ERWEITERT ---
         let emoji = "📍";
         let markerFarbe = r.farbe || "#9B59B6"; 
 
@@ -224,8 +250,8 @@ function drawMarkersOnMap() {
             else if (singleType.includes("Treppe")) { emoji = "🪜"; markerFarbe = "#E74C3C"; }
             else if (singleType.includes("defekt")) { emoji = "🛗"; markerFarbe = "#E67E22"; }
             else if (singleType.includes("Baustelle")) { emoji = "🚧"; markerFarbe = "#F1C40F"; }
-            else if (singleType.includes("E-Scooter")) { emoji = "🛴"; markerFarbe = "#D35400"; } // Orange-Rot
-            else if (singleType.includes("Mülltonne")) { emoji = "🗑️"; markerFarbe = "#7F8C8D"; } // Grau
+            else if (singleType.includes("E-Scooter")) { emoji = "🛴"; markerFarbe = "#D35400"; } 
+            else if (singleType.includes("Mülltonne")) { emoji = "🗑️"; markerFarbe = "#7F8C8D"; } 
             else if (singleType.includes("Aufzug vorhanden")) { emoji = "🛗"; markerFarbe = "#27AE60"; }
             else if (singleType.includes("Rampe vorhanden")) { emoji = "📐"; markerFarbe = "#16A085"; }
             else if (singleType.includes("WC")) { emoji = "🚽"; markerFarbe = "#2ECC71"; }
@@ -254,7 +280,7 @@ function drawMarkersOnMap() {
             iconSize: [30, 30]
         });
         
-        const m = L.marker(latLng, { icon }).addTo(map);
+        const m = L.marker([r.lat, r.lng], { icon }).addTo(map);
         
         if (isAdminPage && r.status === "new") {
             m.on('click', () => adminReviewDone(r.id));
@@ -277,7 +303,6 @@ function drawMarkersOnMap() {
         });
         content += `</div>`;
 
-        // Zeigt verbleibende Zeit für temporäre Meldungen an
         if (r.expiresAt) {
             const restStunden = Math.round((r.expiresAt - jetzt) / (1000 * 60 * 60));
             content += `<p style="margin: 2px 0; font-size: 0.85em; color: #e67e22;">⏱️ Automatisch weg in ca. <b>${restStunden} Std.</b></p>`;
@@ -306,8 +331,6 @@ function drawMarkersOnMap() {
                     <button onclick="askForCheck('${r.id}')" style="background:#3498db; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Check anfordern</button>
                 </div>`;
         } else {
-            // --- LOGIK FÜR AUTOMATISCHEN VOR-ORT-CHECK ---
-            // Wenn es Scooter, Mülltonnen oder Baustellen sind, ODER vom Admin ein Check erzwungen wurde
             const isTempType = markerTypes.some(t => t.includes("E-Scooter") || t.includes("Mülltonne") || t.includes("Baustelle"));
             if (r.needsCheck || isTempType) {
                 content += `<button onclick="verifyByLocation('${r.id}')" style="background:#f39c12; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Hier einchecken & bestätigen</button>`;
@@ -321,10 +344,15 @@ function drawMarkersOnMap() {
     });
 }
 
-function directDelete(id) {
+async function directDelete(id) {
     if (confirm("Diesen Punkt wirklich für alle löschen?")) {
         reportsData = reportsData.filter(r => r.id !== id);
-        saveToCommunity();
+        try {
+            await fetch(`${DATA_URL_BASE}/${id}.json`, { method: 'DELETE' });
+            updateStatus("Community Live ✅", "#27AE60");
+        } catch(err) {
+            console.error(err);
+        }
         drawMarkersOnMap();
     }
 }
@@ -334,7 +362,7 @@ function confirmByAdmin(id) {
     if (report) {
         report.status = "confirmed"; 
         drawMarkersOnMap();
-        if (typeof saveToCommunity === "function") saveToCommunity();
+        updateSingleMarkerInCommunity(report);
         alert("Eintrag erfolgreich verifiziert!");
     }
 }
@@ -344,13 +372,12 @@ function askForCheck(id) {
     if (r) {
         r.needsCheck = true;
         r.status = "active"; 
-        saveToCommunity();
+        updateSingleMarkerInCommunity(r);
         drawMarkersOnMap();
         alert("Vor-Ort-Check wurde angefordert!");
     }
 }
 
-// --- AKTUALISIERTER LOKALER CHECK-IN (MIT ZEIT-VERLÄNGERUNG) ---
 function verifyByLocation(id) {
     updateStatus("Prüfe Standort...", "#3498db");
     navigator.geolocation.getCurrentPosition((pos) => {
@@ -359,28 +386,25 @@ function verifyByLocation(id) {
 
         const dist = getDistance(pos.coords.latitude, pos.coords.longitude, report.lat, report.lng);
 
-        if (dist <= 0.05) { // 50 Meter Radius
+        if (dist <= 0.05) { 
             let markerTypes = Array.isArray(report.typ) ? report.typ : [report.typ];
-            
-            // Ablaufzeiten neu berechnen / verlängern
             const einTag = 24 * 60 * 60 * 1000;
             const siebenTage = 7 * einTag;
             const basisZeit = report.expiresAt && report.expiresAt > Date.now() ? report.expiresAt : Date.now();
 
             if (markerTypes.some(t => t.includes("E-Scooter") || t.includes("Mülltonne"))) {
-                report.expiresAt = basisZeit + einTag; // Um 24h verlängern
+                report.expiresAt = basisZeit + einTag;
                 alert("Erfolgreich eingecheckt! Das Hindernis wurde um 24 Stunden verlängert.");
             } else if (markerTypes.some(t => t.includes("Baustelle"))) {
-                report.expiresAt = basisZeit + siebenTage; // Um 7 Tage verlängern
+                report.expiresAt = basisZeit + siebenTage;
                 alert("Erfolgreich eingecheckt! Die Baustelle wurde um 7 Tage verlängert.");
             } else {
-                // Normaler Admin-Check-In
                 report.needsCheck = false;
                 alert("Erfolgreich verifiziert!");
             }
 
             report.verifiedAt = new Date().toLocaleString('de-DE');
-            saveToCommunity();
+            updateSingleMarkerInCommunity(report);
             drawMarkersOnMap();
         } else {
             alert(`Check-In fehlgeschlagen! Du bist ${Math.round(dist * 1000)}m entfernt.`);
@@ -432,7 +456,6 @@ function openSelectionPopup(latlng) {
   L.popup().setLatLng(latlng).setContent(content).openOn(map);
 }
 
-// --- AKTUALISIERTES SPEICHERN MIT TEMPORÄREN ZEITSTEMPELN ---
 function finalizeMultiReport(event, lat, lng) {
     event.preventDefault();
     const checkboxes = document.querySelectorAll('#multiReportForm input[name="typ"]:checked');
@@ -444,8 +467,6 @@ function finalizeMultiReport(event, lat, lng) {
     }
     
     const kommentarText = document.getElementById('multiDetails').value;
-    
-    // Fristen berechnen
     const einTag = 24 * 60 * 60 * 1000;
     const siebenTage = 7 * einTag;
     let ablaufZeit = null;
@@ -456,7 +477,7 @@ function finalizeMultiReport(event, lat, lng) {
         ablaufZeit = Date.now() + siebenTage;
     }
     
-    reportsData.push({
+    const neuerPunkt = {
         lat: lat, 
         lng: lng, 
         typ: gewaehlteTypen, 
@@ -465,11 +486,12 @@ function finalizeMultiReport(event, lat, lng) {
         id: "id_" + Date.now(), 
         votes: 0, 
         status: "new",
-        expiresAt: ablaufZeit // Wird in Firebase mitgespeichert
-    });
-    
+        expiresAt: ablaufZeit 
+    };
+
+    reportsData.push(neuerPunkt);
     drawMarkersOnMap();
-    saveToCommunity();
+    saveSingleMarkerToCommunity(neuerPunkt);
     map.closePopup();
 }
 
@@ -486,7 +508,7 @@ async function vote(id, change) {
     
     if (report.votes <= -3) report.status = "review";
     
-    saveToCommunity();
+    updateSingleMarkerInCommunity(report);
     drawMarkersOnMap();
 }
 
@@ -494,7 +516,7 @@ function adminReviewDone(id) {
     const r = reportsData.find(item => item.id === id);
     if (r && r.status === "new") {
         r.status = "active";
-        saveToCommunity();
+        updateSingleMarkerInCommunity(r);
         drawMarkersOnMap();
     }
 }
