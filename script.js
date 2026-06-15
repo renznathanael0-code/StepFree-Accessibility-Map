@@ -2,26 +2,17 @@ const isAdminPage = window.location.pathname.includes("admin.html");
 
 if (isAdminPage) {
     setTimeout(async () => {
-        const login = prompt("StepFree Admin-Bereich\nBitte Passwort eingeben:");
+        // Tippe hier zwischen die Anführungszeichen DEIN Wunschpasswort ein:
+        const meinNeuesPasswort = "FwiS!"; 
         
-        if (!login) {
-            window.location.href = "index.html";
-            return;
-        }
-
-        const msgBuffer = new TextEncoder().encode(login);
+        const msgBuffer = new TextEncoder().encode(meinNeuesPasswort);
         const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         
-        // Der neue, absolut geheime Hash!
-        if (hashHex === "944a49c6cd956ef5ef3a55e9ba7e20ec6891eb86903fc5790089e9008d51db86") {
-            console.log("Admin erfolgreich eingeloggt.");
-        } else {
-            alert("Zugriff verweigert!");
-            window.location.href = "index.html";
-        }
-    }, 100); 
+        // Zeigt dir den exakten Hash an
+        alert("Kopiere diesen Hash:\n\n" + hashHex);
+    }, 100);
 }
 
 const DATA_URL = "https://stepfree-7c252-default-rtdb.europe-west1.firebasedatabase.app/mapdata.json";
