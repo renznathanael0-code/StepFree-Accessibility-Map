@@ -2,7 +2,7 @@
   "name": "StepFree – Accessibility Map",
   "short_name": "StepFree",
   "start_url": "./",
-  "display": "standalone",
+  "display": "fullscreen"
   "background_color": "#2193b0",
   "theme_color": "#2193b0",
   "icons": [
