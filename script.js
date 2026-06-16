@@ -3,18 +3,15 @@ const isAdminPage = window.location.pathname.includes("admin.html");
 if (isAdminPage) {
     setTimeout(async () => {
         const login = prompt("StepFree Admin-Bereich\nBitte Passwort eingeben:");
-        
         if (!login) {
             window.location.href = "index.html";
             return;
         }
-
         const msgBuffer = new TextEncoder().encode(login);
         const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         
-        // FÜGE HIER DEINEN KOPIERTEN HASH EIN:
         if (hashHex === "b6e97cdceff5afead6676708d2261e8a915078ff0f2fa77856aae786ad6ac78c") {
             console.log("Admin erfolgreich eingeloggt.");
         } else {
@@ -25,11 +22,9 @@ if (isAdminPage) {
 }
 
 const DATA_URL_BASE = "https://stepfree-7c252-default-rtdb.europe-west1.firebasedatabase.app/mapdata/markers";
-let map, myLocationMarker, reportsData = [],
-    activeMarkers = {};
+let map, myLocationMarker, reportsData = [], activeMarkers = {};
 let activeSelectedFilters = [];
 
-// --- HIERHIN VERSCHOBEN: Damit die Funktion sofort überall bereitsteht ---
 function updateStatus(text, color) {
     const s = document.getElementById('sync-status');
     if (s) {
@@ -85,6 +80,7 @@ async function initApp() {
         }, 1000);
     }
 }
+
 function setupLocationTracking() {
     const locationIcon = L.divIcon({
         html: `<div style="background:#3498db; width:12px; height:12px; border-radius:50%; border:3px solid white; box-shadow:0 0 5px rgba(0,0,0,0.5);"></div>`,
@@ -103,46 +99,26 @@ function setupLocationTracking() {
     });
 }
 
-// --- OPTIMIERT: Lädt nur noch Punkte, die im aktuellen Sichtfeld liegen ---
 async function loadFromCommunity() {
     if (!map) return;
     updateStatus("Lade sichtbare Daten...", "#3498db");
-
     try {
-        // 1. Sichtbare Grenzen der Karte abgreifen
         const bounds = map.getBounds();
         const southWest = bounds.getSouthWest();
         const northEast = bounds.getNorthEast();
-
-        // 2. URL mit Firebase-Filtern für den Breitengrad (lat) zusammenbauen
-        // Wichtig: Die Parameter müssen in Anführungszeichen übergeben werden
         const url = `${DATA_URL_BASE}.json?orderBy="lat"&startAt=${southWest.lat}&endAt=${northEast.lat}`;
 
         const response = await fetch(url);
         if (response.ok) {
             const result = await response.json();
-            
             let geladeneMarker = [];
             if (result) {
-                // Firebase gibt bei gefilterten Abfragen ein Objekt/Dictionary zurück, kein Array.
-                // Wir wandeln es hier in ein Array um und filtern zusätzlich den Längengrad (lng)
                 geladeneMarker = Object.values(result).filter(r => {
                     return r && r.lng >= southWest.lng && r.lng <= northEast.lng;
                 });
             }
-            
-            // --- AUTOMATISCHE BEREINIGUNG BEIM LADEN ---
             const jetzt = Date.now();
-            const valideMarker = geladeneMarker.filter(r => !r.expiresAt || r.expiresAt > jetzt);
-            
-            reportsData = valideMarker;
-
-            // Falls abgelaufene Marker im aktuellen Ausschnitt gelöscht wurden, in DB aufräumen
-            if (valideMarker.length !== geladeneMarker.length) {
-                // Hinweis: Da wir hier nur ein Teilstück der DB haben, löschen wir abgelaufene 
-                // Einträge am besten punktuell. Fürs Erste reicht es, reportsData lokal sauber zu halten.
-            }
-            
+            reportsData = geladeneMarker.filter(r => !r.expiresAt || r.expiresAt > jetzt);
             drawMarkersOnMap();
             updateStatus("Community Live ✅", "#27AE60");
         }
@@ -152,26 +128,16 @@ async function loadFromCommunity() {
     }
 }
 
-// --- HINWEIS: Da reportsData jetzt nur noch die sichtbaren Marker enthält,
-// müssen wir beim Speichern aufpassen, dass wir nicht die restliche Welt überschreiben!
-// Deshalb ändern wir PUT (überschreibt alles) zu einem gezielten Update/Push für den neuen Punkt.
 async function saveSingleMarkerToCommunity(neuerPunkt) {
     updateStatus("Speichere...", "#f39c12");
     try {
-        // Wir speichern den Punkt unter seiner eigenen ID in der Datenbank ab
         const response = await fetch(`${DATA_URL_BASE}/${neuerPunkt.id}.json`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(neuerPunkt)
         });
-        
-        if (response.ok) {
-            updateStatus("Community Live ✅", "#27AE60");
-        } else {
-            throw new Error("Firebase Fehler");
-        }
+        if (response.ok) updateStatus("Community Live ✅", "#27AE60");
     } catch (err) { 
-        console.error("Speicher-Fehler:", err);
         updateStatus("Sync-Fehler ❌", "#e74c3c");
     }
 }
@@ -190,35 +156,27 @@ async function updateSingleMarkerInCommunity(punkt) {
 
 function toggleFilterBadge(button) {
     const value = button.getAttribute('data-value');
-    
     if (activeSelectedFilters.includes(value)) {
         activeSelectedFilters = activeSelectedFilters.filter(f => f !== value);
-        button.style.background = "#f0f3f4";
-        button.style.color = "#2c3e50";
-        button.style.borderColor = "#d5dbdb";
+        button.style.background = "#f0f3f4"; button.style.color = "#2c3e50"; button.style.borderColor = "#d5dbdb";
     } else {
         activeSelectedFilters.push(value);
-        button.style.background = "#3498db";
-        button.style.color = "white";
-        button.style.borderColor = "#2980b9";
+        button.style.background = "#3498db"; button.style.color = "white"; button.style.borderColor = "#2980b9";
     }
     drawMarkersOnMap();
 }
 
 function resetAllFilters() {
     activeSelectedFilters = [];
-    const badges = document.querySelectorAll('.filter-badge');
-    badges.forEach(b => {
-        b.style.background = "#f0f3f4";
-        b.style.color = "#2c3e50";
-        b.style.borderColor = "#d5dbdb";
+    document.querySelectorAll('.filter-badge').forEach(b => {
+        b.style.background = "#f0f3f4"; b.style.color = "#2c3e50"; b.style.borderColor = "#d5dbdb";
     });
     drawMarkersOnMap();
 }
 
+// --- OPTIMIERTES ZEICHNEN DER MARKER ---
 function drawMarkersOnMap() {
     if (!map) return;
-
     const isAdminPage = window.location.pathname.includes("admin.html");
     const jetzt = Date.now();
 
@@ -232,19 +190,15 @@ function drawMarkersOnMap() {
         markerTypes = markerTypes.map(t => t === "WC barrierefrei" ? "WC" : t);
 
         if (activeSelectedFilters.length > 0) {
-            const matchesAny = activeSelectedFilters.some(filter => {
-                return markerTypes.some(t => t.includes(filter) || filter.includes(t));
-            });
+            const matchesAny = activeSelectedFilters.some(filter => markerTypes.some(t => t.includes(filter) || filter.includes(t)));
             if (!matchesAny) return; 
         }
 
         let emoji = "📍";
         let markerFarbe = r.farbe || "#9B59B6"; 
 
-        if (markerTypes.length > 1) {
-            emoji = "🏢"; 
-            markerFarbe = "#2c3e50"; 
-        } else if (markerTypes.length === 1) {
+        if (markerTypes.length > 1) { emoji = "🏢"; markerFarbe = "#2c3e50"; } 
+        else if (markerTypes.length === 1) {
             const singleType = markerTypes[0];
             if (singleType.includes("Kein barrierefreier")) { emoji = "🚫"; markerFarbe = "#34495E"; }
             else if (singleType.includes("Treppe")) { emoji = "🪜"; markerFarbe = "#E74C3C"; }
@@ -261,21 +215,20 @@ function drawMarkersOnMap() {
             else if (singleType.includes("Niveaugleicher")) { emoji = "✅"; markerFarbe = "#2980B9"; }
         }
     
-        let adminStyle = "";
-        if (r.status === "confirmed") {
-            adminStyle = "box-shadow: 0 0 15px 5px #2ecc71; border: 2px solid #2ecc71;";
+        let borderStyle = "";
+        // NEU: Der gelbe Ring, wenn das System oder der Admin einen Check fordern
+        if (r.needsCheck || r.checkInRequestedBy) {
+            borderStyle = "box-shadow: 0 0 0 4px #ffcc00, 0 0 12px #ffcc00; border: 2px solid #ffcc00;";
+        } else if (r.status === "confirmed") {
+            borderStyle = "box-shadow: 0 0 15px 5px #2ecc71; border: 2px solid #2ecc71;";
         } else if (isAdminPage) {
-            if (r.votes <= -3) {
-                adminStyle = "box-shadow: 0 0 15px 5px red; border: 2px solid red;"; 
-            } else if (r.votes >= 3) {
-                adminStyle = "box-shadow: 0 0 15px 5px #2ecc71; border: 2px solid #2ecc71;"; 
-            } else if (r.status === "new") {
-                adminStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;"; 
-            }
+            if (r.votes <= -3) borderStyle = "box-shadow: 0 0 15px 5px red; border: 2px solid red;"; 
+            else if (r.votes >= 3) borderStyle = "box-shadow: 0 0 15px 5px #2ecc71; border: 2px solid #2ecc71;"; 
+            else if (r.status === "new") borderStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;"; 
         }
         
         const icon = L.divIcon({
-            html: `<div style="background:${markerFarbe}; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:2px solid white; color:white; ${adminStyle}">${emoji}</div>`,
+            html: `<div style="background:${markerFarbe}; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:2px solid white; color:white; ${borderStyle}">${emoji}</div>`,
             className: '',
             iconSize: [30, 30]
         });
@@ -286,11 +239,17 @@ function drawMarkersOnMap() {
             m.on('click', () => adminReviewDone(r.id));
         }
         
-        let content = `<div style="font-family:sans-serif; min-width:220px;">`;
+        let content = `<div style="font-family:sans-serif; min-width:230px;">`;
         
         if (isAdminPage) {
             if (r.votes <= -3) content += `<b style="color:red;">⚠️ KRITISCH (Votes)</b><br>`;
-            else if (r.status === "confirmed") content += `<b style="color:#2ecc71;">✅ VOM ADMIN BESTÄTIGT</b><br>`;
+            else if (r.status === "confirmed") {
+                content += `<b style="color:#2ecc71;">✅ VOM ADMIN BESTÄTIGT</b><br>`;
+                // NEU: Zeigt dem Admin das Verifizierungsdatum nur an, wenn ER den Check ausgelöst hat
+                if (r.verifiedAt && r.checkInRequestedBy === "admin") {
+                    content += `<span style="font-size:0.85em; color:#555;">Verifiziert am: ${r.verifiedAt}</span><br>`;
+                }
+            }
             else if (r.votes >= 3) content += `<b style="color:#2ecc71;">🔥 FREIGABE BEREIT</b><br>`;
             else if (r.status === "new") content += `<b style="color:#3498db;">🆕 NEUER EINTRAG</b><br>`;
         } else if (r.status === "confirmed") {
@@ -303,20 +262,42 @@ function drawMarkersOnMap() {
         });
         content += `</div>`;
 
-        if (r.expiresAt) {
+        // Zeige eingetragenes Fest-Enddatum für Baustellen
+        if (r.baustellenEnddatum) {
+            content += `<p style="margin: 2px 0; font-size: 0.85em; color: #d35400;">📅 Geplantes Ende: <b>${new Date(r.baustellenEnddatum).toLocaleDateString('de-DE')}</b></p>`;
+        } else if (r.expiresAt) {
             const restStunden = Math.round((r.expiresAt - jetzt) / (1000 * 60 * 60));
             content += `<p style="margin: 2px 0; font-size: 0.85em; color: #e67e22;">⏱️ Automatisch weg in ca. <b>${restStunden} Std.</b></p>`;
         }
 
+        content += `<p style="margin: 8px 0; color:#555; font-style:italic;">"${r.kommentar || 'Keine Zusatzinfos'}"</p>`;
+        
+        // Vertrauens-Anzeige erweitern um das Sonder-Voting im Admin-Bereich
+        content += `<div style="background:#eee; padding:5px; border-radius:5px; text-align:center; margin-bottom:10px; font-size: 0.9em;">`;
+        content += `Vertrauen: <b>${r.votes || 0}</b>`;
+        if (isAdminPage && r.sonderVoting) {
+            content += `<br><span style="color:#9b59b6; font-weight:bold;">Sonder-Voting: 👍${r.sonderVoting.ja || 0} / 👎${r.sonderVoting.nein || 0}</span>`;
+        }
+        content += `</div>`;
+
+        // --- ENTSCHEIDUNG FÜR DIE VOTING BUTTONS ---
+        let userVotes = JSON.parse(localStorage.getItem('userVotes') || "{}");
+        let hatEingeecheckt = localStorage.getItem(`checkedIn_${r.id}`) === "true";
+        
+        // Buttons deaktivieren, wenn vom Admin angefordert UND der User noch nicht vor Ort war
+        let disabledAttr = "";
+        let buttonStyleModifier = "cursor:pointer;";
+        
+        if (r.checkInRequestedBy === "admin" && !hatEingeecheckt) {
+            disabledAttr = "disabled";
+            buttonStyleModifier = "background:#cccccc; color:#888888; opacity:0.6; cursor:not-allowed;";
+        }
+
         content += `
-                <p style="margin: 8px 0; color:#555; font-style:italic;">"${r.kommentar || 'Keine Zusatzinfos'}"</p>
-                <div style="background:#eee; padding:5px; border-radius:5px; text-align:center; margin-bottom:10px; font-size: 0.9em;">
-                    Vertrauen: <b>${r.votes || 0}</b>
-                </div>
-                <div style="display:flex; gap:5px; margin-bottom:10px;">
-                    <button onclick="vote('${r.id}', 1)" style="flex:1; background:#27AE60; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">✅ Stimmt</button>
-                    <button onclick="vote('${r.id}', -1)" style="flex:1; background:#E67E22; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer;">❌ Falsch</button>
-                </div>`;
+            <div style="display:flex; gap:5px; margin-bottom:10px;">
+                <button ${disabledAttr} onclick="vote('${r.id}', 1)" style="flex:1; background:#27AE60; color:white; border:none; padding:8px; border-radius:5px; ${disabledAttr ? buttonStyleModifier : 'cursor:pointer;'}">✅ Stimmt</button>
+                <button ${disabledAttr} onclick="vote('${r.id}', -1)" style="flex:1; background:#E67E22; color:white; border:none; padding:8px; border-radius:5px; ${disabledAttr ? buttonStyleModifier : 'cursor:pointer;'}">❌ Falsch</button>
+            </div>`;
         
         const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}&travelmode=walking`;
         content += `<a href="${googleUrl}" target="_blank" style="display:block; background:#4285F4; color:white; text-align:center; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:10px;">Route in Google Maps starten</a>`;
@@ -328,17 +309,16 @@ function drawMarkersOnMap() {
             }
             content += `
                     <button onclick="directDelete('${r.id}')" style="background:#e74c3c; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">🗑️ Löschen</button>
-                    <button onclick="askForCheck('${r.id}')" style="background:#3498db; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Check anfordern</button>
+                    <button onclick="askForCheck('${r.id}')" style="background:#4285F4; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Admin-Check fordern</button>
                 </div>`;
         } else {
             const isTempType = markerTypes.some(t => t.includes("E-Scooter") || t.includes("Mülltonne") || t.includes("Baustelle"));
-            if (r.needsCheck || isTempType) {
-                content += `<button onclick="verifyByLocation('${r.id}')" style="background:#f39c12; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Hier einchecken & bestätigen</button>`;
+            if (r.needsCheck || r.checkInRequestedBy || isTempType) {
+                content += `<button onclick="verifyByLocation('${r.id}')" style="background:#f39c12; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Hier einchecken & verifizieren</button>`;
             }
         }
         
         content += `</div>`;
-
         m.bindPopup(content);
         activeMarkers[index] = m;
     });
@@ -350,9 +330,7 @@ async function directDelete(id) {
         try {
             await fetch(`${DATA_URL_BASE}/${id}.json`, { method: 'DELETE' });
             updateStatus("Community Live ✅", "#27AE60");
-        } catch(err) {
-            console.error(err);
-        }
+        } catch(err) { console.error(err); }
         drawMarkersOnMap();
     }
 }
@@ -367,17 +345,19 @@ function confirmByAdmin(id) {
     }
 }
 
+// Admin fordert dediziert den Check an (Buttons frieren ein)
 function askForCheck(id) {
     const r = reportsData.find(item => item.id === id);
     if (r) {
+        r.checkInRequestedBy = "admin";
         r.needsCheck = true;
-        r.status = "active"; 
         updateSingleMarkerInCommunity(r);
         drawMarkersOnMap();
-        alert("Vor-Ort-Check wurde angefordert!");
+        alert("Admin-Check erfolgreich angefordert! Voting-Buttons wurden gesperrt.");
     }
 }
 
+// --- INTELLIGENTER VOR-ORT-CHECK-IN ---
 function verifyByLocation(id) {
     updateStatus("Prüfe Standort...", "#3498db");
     navigator.geolocation.getCurrentPosition((pos) => {
@@ -386,24 +366,60 @@ function verifyByLocation(id) {
 
         const dist = getDistance(pos.coords.latitude, pos.coords.longitude, report.lat, report.lng);
 
+        // 50 Meter Radius-Check
         if (dist <= 0.05) { 
             let markerTypes = Array.isArray(report.typ) ? report.typ : [report.typ];
             const einTag = 24 * 60 * 60 * 1000;
             const siebenTage = 7 * einTag;
             const basisZeit = report.expiresAt && report.expiresAt > Date.now() ? report.expiresAt : Date.now();
 
-            if (markerTypes.some(t => t.includes("E-Scooter") || t.includes("Mülltonne"))) {
+            // Falls es sich um eine Baustelle handelt fragen wir nach Optionen
+            if (markerTypes.some(t => t.includes("Baustelle"))) {
+                const aktion = prompt("Baustellen-Menü:\n1 = Existiert noch (7 Tage Verlängerung)\n2 = Festes Enddatum eintragen/ändern\n3 = Komplett aufgelöst (Löschen)\nBitte Zahl eingeben:");
+                
+                if (aktion === "1") {
+                    report.expiresAt = basisZeit + siebenTage;
+                    report.baustellenEnddatum = null; // Entfernt festes Datum zugunsten der Verlängerung
+                    alert("Baustelle um 7 Tage verlängert!");
+                } else if (aktion === "2") {
+                    const datumInput = prompt("Bitte Enddatum im Format JJJJ-MM-TT eingeben (z.B. 2026-06-30):");
+                    if (datumInput && !isNaN(Date.parse(datumInput))) {
+                        report.baustellenEnddatum = datumInput;
+                        report.expiresAt = Date.parse(datumInput) + einTag; // Hält bis zum Tag nach Ablauf
+                        alert("Festes Enddatum gespeichert!");
+                    } else {
+                        alert("Ungültiges Datum. Vorgang abgebrochen.");
+                        return;
+                    }
+                } else if (aktion === "3") {
+                    report.expiresAt = Date.now() - 1000; // Sofort ablaufen lassen
+                    alert("Baustelle wird als gelöscht gemeldet!");
+                } else {
+                    alert("Ungültige Auswahl.");
+                    return;
+                }
+            } else if (markerTypes.some(t => t.includes("E-Scooter") || t.includes("Mülltonne"))) {
                 report.expiresAt = basisZeit + einTag;
-                alert("Erfolgreich eingecheckt! Das Hindernis wurde um 24 Stunden verlängert.");
-            } else if (markerTypes.some(t => t.includes("Baustelle"))) {
-                report.expiresAt = basisZeit + siebenTage;
-                alert("Erfolgreich eingecheckt! Die Baustelle wurde um 7 Tage verlängert.");
+                alert("Erfolgreich eingecheckt! Um 24 Stunden verlängert.");
             } else {
-                report.needsCheck = false;
                 alert("Erfolgreich verifiziert!");
             }
 
+            // Flags zurücksetzen
+            report.needsCheck = false;
             report.verifiedAt = new Date().toLocaleString('de-DE');
+
+            // Sonderstimm-Freischaltung via LocalStorage aktivieren
+            if (report.checkInRequestedBy === "admin") {
+                localStorage.setItem(`checkedIn_${report.id}`, "true");
+                alert("Sonderstimme aktiviert! Die Buttons sind jetzt bunt für dich. Bitte gib deine Stimme ab!");
+            }
+            
+            // Wenn System-Check aktiv war, jetzt freigeben
+            if (report.checkInRequestedBy === "system") {
+                report.checkInRequestedBy = null;
+            }
+
             updateSingleMarkerInCommunity(report);
             drawMarkersOnMap();
         } else {
@@ -417,10 +433,8 @@ function openSelectionPopup(latlng) {
   const content = `
     <div style="width: 280px; font-family: sans-serif; padding: 5px; max-height: 420px; overflow-y: auto;">
       <b style="display: block; text-align: center; margin-bottom: 10px; font-size:1.1em;">Eigenschaften auswählen</b>
-      
       <form id="multiReportForm" onsubmit="finalizeMultiReport(event, ${latlng.lat}, ${latlng.lng})">
         <div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.95em;">
-          
           <strong>⚠️ Hindernisse</strong>
           <label><input type="checkbox" name="typ" value="Kein barrierefreier Zugang"> 🚫 Kein Zugang</label>
           <label><input type="checkbox" name="typ" value="Treppe"> 🪜 Treppe melden</label>
@@ -428,27 +442,20 @@ function openSelectionPopup(latlng) {
           <label><input type="checkbox" name="typ" value="Baustelle"> 🚧 Baustelle</label>
           <label><input type="checkbox" name="typ" value="E-Scooter"> 🛴 E-Scooter im Weg</label>
           <label><input type="checkbox" name="typ" value="Mülltonne"> 🗑️ Mülltonne blockiert</label>
-          
           <hr style="margin: 5px 0; border: none; border-top: 1px solid #ccc;">
-          
           <strong>✨ Barrierefreiheit im Alltag</strong>
           <label><input type="checkbox" name="typ" value="Aufzug vorhanden"> 🛗 Aufzug vorhanden</label>
           <label><input type="checkbox" name="typ" value="Rampe vorhanden"> 📐 Rampe vorhanden</label>
           <label><input type="checkbox" name="typ" value="WC"> 🚽 WC vorhanden</label>
           <label><input type="checkbox" name="typ" value="Parkplatz"> 🅿️ Parkplatz</label>
           <label><input type="checkbox" name="typ" value="Barrierefreier Ort"> 📍 Barrierefreier Ort</label>
-          
           <hr style="margin: 5px 0; border: none; border-top: 1px solid #ccc;">
-          
           <strong>🚉 Bahnsteig</strong>
           <label><input type="checkbox" name="typ" value="Höhenunterschied"> ⚠️ Stufe am Zug</label>
           <label><input type="checkbox" name="typ" value="Niveaugleicher Einstieg"> ✅ Einstieg eben</label>
-          
           <hr style="margin: 8px 0; border: none; border-top: 1px solid #ccc;">
-          
           <strong>Zusatzinformationen:</strong>
-          <input type="text" id="multiDetails" placeholder="z.B. Rampe im 1. OG, WC im EG..." style="padding: 8px; border: 1px solid #ccc; border-radius: 6px; width: 93%;">
-          
+          <input type="text" id="multiDetails" placeholder="z.B. Rampe im 1. OG..." style="padding: 8px; border: 1px solid #ccc; border-radius: 6px; width: 93%;">
           <button type="submit" style="background:#27AE60; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:10px; font-size:1em;">💾 Eintrag speichern</button>
         </div>
       </form>
@@ -486,7 +493,9 @@ function finalizeMultiReport(event, lat, lng) {
         id: "id_" + Date.now(), 
         votes: 0, 
         status: "new",
-        expiresAt: ablaufZeit 
+        expiresAt: ablaufZeit,
+        checkInRequestedBy: null, // Feld im System anlegen
+        sonderVoting: { ja: 0, nein: 0 } // Struktur initialisieren
     };
 
     reportsData.push(neuerPunkt);
@@ -495,6 +504,7 @@ function finalizeMultiReport(event, lat, lng) {
     map.closePopup();
 }
 
+// --- GESANDERTES STIMMSYSTEM (SONDERSTIMME) ---
 async function vote(id, change) {
     const report = reportsData.find(r => r.id === id);
     if (!report) return;
@@ -502,11 +512,27 @@ async function vote(id, change) {
     let myVotes = JSON.parse(localStorage.getItem('userVotes') || "{}");
     if (myVotes[id]) return alert("Bereits abgestimmt!");
     
-    report.votes += change;
+    let hatEingeecheckt = localStorage.getItem(`checkedIn_${id}`) === "true";
+
+    // Falls vom Admin gefordert und eingecheckt -> Sonderstimm-Topf befüllen
+    if (report.checkInRequestedBy === "admin" && hatEingeecheckt) {
+        if (!report.sonderVoting) report.sonderVoting = { ja: 0, nein: 0 };
+        
+        if (change === 1) report.sonderVoting.ja += 1;
+        if (change === -1) report.sonderVoting.nein += 1;
+        
+        // Nach abgegebener Sonderstimme bereinigen wir die Sperre für den User
+        localStorage.removeItem(`checkedIn_${id}`);
+        report.checkInRequestedBy = null; // Schaltet den Marker wieder in den Normalmodus
+        alert("Deine Vor-Ort-Sonderstimme wurde exklusiv gezählt!");
+    } else {
+        // Normales Voting-System
+        report.votes += change;
+        if (report.votes <= -3) report.status = "review";
+    }
+    
     myVotes[id] = true;
     localStorage.setItem('userVotes', JSON.stringify(myVotes));
-    
-    if (report.votes <= -3) report.status = "review";
     
     updateSingleMarkerInCommunity(report);
     drawMarkersOnMap();
