@@ -42,16 +42,18 @@
             <div id="filter-badges-container" style="display: flex; gap: 6px; overflow-x: auto; white-space: nowrap; width: 100%; padding-bottom: 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch;">
                 <style>#filter-badges-container::-webkit-scrollbar { display: none; }</style>
 
+                <button class="filter-badge" data-value="admin_neu" onclick="toggleFilterBadge(this)" style="background: #f0f3f4; border: 1px solid #d5dbdb; padding: 6px 12px; border-radius: 20px; font-size: 13px; color: #2c3e50; cursor: pointer; font-weight: bold; display: inline-block; transition: all 0.15s ease; border-left: 4px solid #3498db;">🆕 Neue Einträge</button>
+                <button class="filter-badge" data-value="admin_zu_bestaetigen" onclick="toggleFilterBadge(this)" style="background: #f0f3f4; border: 1px solid #d5dbdb; padding: 6px 12px; border-radius: 20px; font-size: 13px; color: #2c3e50; cursor: pointer; font-weight: bold; display: inline-block; transition: all 0.15s ease; border-left: 4px solid #2ecc71;">🔥 Zu bestätigen (≥3)</button>
+                <button class="filter-badge" data-value="admin_kritisch" onclick="toggleFilterBadge(this)" style="background: #f0f3f4; border: 1px solid #d5dbdb; padding: 6px 12px; border-radius: 20px; font-size: 13px; color: #2c3e50; cursor: pointer; font-weight: bold; display: inline-block; transition: all 0.15s ease; border-left: 4px solid #e74c3c;">⚠️ Kritisch (≤-3)</button>
+
                 <button class="filter-badge" data-value="Kein barrierefreier Zugang" onclick="toggleFilterBadge(this)" style="background: #f0f3f4; border: 1px solid #d5dbdb; padding: 6px 12px; border-radius: 20px; font-size: 13px; color: #2c3e50; cursor: pointer; font-weight: 500; display: inline-block; transition: all 0.15s ease;">🚫 Kein barrierefreier Zugang</button>
                 <button class="filter-badge" data-value="Treppe" onclick="toggleFilterBadge(this)" style="background: #f0f3f4; border: 1px solid #d5dbdb; padding: 6px 12px; border-radius: 20px; font-size: 13px; color: #2c3e50; cursor: pointer; font-weight: 500; display: inline-block; transition: all 0.15s ease;">🪜 Treppen</button>
                 <button class="filter-badge" data-value="Aufzug defekt" onclick="toggleFilterBadge(this)" style="background: #f0f3f4; border: 1px solid #d5dbdb; padding: 6px 12px; border-radius: 20px; font-size: 13px; color: #2c3e50; cursor: pointer; font-weight: 500; display: inline-block; transition: all 0.15s ease;">❌ 🛗 Aufzug defekt</button>
                 <button class="filter-badge" data-value="Aufzug vorhanden" onclick="toggleFilterBadge(this)" style="background: #f0f3f4; border: 1px solid #d5dbdb; padding: 6px 12px; border-radius: 20px; font-size: 13px; color: #2c3e50; cursor: pointer; font-weight: 500; display: inline-block; transition: all 0.15s ease;">✅ 🛗 Aufzug vorhanden</button>
                 <button class="filter-badge" data-value="Rampe vorhanden" onclick="toggleFilterBadge(this)" style="background: #f0f3f4; border: 1px solid #d5dbdb; padding: 6px 12px; border-radius: 20px; font-size: 13px; color: #2c3e50; cursor: pointer; font-weight: 500; display: inline-block; transition: all 0.15s ease;">📐 Rampe</button>
                 <button class="filter-badge" data-value="Baustelle" onclick="toggleFilterBadge(this)" style="background: #f0f3f4; border: 1px solid #d5dbdb; padding: 6px 12px; border-radius: 20px; font-size: 13px; color: #2c3e50; cursor: pointer; font-weight: 500; display: inline-block; transition: all 0.15s ease;">🚧 Baustelle</button>
-                <button class="filter-badge" data-value="E-Scooter"
- onclick="toggleFilterBadge(this)" style="background: #f0f3f4; border: 1px solid #d5dbdb; padding: 6px 12px; border-radius: 20px; font-size: 13px; color: #2c3e50; cursor: pointer; font-weight: 500; display: inline-block; transition: all 0.15s ease;">🛴 E-Scooter im Weg</button>
-                <button class="filter-badge" data-value="Mülltonne"
- onclick="toggleFilterBadge(this)" style="background: #f0f3f4; border: 1px solid #d5dbdb; padding: 6px 12px; border-radius: 20px; font-size: 13px; color: #2c3e50; cursor: pointer; font-weight: 500; display: inline-block; transition: all 0.15s ease;">🗑️ Mülltonne blockiert</button>
+                <button class="filter-badge" data-value="E-Scooter" onclick="toggleFilterBadge(this)" style="background: #f0f3f4; border: 1px solid #d5dbdb; padding: 6px 12px; border-radius: 20px; font-size: 13px; color: #2c3e50; cursor: pointer; font-weight: 500; display: inline-block; transition: all 0.15s ease;">🛴 E-Scooter im Weg</button>
+                <button class="filter-badge" data-value="Mülltonne" onclick="toggleFilterBadge(this)" style="background: #f0f3f4; border: 1px solid #d5dbdb; padding: 6px 12px; border-radius: 20px; font-size: 13px; color: #2c3e50; cursor: pointer; font-weight: 500; display: inline-block; transition: all 0.15s ease;">🗑️ Mülltonne blockiert</button>
                 <button class="filter-badge" data-value="WC" onclick="toggleFilterBadge(this)" style="background: #f0f3f4; border: 1px solid #d5dbdb; padding: 6px 12px; border-radius: 20px; font-size: 13px; color: #2c3e50; cursor: pointer; font-weight: 500; display: inline-block; transition: all 0.15s ease;">🚽 WCs</button>
                 <button class="filter-badge" data-value="Parkplatz" onclick="toggleFilterBadge(this)" style="background: #f0f3f4; border: 1px solid #d5dbdb; padding: 6px 12px; border-radius: 20px; font-size: 13px; color: #2c3e50; cursor: pointer; font-weight: 500; display: inline-block; transition: all 0.15s ease;">🅿️ Parkplätze</button>
                 <button class="filter-badge" data-value="Barrierefreier Ort" onclick="toggleFilterBadge(this)" style="background: #f0f3f4; border: 1px solid #d5dbdb; padding: 6px 12px; border-radius: 20px; font-size: 13px; color: #2c3e50; cursor: pointer; font-weight: 500; display: inline-block; transition: all 0.15s ease;">📍 Barrierefreier Ort</button>
@@ -69,14 +71,13 @@
         <span class="close-btn" onclick="toggleMenu()">&times;</span>
     </div>
     <nav>
-        <a href="index.html" class="menu-item">Startseite</a>
+        <a href="index.html" class="menu-item">🗺️ Zur Live-Karte wechseln</a>
         <a href="anleitung.html" class="menu-item">📖 Anleitung & Hilfe</a>
- <a href="datenschutz.html" class="menu-item">🔒 Datenschutzerklärung & Impressum</a>
+        <a href="datenschutz.html" class="menu-item">🔒 Datenschutzerklärung & Impressum</a>
         <hr>
-            <button onclick="downloadBackup()" style="background:#2c3e50; color:white; padding:10px; border:none; border-radius:5px; cursor:pointer;">
-    💾 Datenbank-Sicherung (JSON)
-</button>
-
+        <button onclick="downloadBackup()" style="background:#2c3e50; color:white; padding:10px; border:none; border-radius:5px; width: calc(100% - 30px); margin: 10px 15px; cursor:pointer; font-weight: bold;">
+            💾 Datenbank-Sicherung (JSON)
+        </button>
     </nav>
 </div>
 <div id="menu-overlay" onclick="toggleMenu()"></div>
@@ -106,24 +107,21 @@
         ⚠️ Stufe am Zug<br>
         ✅ Niveaugleicher Einstieg zum Zug
         
-        <hr class="legend-divider">
+              <hr class="legend-divider">
         
         <strong>🛠️ Admin-Konsole</strong>
-        <span style="color: #3498db; font-weight: bold;">🔵 Neuer Punkt (Meldung)</span>
-        <span style="color: #e74c3c; font-weight: bold;">🔴 In Prüfung / Kritisch ($\le -3$)</span>
-        <span style="color: #2ecc71; font-weight: bold;">🟢 Bereit zur Freigabe ($\ge 3$ Votes)</span>
+        <span style="color: #3498db; font-weight: bold;">🔵 Neuer Punkt (Meldung)</span><br>
+        <span style="color: #e74c3c; font-weight: bold;">🔴 In Prüfung / Kritisch ($\le -3$)</span><br>
+        <span style="color: #2ecc71; font-weight: bold;">🟢 Bereit zur Freigabe ($\ge 3$ Votes)</span><br>
+        <span style="color: #ffcc00; font-weight: bold;">🟡 Vor-Ort-Check aktiv (Prüfung läuft)</span><br>
         <span style="color: #2ecc71; font-weight: bold;">🌟 Offiziell bestätigt (für alle grün)</span>
-    </div>
+
 
 </div>
 
-
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
-    
     <script src="script.js"></script>
-
 
 </body>
 </html>

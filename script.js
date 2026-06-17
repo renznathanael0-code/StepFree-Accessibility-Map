@@ -68,6 +68,7 @@ async function initApp() {
     map.on('zoomend', loadFromCommunity);
     
     await loadFromCommunity();
+    renderFavoritesList(); // Merkliste beim Start füllen
     
     if (splash) {
         setTimeout(() => {
@@ -123,6 +124,9 @@ async function loadFromCommunity() {
                     }
                     if (!r.hasOwnProperty('checkInRequestedBy')) {
                         r.checkInRequestedBy = null;
+                    }
+                    if (!r.hasOwnProperty('createdAt')) {
+                        r.createdAt = Date.now(); // Reparatur: Fallback für alte Punkte
                     }
                     
                     return r;
@@ -200,9 +204,26 @@ function drawMarkersOnMap() {
         let markerTypes = Array.isArray(r.typ) ? r.typ : [r.typ];
         markerTypes = markerTypes.map(t => t === "WC barrierefrei" ? "WC" : t);
 
+        // --- INTELLIGENTE FILTER-ERWEITERUNG (Zustände + Typen) ---
         if (activeSelectedFilters.length > 0) {
-            const matchesAny = activeSelectedFilters.some(filter => markerTypes.some(t => t.includes(filter) || filter.includes(t)));
-            if (!matchesAny) return; 
+            const zweiTageInMs = 2 * 24 * 60 * 60 * 1000;
+            
+            const passtZuFiltern = activeSelectedFilters.some(filter => {
+                // 1. Allgemeine User-Zustandsfilter
+                if (filter === "status_neu") return (Date.now() - (r.createdAt || 0)) <= zweiTageInMs;
+                if (filter === "status_bestaetigt") return r.status === "confirmed";
+                if (filter === "status_check_aktiv") return (r.needsCheck === true || r.checkInRequestedBy !== null);
+                
+                // 2. Exklusive Admin-Zustandsfilter
+                if (filter === "admin_neu") return r.status === "new";
+                if (filter === "admin_zu_bestaetigen") return (r.votes >= 3 && r.status !== "confirmed");
+                if (filter === "admin_kritisch") return r.votes <= -3;
+                
+                // 3. Klassischer Typenfilter
+                return markerTypes.some(t => t.includes(filter) || filter.includes(t));
+            });
+
+            if (!passtZuFiltern) return; 
         }
 
         let emoji = "📍";
@@ -251,14 +272,18 @@ function drawMarkersOnMap() {
         
         let content = `<div style="font-family:sans-serif; min-width:230px;">`;
         
-        // Letzter Check-In hier exklusiv für Admins eingebunden:
         if (isAdminPage) {
             if (r.votes <= -3) content += `<b style="color:red;">⚠️ KRITISCH (Votes)</b><br>`;
             else if (r.status === "confirmed") content += `<b style="color:#2ecc71;">✅ VOM ADMIN BESTÄTIGT</b><br>`;
             else if (r.votes >= 3) content += `<b style="color:#2ecc71;">🔥 FREIGABE BEREIT</b><br>`;
             else if (r.status === "new") content += `<b style="color:#3498db;">🆕 NEUER EINTRAG</b><br>`;
             
-            // Zeigt NUR dem Admin das Verifizierungsdatum an
+            // Zeigt dem Admin das Erstellungsdatum an
+            if (r.createdAt) {
+                const erstelldatum = new Date(r.createdAt).toLocaleDateString('de-DE');
+                content += `<span style="font-size:0.85em; color:#555; display:block; margin-top:2px;">📅 Erstellt am: <b>${erstelldatum}</b></span>`;
+            }
+
             if (r.verifiedAt) {
                 content += `<span style="font-size:0.85em; color:#555; display:block; margin-top:2px;">📍 Letzter Check-In: <b>${r.verifiedAt}</b></span>`;
             }
@@ -272,7 +297,6 @@ function drawMarkersOnMap() {
         });
         content += `</div>`;
 
-        // Zeige eingetragenes Fest-Enddatum für Baustellen
         if (r.baustellenEnddatum) {
             content += `<p style="margin: 2px 0; font-size: 0.85em; color: #d35400;">📅 Geplantes Ende: <b>${new Date(r.baustellenEnddatum).toLocaleDateString('de-DE')}</b></p>`;
         } else if (r.expiresAt) {
@@ -308,6 +332,9 @@ function drawMarkersOnMap() {
         const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}&travelmode=walking`;
         content += `<a href="${googleUrl}" target="_blank" style="display:block; background:#4285F4; color:white; text-align:center; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:10px;">Route in Google Maps starten</a>`;
 
+        // NEU: Button zum Hinzufügen zur lokalen Merkliste
+        content += `<button onclick="addToFavorites('${r.id}', ${r.lat}, ${r.lng})" style="display:block; width:100%; background:#f1c40f; color:#2c3e50; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:10px;">⭐ Auf Merkliste speichern</button>`;
+
         if (isAdminPage) {
             content += `<div style="border-top:1px solid #ccc; padding-top:10px; margin-top:5px;">`;
             if (r.votes >= 3 && r.status !== "confirmed") {
@@ -330,6 +357,80 @@ function drawMarkersOnMap() {
     });
 }
 
+// --- NEU: SYSTEM FÜR DIE MERKLISTE (FAVORITEN) ---
+function addToFavorites(id, lat, lng) {
+    const customTitle = prompt("Unter welchem Namen möchtest du diesen Punkt auf deiner Merkliste speichern?");
+    if (!customTitle) return; // Abbrechen, wenn nichts eingegeben wird
+
+    let favorites = JSON.parse(localStorage.getItem('stepfree_favorites') || "[]");
+    
+    // Verhindern, dass derselbe Punkt doppelt hinzugefügt wird
+    if (favorites.some(f => f.id === id)) {
+        alert("Dieser Ort befindet sich bereits auf deiner Merkliste!");
+        return;
+    }
+
+    favorites.push({ id, title: customTitle, lat, lng });
+    localStorage.setItem('stepfree_favorites', JSON.stringify(favorites));
+    renderFavoritesList();
+    alert("Erfolgreich auf deiner persönlichen Merkliste gespeichert!");
+}
+
+function renderFavoritesList() {
+    const listContainer = document.getElementById('favorites-list');
+    if (!listContainer) return;
+
+    let favorites = JSON.parse(localStorage.getItem('stepfree_favorites') || "[]");
+    listContainer.innerHTML = "";
+
+    if (favorites.length === 0) {
+        listContainer.innerHTML = `<p style="color:#7f8c8d; font-style:italic; padding: 0 15px;">Noch keine Orte gemerkt.</p>`;
+        return;
+    }
+
+    favorites.forEach(f => {
+        const item = document.createElement('div');
+        item.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:10px 15px; border-bottom:1px solid #eee; gap:10px;";
+        
+        item.innerHTML = `
+            <span onclick="jumpToFavorite('${f.id}', ${f.lat}, ${f.lng})" style="cursor:pointer; font-weight:bold; color:#2980b9; flex:1; font-size:0.95em;">📍 ${f.title}</span>
+            <button onclick="removeFromFavorites('${f.id}')" style="background:none; border:none; color:#e74c3c; cursor:pointer; font-size:1.1em;">🗑️</button>
+        `;
+        listContainer.appendChild(item);
+    });
+}
+
+async function jumpToFavorite(id, lat, lng) {
+    // Falls das Menü offen ist, schließen wir es für freie Kartensicht
+    const menu = document.getElementById('side-menu');
+    if (menu && menu.classList.contains('open')) {
+        toggleMenu();
+    }
+
+    // Karte zentrieren und heranzoomen
+    map.setView([lat, lng], 17);
+
+    // Da Daten asynchron geladen werden, warten wir kurz auf das Laden der Kachel-Inhalte
+    await loadFromCommunity();
+
+    // Suchen, ob der Marker jetzt auf der Karte gezeichnet ist, und sein Popup öffnen
+    setTimeout(() => {
+        const markerKey = Object.keys(reportsData).find(key => reportsData[key].id === id);
+        if (markerKey && activeMarkers[markerKey]) {
+            activeMarkers[markerKey].openPopup();
+        } else {
+            alert("Der Punkt befindet sich außerhalb deines aktuellen Kartenausschnitts oder wurde entfernt.");
+        }
+    }, 400);
+}
+
+function removeFromFavorites(id) {
+    let favorites = JSON.parse(localStorage.getItem('stepfree_favorites') || "[]");
+    favorites = favorites.filter(f => f.id !== id);
+    localStorage.setItem('stepfree_favorites', JSON.stringify(favorites));
+    renderFavoritesList();
+}
+// -------------------------------------------------
 
 async function directDelete(id) {
     if (confirm("Diesen Punkt wirklich für alle löschen?")) {
@@ -409,7 +510,7 @@ function verifyByLocation(id) {
             }
 
             report.needsCheck = false;
-            report.verifiedAt = new Date().toLocaleString('de-DE'); // Setzt das aktuelle Check-In-Datum
+            report.verifiedAt = new Date().toLocaleString('de-DE'); 
 
             if (report.checkInRequestedBy === "admin") {
                 localStorage.setItem(`checkedIn_${report.id}`, "true");
@@ -495,7 +596,8 @@ function finalizeMultiReport(event, lat, lng) {
         status: "new",
         expiresAt: ablaufZeit,
         checkInRequestedBy: null,
-        sonderVoting: { ja: 0, nein: 0 }
+        sonderVoting: { ja: 0, nein: 0 },
+        createdAt: Date.now() // NEU: Punkt erhält beim Erstellen seinen genauen Zeitstempel
     };
 
     reportsData.push(neuerPunkt);
