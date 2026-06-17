@@ -112,11 +112,27 @@ async function loadFromCommunity() {
         if (response.ok) {
             const result = await response.json();
             let geladeneMarker = [];
+            
             if (result) {
-                geladeneMarker = Object.values(result).filter(r => {
-                    return r && r.lng >= southWest.lng && r.lng <= northEast.lng;
-                });
+                // DAUERHAFTE LÖSUNG: Wir nutzen Object.entries(), um den echten Firebase-Key (k) zu greifen
+                geladeneMarker = Object.entries(result).map(([k, r]) => {
+                    if (!r) return null;
+                    
+                    // Wir zwingen die ID dazu, exakt dem Namen des Firebase-Ordners zu entsprechen
+                    r.id = k; 
+                    
+                    // Automatische Reparatur: Fehlende Felder direkt im Speicher ergänzen, falls sie alt sind
+                    if (!r.hasOwnProperty('sonderVoting') || r.sonderVoting === null) {
+                        r.sonderVoting = { ja: 0, nein: 0 };
+                    }
+                    if (!r.hasOwnProperty('checkInRequestedBy')) {
+                        r.checkInRequestedBy = null;
+                    }
+                    
+                    return r;
+                }).filter(r => r !== null && r.lng >= southWest.lng && r.lng <= northEast.lng);
             }
+            
             const jetzt = Date.now();
             reportsData = geladeneMarker.filter(r => !r.expiresAt || r.expiresAt > jetzt);
             drawMarkersOnMap();
