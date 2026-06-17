@@ -25,6 +25,15 @@ const DATA_URL_BASE = "https://stepfree-7c252-default-rtdb.europe-west1.firebase
 let map, myLocationMarker, reportsData = [], activeMarkers = {};
 let activeSelectedFilters = [];
 
+// Hilfsfunktion zur Formatierung des Datums im Popup
+function formatierenDatum(timestamp) {
+    if (!timestamp) return "Unbekannt";
+    const date = new Date(timestamp);
+    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) + 
+           " um " + 
+           date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + " Uhr";
+}
+
 function updateStatus(text, color) {
     const s = document.getElementById('sync-status');
     if (s) {
@@ -68,7 +77,7 @@ async function initApp() {
     map.on('zoomend', loadFromCommunity);
     
     await loadFromCommunity();
-    renderFavoritesList(); // Merkliste beim Start füllen
+    renderFavoritesList(); 
     
     if (splash) {
         setTimeout(() => {
@@ -126,7 +135,9 @@ async function loadFromCommunity() {
                         r.checkInRequestedBy = null;
                     }
                     if (!r.hasOwnProperty('createdAt')) {
-                        r.createdAt = Date.now(); // Reparatur: Fallback für alte Punkte
+                        // KORREKTUR: Alte Punkte ohne Datum erhalten einen fixen alten Zeitstempel (z.B. 1. Jan 2026),
+                        // damit sie nicht fälschlicherweise als "Brandneu" (unter 48h) gefiltert werden.
+                        r.createdAt = 1767222000000; 
                     }
                     
                     return r;
@@ -204,22 +215,19 @@ function drawMarkersOnMap() {
         let markerTypes = Array.isArray(r.typ) ? r.typ : [r.typ];
         markerTypes = markerTypes.map(t => t === "WC barrierefrei" ? "WC" : t);
 
-        // --- INTELLIGENTE FILTER-ERWEITERUNG (Zustände + Typen) ---
+        // --- INTELLIGENTE FILTER-ERWEITERUNG ---
         if (activeSelectedFilters.length > 0) {
             const zweiTageInMs = 2 * 24 * 60 * 60 * 1000;
             
             const passtZuFiltern = activeSelectedFilters.some(filter => {
-                // 1. Allgemeine User-Zustandsfilter
                 if (filter === "status_neu") return (Date.now() - (r.createdAt || 0)) <= zweiTageInMs;
                 if (filter === "status_bestaetigt") return r.status === "confirmed";
                 if (filter === "status_check_aktiv") return (r.needsCheck === true || r.checkInRequestedBy !== null);
                 
-                // 2. Exklusive Admin-Zustandsfilter
                 if (filter === "admin_neu") return r.status === "new";
                 if (filter === "admin_zu_bestaetigen") return (r.votes >= 3 && r.status !== "confirmed");
                 if (filter === "admin_kritisch") return r.votes <= -3;
                 
-                // 3. Klassischer Typenfilter
                 return markerTypes.some(t => t.includes(filter) || filter.includes(t));
             });
 
@@ -277,18 +285,17 @@ function drawMarkersOnMap() {
             else if (r.status === "confirmed") content += `<b style="color:#2ecc71;">✅ VOM ADMIN BESTÄTIGT</b><br>`;
             else if (r.votes >= 3) content += `<b style="color:#2ecc71;">🔥 FREIGABE BEREIT</b><br>`;
             else if (r.status === "new") content += `<b style="color:#3498db;">🆕 NEUER EINTRAG</b><br>`;
-            
-            // Zeigt dem Admin das Erstellungsdatum an
-            if (r.createdAt) {
-                const erstelldatum = new Date(r.createdAt).toLocaleDateString('de-DE');
-                content += `<span style="font-size:0.85em; color:#555; display:block; margin-top:2px;">📅 Erstellt am: <b>${erstelldatum}</b></span>`;
-            }
-
-            if (r.verifiedAt) {
-                content += `<span style="font-size:0.85em; color:#555; display:block; margin-top:2px;">📍 Letzter Check-In: <b>${r.verifiedAt}</b></span>`;
-            }
         } else if (r.status === "confirmed") {
             content += `<b style="color:#2ecc71;">🌟 Offiziell Bestätigt</b><br>`;
+        }
+        
+        // KORREKTUR: Datum wird jetzt für ALLE Benutzer formatiert im Popup angezeigt
+        if (r.createdAt) {
+            content += `<span style="font-size:0.85em; color:#7f8c8d; display:block; margin-top:2px; margin-bottom:5px;">📅 Gemeldet am: <b>${formatierenDatum(r.createdAt)}</b></span>`;
+        }
+
+        if (isAdminPage && r.verifiedAt) {
+            content += `<span style="font-size:0.85em; color:#555; display:block; margin-top:2px;">📍 Letzter Check-In: <b>${r.verifiedAt}</b></span>`;
         }
         
         content += `<div style="margin-top:5px; margin-bottom:5px;">`;
@@ -332,7 +339,6 @@ function drawMarkersOnMap() {
         const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}&travelmode=walking`;
         content += `<a href="${googleUrl}" target="_blank" style="display:block; background:#4285F4; color:white; text-align:center; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:10px;">Route in Google Maps starten</a>`;
 
-        // NEU: Button zum Hinzufügen zur lokalen Merkliste
         content += `<button onclick="addToFavorites('${r.id}', ${r.lat}, ${r.lng})" style="display:block; width:100%; background:#f1c40f; color:#2c3e50; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:10px;">⭐ Auf Merkliste speichern</button>`;
 
         if (isAdminPage) {
@@ -357,14 +363,12 @@ function drawMarkersOnMap() {
     });
 }
 
-// --- NEU: SYSTEM FÜR DIE MERKLISTE (FAVORITEN) ---
 function addToFavorites(id, lat, lng) {
     const customTitle = prompt("Unter welchem Namen möchtest du diesen Punkt auf deiner Merkliste speichern?");
-    if (!customTitle) return; // Abbrechen, wenn nichts eingegeben wird
+    if (!customTitle) return;
 
     let favorites = JSON.parse(localStorage.getItem('stepfree_favorites') || "[]");
     
-    // Verhindern, dass derselbe Punkt doppelt hinzugefügt wird
     if (favorites.some(f => f.id === id)) {
         alert("Dieser Ort befindet sich bereits auf deiner Merkliste!");
         return;
@@ -401,19 +405,14 @@ function renderFavoritesList() {
 }
 
 async function jumpToFavorite(id, lat, lng) {
-    // Falls das Menü offen ist, schließen wir es für freie Kartensicht
     const menu = document.getElementById('side-menu');
     if (menu && menu.classList.contains('open')) {
         toggleMenu();
     }
 
-    // Karte zentrieren und heranzoomen
     map.setView([lat, lng], 17);
-
-    // Da Daten asynchron geladen werden, warten wir kurz auf das Laden der Kachel-Inhalte
     await loadFromCommunity();
 
-    // Suchen, ob der Marker jetzt auf der Karte gezeichnet ist, und sein Popup öffnen
     setTimeout(() => {
         const markerKey = Object.keys(reportsData).find(key => reportsData[key].id === id);
         if (markerKey && activeMarkers[markerKey]) {
@@ -430,7 +429,6 @@ function removeFromFavorites(id) {
     localStorage.setItem('stepfree_favorites', JSON.stringify(favorites));
     renderFavoritesList();
 }
-// -------------------------------------------------
 
 async function directDelete(id) {
     if (confirm("Diesen Punkt wirklich für alle löschen?")) {
@@ -597,7 +595,7 @@ function finalizeMultiReport(event, lat, lng) {
         expiresAt: ablaufZeit,
         checkInRequestedBy: null,
         sonderVoting: { ja: 0, nein: 0 },
-        createdAt: Date.now() // NEU: Punkt erhält beim Erstellen seinen genauen Zeitstempel
+        createdAt: Date.now() // Korrekt: Jeder neue Punkt erhält hier sein echtes Erstellungsdatum
     };
 
     reportsData.push(neuerPunkt);
