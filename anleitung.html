@@ -8,21 +8,20 @@
     <meta name="theme-color" content="#ffffff">
     <style>
         html {
-            scroll-behavior: smooth; /* Aktiviert weiches Scrollen für die gesamte Seite */
+            scroll-behavior: smooth;
         }
         body {
-            overflow-y: auto; /* Anleitung muss scrollbar sein */
+            overflow-y: auto;
             background-color: #f8f9fa;
             font-family: sans-serif;
             margin: 0;
             padding: 0;
         }
         .container {
-            max-width: 650px; /* Minimal breiter für mehr Lesekomfort */
+            max-width: 650px;
             margin: 0 auto;
             padding: 20px;
         }
-        /* Styling für das neue Inhaltsverzeichnis */
         .toc-card {
             background: #f0f4f8;
             padding: 20px;
@@ -66,13 +65,10 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             margin-bottom: 30px;
         }
-        
-        /* FIX: Sorgt dafür, dass der Browser beim Springen exakt 100px Platz für den Header lässt */
         .guide-section {
             display: block;
             scroll-margin-top: 100px;
         }
-        
         .step {
             display: flex;
             align-items: flex-start;
@@ -101,17 +97,6 @@
             line-height: 1.5;
             font-size: 14.5px;
         }
-        .back-button {
-            display: inline-block;
-            margin-bottom: 20px;
-            color: #3498db;
-            text-decoration: none;
-            font-weight: bold;
-            transition: transform 0.2s;
-        }
-        .back-button:hover {
-            transform: translateX(-3px);
-        }
         .color-badge {
             display: inline-block;
             padding: 3px 10px;
@@ -130,8 +115,6 @@
             font-size: 13.5px;
             color: #665200;
         }
-        
-        /* Schwebende Header-Insel für Unterseiten */
         .header-insel {
             position: sticky;
             top: 15px;
@@ -148,15 +131,12 @@
             align-items: center;
             margin-bottom: 30px;
         }
-
         .brand-title {
             font-weight: bold;
             color: #2c3e50;
             font-size: 18px;
             text-decoration: none;
         }
-
-        /* Hamburger Button */
         .menu-trigger {
             background: none;
             border: none;
@@ -166,10 +146,8 @@
             padding: 5px;
             line-height: 1;
         }
-
-        /* Das ausklappbare Menü-Panel */
         .menu-panel {
-            display: none; /* Standardmäßig unsichtbar */
+            display: none;
             position: absolute;
             top: 65px;
             right: 10px;
@@ -180,11 +158,9 @@
             width: 200px;
             padding: 10px 0;
         }
-
         .menu-panel.show {
-            display: block; /* Wird per JavaScript sichtbar geschaltet */
+            display: block;
         }
-
         .menu-panel a {
             display: block;
             padding: 12px 20px;
@@ -193,7 +169,6 @@
             font-weight: 600;
             font-size: 15px;
         }
-
         .menu-panel a:hover {
             background-color: #f8f9fa;
             color: #3498db;
@@ -208,13 +183,13 @@
     
     <div class="menu-panel" id="dropdownMenu">
         <a href="index.html">🗺️ Zurück zur Karte</a>
+        <a href="#merkliste">⭐ Meine Merkliste</a>
         <a href="datenschutz.html">🔒 Datenschutz & Impressum</a>
     </div>
 </div>
 
-    
     <h1 style="color: #2c3e50; margin-bottom: 5px;">Handbuch & Anleitung</h1>
-    <p style="color: #7f8c8d; margin-bottom: 25px; font-size: 15px;">Version 1.2 – Stand: Juni 2026</p>
+    <p style="color: #7f8c8d; margin-bottom: 25px; font-size: 15px;">Version 1.7 – Stand: 17. Juni 2026</p>
 
     <div class="guide-card">
         <h3 style="color: #2c3e50; margin-top: 0;">Vorwort</h3>
@@ -227,7 +202,7 @@
         <h3>Inhalt der Anleitung</h3>
         <ul class="toc-list" style="list-style: none; padding-left: 0;">
             <li><a href="#kategorien">1. Definition der Kategorien</a></li>
-            <li style="padding-left: 20px;"><a href="#hindernisse">1.1. Hindernisse</a></li>
+            <li style="padding-left: 20px;"><a href="#hindernisse">1.1. Hindernisse & Baustellen-Management</a></li>
             <li style="padding-left: 20px;"><a href="#alltag">1.2. Barrierefreiheit im Alltag</a></li>
             <li style="padding-left: 20px;"><a href="#bahnsteig">1.3. Barrierefreiheit am Bahnsteig</a></li>
             <li style="padding-left: 20px;"><a href="#kombi">1.4. Kombinierte Merkmale</a></li>
@@ -236,14 +211,15 @@
             <li style="padding-left: 20px;"><a href="#bahnsteig-check">2.2. Der Bahnsteig Check</a></li>
             <li><a href="#suche-filter">3. Suchen & Filtern richtig nutzen</a></li>
             <li style="padding-left: 20px;"><a href="#suchleiste">3.1. Die Suchleiste</a></li>
-            <li style="padding-left: 20px;"><a href="#header">3.2. Die Header-Insel & Filter</a></li>
-            <li><a href="#navigation">4. Routen & Navigation starten</a></li>
-            <li><a href="#voting">5. Voting & Check-In (Effektive Nutzung)</a></li>
-            <li style="padding-left: 20px;"><a href="#vote">5.1. Einträge bewerten</a></li>
-            <li style="padding-left: 20px;"><a href="#check-in">5.2. Der Live-Check-In</a></li>
-            <li><a href="#pwa">6. Als App auf dem Smartphone speichern</a></li>
-            <li style="padding-left: 20px;"><a href="#ios">6.1. Anleitung für Iphone</a></li>
-            <li style="padding-left: 20px;"><a href="#android">6.2. Anleitung für Android</a></li>
+            <li style="padding-left: 20px;"><a href="#header">3.2. Die Filter-Schaltflächen</a></li>
+            <li><a href="#merkliste">4. Merkliste & Favoriten (Orte speichern)</a></li>
+            <li><a href="#navigation">5. Routen & Navigation starten</a></li>
+            <li><a href="#voting">6. Voting & Check-In (Effektive Nutzung)</a></li>
+            <li style="padding-left: 20px;"><a href="#vote">6.1. Einträge bewerten</a></li>
+            <li style="padding-left: 20px;"><a href="#check-in">6.2. Der Live-Check-In</a></li>
+            <li><a href="#pwa">7. Als App auf dem Smartphone speichern</a></li>
+            <li style="padding-left: 20px;"><a href="#ios">7.1. Anleitung für iPhone</a></li>
+            <li style="padding-left: 20px;"><a href="#android">7.2. Anleitung für Android</a></li>
         </ul>
     </div>
 
@@ -258,7 +234,7 @@
                 <div class="step-text">
                     <span class="color-badge" style="background: #34495E;">Dunkelgrau</span>
                     <h3>Kein barrierefreier Zugang</h3>
-                    <p>Orte, Geschäfte oder öffentliche Gebäude, die für Menschen mit Mobilitätseinschränkungen (z. B. aufgrund von schweren Drehtüren oder hohen Absätzen) absolut unzugänglich sind.</p>
+                    <p>Orte, Geschäfte oder öffentliche Gebäude, die für Menschen mit Mobilitätseinschränkungen absolut unzugänglich sind.</p>
                 </div>
             </div>
 
@@ -267,7 +243,7 @@
                 <div class="step-text">
                     <span class="color-badge" style="background: #E74C3C;">Rot</span>
                     <h3>Treppe melden</h3>
-                    <p>Stufen und Treppen ohne alternative Rampe oder Aufzug, die ein Weiterkommen mit Rollstuhl, Rollator oder Kinderwagen blockieren.</p>
+                    <p>Stufen und Treppen ohne alternative Rampe oder Aufzug, die ein Weiterkommen blockieren.</p>
                 </div>
             </div>
 
@@ -276,7 +252,7 @@
                 <div class="step-text">
                     <span class="color-badge" style="background: #E67E22;">Orange</span>
                     <h3>Aufzug defekt</h3>
-                    <p>Akute technische Störungen oder Ausfälle von Aufzügen an Bahnhöfen, in Parkhäusern oder öffentlichen Gebäuden.</p>
+                    <p>Akute technische Störungen oder Ausfälle von Aufzügen an Bahnhöfen oder in Gebäuden.</p>
                 </div>
             </div>
 
@@ -285,15 +261,21 @@
                 <div class="step-text">
                     <span class="color-badge" style="background: #F1C40F; color: black;">Gelb</span>
                     <h3>Baustelle</h3>
-                    <p>Temporäre Bauarbeiten, Sperrungen von Gehwegen oder aufgerissener Asphalt, der kurzfristig ein Hindernis darstellt.</p>
+                    <p>Sperrungen oder Arbeiten auf Gehwegen. Beim ersten Eintragen erhält die Baustelle ein <b>automatisches Ablaufdatum von 7 Tagen</b>. Sobald User den <b>Live-Check-In vor Ort</b> nutzen, kann die verbleibende Laufzeit über das Baustellen-Management-Menü individuell angepasst werden:</p>
+                    <p style="margin-top: 6px; font-size: 13.5px; color: #444;">
+                        🔵 <b>"Existiert noch (+7 Tage)"</b> – Verlängert den Marker unkompliziert um eine weitere Woche, falls die Arbeiten andauern und kein genaues Ende bekannt ist.<br>
+                        🟡 <b>"Enddatum ändern"</b> – Ermöglicht es, ein präzises, geplantes Abschlussdatum für die Baustelle zu hinterlegen.<br>
+                        🔴 <b>"Komplett aufgelöst"</b> – Entfernt das Hindernis sofort vorzeitig von der Karte, wenn die Wege wieder frei sind.
+                    </p>
                 </div>
             </div>
-                        <div class="step">
+            
+            <div class="step">
                 <div class="step-icon" style="background: #D35400; color: white;">🛴</div>
                 <div class="step-text">
                     <span class="color-badge" style="background: #D35400;">Dunkelorange</span>
                     <h3>E-Scooter im Weg</h3>
-                    <p>Achtlos auf dem Gehweg oder vor Absenkungen abgestellte Roller, die ein Durchkommen blockieren. <b>Verfällt automatisch nach 24 Std.</b> (Verlängerung per Vor-Ort-Check-In möglich).</p>
+                    <p>Achtlos auf dem Gehweg abgestellt. <b>Verfällt automatisch nach 24 Std.</b> (Verlängerung per Vor-Ort-Check-In möglich).</p>
                 </div>
             </div>
 
@@ -302,197 +284,86 @@
                 <div class="step-text">
                     <span class="color-badge" style="background: #7F8C8D;">Grau</span>
                     <h3>Mülltonne blockiert</h3>
-                    <p>Am Leerungstag ungünstig platzierte Tonnen, die den verbleibenden Gehweg für Rollstühle oder Kinderwagen zu stark verengen. <b>Verfällt automatisch nach 24 Std.</b> (Verlängerung per Vor-Ort-Check-In möglich).</p>
+                    <p>Am Leerungstag ungünstig platzierte Tonnen. <b>Verfällt automatisch nach 24 Std.</b> (Verlängerung per Vor-Ort-Check-In möglich).</p>
                 </div>
             </div>
-
         </div>
 
         <div class="guide-card" id="alltag" style="border-left: 5px solid #27AE60;">
             <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px;">1.2. ✨ Barrierefreiheit im Alltag</h3>
-            
-            <div class="step">
-                <div class="step-icon" style="background: #27AE60; color: white;">🛗</div>
-                <div class="step-text">
-                    <span class="color-badge" style="background: #27AE60;">Dunkelgreen</span>
-                    <h3>Aufzug vorhanden</h3>
-                    <p>Ein voll funktionstüchtiger Personenaufzug, der Etagenwechsel oder den Zugang zu Gleisen barrierefrei ermöglicht.</p>
-                </div>
-            </div>
-
-            <div class="step">
-                <div class="step-icon" style="background: #16A085; color: white;">📐</div>
-                <div class="step-text">
-                    <span class="color-badge" style="background: #16A085;">Türkis</span>
-                    <h3>Rampe vorhanden</h3>
-                    <p>Fest installierte oder mobile Rampen mit mäßiger Steigung, die Treppenstufen erfolgreich umgehen.</p>
-                </div>
-            </div>
-
-            <div class="step">
-                <div class="step-icon" style="background: #2ECC71; color: white;">🚽</div>
-                <div class="step-text">
-                    <span class="color-badge" style="background: #2ECC71;">Hellgrün</span>
-                    <h3>WC barrierefrei</h3>
-                    <p>Spezielle, geräumige Toiletten für Menschen mit Behinderung (oftmals zugänglich über das Euroschlüssel-System).</p>
-                </div>
-            </div>
-
-            <div class="step">
-                <div class="step-icon" style="background: #3498DB; color: white;">🅿️</div>
-                <div class="step-text">
-                    <span class="color-badge" style="background: #3498DB;">Blau</span>
-                    <h3>Parkplatz</h3>
-                    <p>Offiziell ausgewiesene und extra breite Behindertenparkplätze in der Nähe von Eingängen oder Bahnhöfen.</p>
-                </div>
-            </div>
-
-            <div class="step">
-                <div class="step-icon" style="background: #9B59B6; color: white;">📍</div>
-                <div class="step-text">
-                    <span class="color-badge" style="background: #9B59B6;">Lila</span>
-                    <h3>Barrierefreier Ort</h3>
-                    <p>Allgemeine Orte, Cafés, Kinos oder Parks, die sich durch ein besonders zugängliches, ebenerdiges Gesamtkonzept auszeichnen.</p>
-                </div>
-            </div>
+            <div class="step"><div class="step-icon" style="background: #27AE60; color: white;">🛗</div><div class="step-text"><h3>Aufzug vorhanden</h3><p>Voll funktionstüchtig.</p></div></div>
+            <div class="step"><div class="step-icon" style="background: #16A085; color: white;">📐</div><div class="step-text"><h3>Rampe vorhanden</h3><p>Fest installiert oder mobil.</p></div></div>
+            <div class="step"><div class="step-icon" style="background: #2ECC71; color: white;">🚽</div><div class="step-text"><h3>WC barrierefrei</h3><p>Spezielle, geräumige Toiletten.</p></div></div>
+            <div class="step"><div class="step-icon" style="background: #3498DB; color: white;">🅿️</div><div class="step-text"><h3>Parkplatz</h3><p>Ausgewiesene Behindertenparkplätze.</p></div></div>
+            <div class="step"><div class="step-icon" style="background: #9B59B6; color: white;">📍</div><div class="step-text"><h3>Barrierefreier Ort</h3><p>Ebenerdiges Gesamtkonzept.</p></div></div>
         </div>
 
         <div class="guide-card" id="bahnsteig" style="border-left: 5px solid #D35400;">
-            <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px;">1.3. 🚉 Barrierefreiheit / Hindernisse am Bahnsteig</h3>
-            
-            <div class="step">
-                <div class="step-icon" style="background: #D35400; color: white;">⚠️</div>
-                <div class="step-text">
-                    <span class="color-badge" style="background: #D35400;">Dunkelorange</span>
-                    <h3>Stufe am Zug (Höhenunterschied)</h3>
-                    <p>Ein kritischer Höhen- oder Spaltunterschied zwischen der Bahnsteigkante und dem Zug. Hier wird beim Einstieg oft die Einstiegshilfe des Zugpersonals (z. B. eine Rampe) benötigt.</p>
-                </div>
-            </div>
-
-            <div class="step">
-                <div class="step-icon" style="background: #2980B9; color: white;">✅</div>
-                <div class="step-text">
-                    <span class="color-badge" style="background: #2980B9;">Marineblau</span>
-                    <h3>Einstieg eben (Niveaugleich)</h3>
-                    <p>Ein perfekt ausgebauter Bahnsteig, bei dem der Einstieg in den Zug vollkommen stufenlos und ohne Spalt direkt mit dem Rollstuhl befahrbar ist.</p>
-                </div>
-            </div>
+            <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px;">1.3. 🚉 Am Bahnsteig</h3>
+            <div class="step"><div class="step-icon" style="background: #D35400; color: white;">⚠️</div><div class="step-text"><h3>Stufe am Zug</h3><p>Kritischer Höhenunterschied.</p></div></div>
+            <div class="step"><div class="step-icon" style="background: #2980B9; color: white;">✅</div><div class="step-text"><h3>Einstieg eben</h3><p>Vollkommen stufenlos befahrbar.</p></div></div>
         </div>
+
         <div class="guide-card" id="kombi" style="border-left: 5px solid #2c3e50;">
             <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px;">1.4. 🏢 Kombinierte Merkmale</h3>
-            
-            <div class="step">
-                <div class="step-icon" style="background: #2c3e50; color: white;">🏢</div>
-                <div class="step-text">
-                    <span class="color-badge" style="background: #2c3e50;">Dunkelblau</span>
-                    <h3>Mehrfach-Meldung</h3>
-                    <p>Punkte auf der Karte, die mehr als nur eine Eigenschaft besitzen. Dies passiert, wenn ein User beim Erstellen mehrere Haken gleichzeitig setzt (z. B. ein barrierefreies WC <b>und</b> ein Behindertenparkplatz am selben Ort, oder eine Treppe direkt neben einer Baustelle).</p>
-                </div>
-            </div>
+            <div class="step"><div class="step-icon" style="background: #2c3e50; color: white;">🏢</div><div class="step-text"><h3>Mehrfach-Meldung</h3><p>Punkte mit mehreren Eigenschaften gleichzeitig.</p></div></div>
         </div>
-
     </div>
 
     <div class="guide-section" id="eintrag">
         <h2 style="color: #2c3e50; margin-bottom: 15px;">2. Einträge auf der Karte hinzufügen</h2>
         <div class="guide-card">
-            <div class="step">
-                <div class="step-icon" style="background: #f0f4f8;">📍</div>
-                <div class="step-text">
-                    <h3 id="karte">2.1. Karte anklicken und melden</h3>
-                    <p>Siehst du ein neues Hindernis oder einen barrierefreien Ort? Klicke oder tippe einfach direkt auf die entsprechende Stelle auf der Karte. Es öffnet sich sofort das Meldefenster. Wähle die passende Kategorie, gib eine kurze, präzise Beschreibung ein und lade den Eintrag hoch, um anderen Nutzern zu helfen.</p>
-                </div>
-            </div>
-            <div class="step">
-                <div class="step-icon" style="background: #f0f4f8;">🚉</div>
-                <div class="step-text">
-                    <h3 id="bahnsteig-check">2.2. Der Bahnsteig-Check</h3>
-                    <p>Achte an Bahnhöfen besonders auf den Einstieg zum Zug. Falls es einen unüberwindbaren Höhenunterschied zwischen Bahnsteigkante und Zug gibt, trage dies bitte explizit ein, damit Reisende wissen, ob sie den Mobilitätsservice der Bahn anfordern müssen.</p>
-                </div>
-            </div>
+            <div class="step"><div class="step-icon" style="background: #f0f4f8;">📍</div><div class="step-text"><h3 id="karte">2.1. Karte anklicken und melden</h3><p>Direkt auf die Karte tippen, Kategorie wählen, kurze Beschreibung zufügen und hochladen. Baustellen erhalten dabei automatisch eine voreingestellte Gültigkeit von 7 Tagen.</p></div></div>
+            <div class="step"><div class="step-icon" style="background: #f0f4f8;">🚉</div><div class="step-text"><h3 id="bahnsteig-check">2.2. Der Bahnsteig-Check</h3><p>Höhenunterschiede explizit eintragen, um den Einstieg im Rollstuhl planbar zu machen.</p></div></div>
         </div>
     </div>
 
     <div class="guide-section" id="suche-filter">
         <h2 style="color: #2c3e50; margin-bottom: 15px;">3. Suchen & Filtern richtig nutzen</h2>
         <div class="guide-card">
+            <div class="step"><div class="step-icon" style="background: #f0f4f8;">🔍</div><div class="step-text"><h3 id="suchleiste">3.1. Die Suchleiste (Oben Links)</h3><p>Über die Lupe Adressen oder Bahnhöfe suchen. Die Karte springt sofort dorthin.</p></div></div>
+            <div class="step"><div class="step-icon" style="background: #f0f4f8;">🎨</div><div class="step-text"><h3 id="header">3.2. Die Filter-Schaltflächen / Badges</h3><p>Kategorien per Tippen aktivieren oder deaktivieren, um irrelevante Marker auszublenden.</p></div></div>
+        </div>
+    </div>
+
+    <div class="guide-section" id="merkliste">
+        <h2 style="color: #2c3e50; margin-bottom: 15px;">4. Merkliste & Favoriten (Orte speichern)</h2>
+        <div class="guide-card">
             <div class="step">
-                <div class="step-icon" style="background: #f0f4f8;">🔍</div>
+                <div class="step-icon" style="background: #f0f4f8; color: #f1c40f;">⭐</div>
                 <div class="step-text">
-                    <h3 id="suchleiste">3.1. Die Suchleiste (Unten Links)</h3>
-                    <p>Direkt unter den Zoom-Buttons findest du die Lupe. Klicke darauf und tippe eine Adresse, eine Straße oder einen bestimmten Bahnhof ein. Die Karte springt sofort an den gewünschten Ort, sodass du die Barrierefreiheit vorab prüfen kannst.</p>
-                </div>
-            </div>
-            <div class="step">
-                <div class="step-icon" style="background: #f0f4f8;">≡</div>
-                <div class="step-text">
-                    <h3 id="header">3.2. Die Header-Insel & Filter (Oben Mitte)</h3>
-                    <p>Die schwebende Insel oben in der Mitte beherbergt das Menü und das Filter-Dropdown. Wenn du gezielt nur nach bestimmten Dingen (z.B. nur funktionierende Aufzüge oder nur Behinderten-WCs) suchst, stelle das Dropdown um. Alle nicht relevanten Marker werden ausgeblendet, um die Übersicht zu wahren.</p>
+                    <h3>Wichtige Orte immer im Blick</h3>
+                    <p>Du kannst häufig genutzte Bahnhöfe, barrierefreie WCs oder kritische Hindernisse auf deinem täglichen Arbeitsweg ganz einfach abspeichern:</p>
+                    <p style="margin-top: 8px;">🔹 Öffne dazu das Info-Popup eines beliebigen Markers auf der Karte und klicke auf das <b>Stern- oder Herz-Symbol</b>, um den Ort zu merken.</p>
+                    <p style="margin-top: 5px;">🔹 Deine gespeicherten Orte findest du jederzeit blitzschnell wieder, indem du oben in der Header-Insel auf das Menü (≡) klickst und dort <b>"⭐ Meine Merkliste"</b> auswählst.</p>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="guide-section" id="navigation">
-        <h2 style="color: #2c3e50; margin-bottom: 15px;">4. Routen & Navigation starten</h2>
+        <h2 style="color: #2c3e50; margin-bottom: 15px;">5. Routen & Navigation starten</h2>
         <div class="guide-card">
-            <div class="step">
-                <div class="step-icon" style="background: #f0f4f8;">🗺️</div>
-                <div class="step-text">
-                    <h3>Nahtlose Weiterleitung</h3>
-                    <p>Wenn du einen Marker auf der Karte anklickst, öffnet sich dessen Info-Popup. Um dich direkt dorthin navigieren zu lassen, findest du im Fenster den blauen Button <b>"Route in Google Maps starten"</b>. Ein Klick darauf öffnet sicher die Navigation in einem neuen Fenster oder direkt in deiner Google Maps App.</p>
-                </div>
-            </div>
+            <div class="step"><div class="step-icon" style="background: #f0f4f8;">🗺️</div><div class="step-text"><h3>Nahtlose Weiterleitung</h3><p>Mit dem Button "Route in Google Maps starten" öffnet sich die Navigation direkt in der entsprechenden App.</p></div></div>
         </div>
     </div>
 
     <div class="guide-section" id="voting">
-        <h2 style="color: #2c3e50; margin-bottom: 15px;">5. Voting & Check-In (Effektive Nutzung)</h2>
+        <h2 style="color: #2c3e50; margin-bottom: 15px;">6. Voting & Check-In (Effektive Nutzung)</h2>
         <div class="guide-card">
-            <div class="step">
-                <div class="step-icon" style="background: #f0f4f8;">👍</div>
-                <div class="step-text">
-                    <h3 id="vote">5.1. Einträge bewerten (Richtig / Falsch)</h3>
-                    <p>Die Zuverlässigkeit von StepFree lebt von der Community. Im Popup jedes Markers findest du Buttons, um eine Meldung als <b>"Richtig"</b> oder <b>"Falsch"</b> zu bewerten:</p>
-                    <p style="margin-top: 8px;">🔹 Erreicht ein Punkt <b>+3 Bewertungen</b>, erhält er auf der Karte einen <b>grün leuchtenden Schatten</b> – das Zeichen für maximale Zuverlässigkeit.</p>
-                    <p style="margin-top: 5px;">🔹 Sinkt ein Punkt auf <b>-3 Bewertungen</b>, wird automatisch eine Überprüfung durch das Admin-Team eingeleitet, um Falschmeldungen sofort auszusortieren.</p>
-                </div>
-            </div>
-
-            <div class="step">
-                <div class="step-icon" style="background: #f0f4f8;">🧭</div>
-                <div class="step-text">
-                    <h3 id="check-in">5.2. Der Live-Check-In (Standort-Verifizierung)</h3>
-                    <p>Manchmal fordert das Admin-Team für einen unklaren Marker eine Überprüfung an. Wenn du auf der Karte einen Punkt siehst, bei dem ein Check-In aktiv ist, kannst du diesen verifizieren: Sobald du dich physisch im <b>Umkreis von 50 Metern</b> um diesen Ort befindest, schaltet sich die Funktion in deiner App frei. Mit deinem Klick vor Ort bestätigst du die Richtigkeit der Meldung und hilfst, die Karte fehlerfrei zu halten.</p>
-                </div>
-            </div>
+            <div class="step"><div class="step-icon" style="background: #f0f4f8;">👍</div><div class="step-text"><h3 id="vote">6.1. Einträge bewerten</h3><p>Ab +3 Bewertungen erhält der Punkt einen grün leuchtenden Schatten. Bei -3 Bewertungen prüft das Admin-Team.</p></div></div>
+            <div class="step"><div class="step-icon" style="background: #f0f4f8;">🧭</div><div class="step-text"><h3 id="check-in">6.2. Der Live-Check-In</h3><p>Im Umkreis von 50 Metern schaltet sich die Verifizierung frei. Handelt es sich um eine Baustelle, öffnet sich nach dem Check-In das interaktive <b>Baustellen-Management</b>. Hierüber kann die standardmäßige 7-Tage-Laufzeit manuell verlängert, konkretisiert oder sofort gelöscht werden.</p>
+            </div></div>
         </div>
     </div>
 
     <div class="guide-section" id="pwa">
-        <h2 style="color: #2c3e50; margin-bottom: 15px;">6. Als App auf dem Smartphone speichern</h2>
+        <h2 style="color: #2c3e50; margin-bottom: 15px;">7. Als App auf dem Smartphone speichern</h2>
         <div class="guide-card">
-            <p style="color: #555; line-height: 1.5; margin-top: 0;">Du kannst StepFree wie eine ganz normale App auf deinem Smartphone installieren – völlig ohne App-Store. Dadurch hast du sie unterwegs mit nur einem Klick sofort parat:</p>
-            
-            <div class="step" style="margin-top: 15px;">
-                <div class="step-icon" style="background: #f0f4f8; font-size: 16px; font-weight: bold; color: #2c3e50;">iOS</div>
-                <div class="step-text">
-                    <h3 id="ios">6.1. Anleitung für iPhone (Safari Browser)</h3>
-                    <p>Öffne die StepFree-Webseite in Safari. Tippe unten in der Leiste auf das <b>Teilen-Symbol</b> (Quadrat mit Pfeil nach oben). Scrolle etwas nach unten und wähle den point <b>"Zum Home-Bildschirm"</b> aus. Bestätige mit "Hinzufügen".</p>
-                </div>
-            </div>
-
-            <div class="step">
-                <div class="step-icon" style="background: #f0f4f8; font-size: 16px; font-weight: bold; color: #2c3e50;">AND</div>
-                <div class="step-text">
-                    <h3 id="android">Anleitung für Android (Google Chrome)</h3>
-                    <p>Öffne die StepFree-Webseite in Chrome. Tippe oben rechts auf die <b>drei Punkte</b>. Wähle im Menü den Punkt <b>"App installieren"</b> oder <b>"Zum Startbildschirm hinzufügen"</b> aus und folge den kurzen Anweisungen.</p>
-                </div>
-            </div>
-
-            <div class="tip-box">
-                💡 <b>Tipp:</b> Nach dem Speichern verschwindet die Adressleiste des Browsers komplett, und StepFree läuft im bildschirmfüllenden, edlen Vollbildmodus!
-            </div>
+            <p style="color: #555; line-height: 1.5; margin-top: 0;">StepFree lässt sich ohne App-Store als PWA auf dem Startbildschirm installieren:</p>
+            <div class="step"><div class="step-icon" style="background: #f0f4f8; font-weight: bold; color: #2c3e50;">iOS</div><div class="step-text"><h3 id="ios">7.1. Anleitung für iPhone (Safari Browser)</h3><p>Teilen-Symbol tippen -> "Zum Home-Bildschirm" auswählen.</p></div></div>
+            <div class="step"><div class="step-icon" style="background: #f0f4f8; font-weight: bold; color: #2c3e50;">AND</div><div class="step-text"><h3 id="android">7.2. Anleitung für Android (Google Chrome)</h3><p>Drei Punkte oben rechts -> "App installieren" wählen.</p></div></div>
+            <div class="tip-box">💡 <b>Tipp:</b> Nach dem Speichern läuft StepFree im bildschirmfüllenden Vollbildmodus!</div>
         </div>
     </div>
 
@@ -506,7 +377,6 @@ function toggleMenu() {
     const menu = document.getElementById('dropdownMenu');
     menu.classList.toggle('show');
 }
-
 window.onclick = function(event) {
     if (!event.target.matches('.menu-trigger')) {
         const dropdowns = document.getElementsByClassName("menu-panel");
