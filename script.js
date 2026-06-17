@@ -1,8 +1,65 @@
 const isAdminPage = window.location.pathname.includes("admin.html");
 
+// --- ZENTRALE MODAL ENGINE (Ersetzt prompt & confirm) ---
+const CustomUI = {
+    // Ersetzt confirm()
+    async confirm(titel, text, jaText = "Ja", neinText = "Abbrechen") {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; display:flex; align-items:center; justify-content:center; font-family:sans-serif; padding:20px; box-sizing:border-box;";
+            overlay.innerHTML = `
+                <div style="background:white; padding:20px; border-radius:12px; max-width:340px; width:100%; box-shadow:0 4px 20px rgba(0,0,0,0.3); text-align:center;">
+                    <h3 style="margin-top:0; color:#2c3e50; font-size:1.2em;">${titel}</h3>
+                    <p style="font-size:0.95em; color:#7f8c8d; margin-bottom:20px; line-height:1.4;">${text}</p>
+                    <div style="display:flex; gap:10px;">
+                        <button id="modal-nein" style="flex:1; background:#eef2f3; color:#7f8c8d; border:1px solid #d5dbdb; padding:10px; border-radius:6px; cursor:pointer; font-weight:bold;">${neinText}</button>
+                        <button id="modal-ja" style="flex:1; background:#e74c3c; color:white; border:none; padding:10px; border-radius:6px; cursor:pointer; font-weight:bold;">${jaText}</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            overlay.querySelector('#modal-nein').onclick = () => { document.body.removeChild(overlay); resolve(false); };
+            overlay.querySelector('#modal-ja').onclick = () => { document.body.removeChild(overlay); resolve(true); };
+        });
+    },
+
+    // Ersetzt prompt()
+    async prompt(titel, text, placeholder = "", inputType = "text") {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; display:flex; align-items:center; justify-content:center; font-family:sans-serif; padding:20px; box-sizing:border-box;";
+            overlay.innerHTML = `
+                <div style="background:white; padding:20px; border-radius:12px; max-width:340px; width:100%; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+                    <h3 style="margin-top:0; color:#2c3e50; font-size:1.2em; text-align:center;">${titel}</h3>
+                    <p style="font-size:0.95em; color:#7f8c8d; margin-bottom:12px; text-align:center;">${text}</p>
+                    <input id="modal-input" type="${inputType}" placeholder="${placeholder}" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:6px; margin-bottom:15px; box-sizing:border-box; font-size:1em;">
+                    <div style="display:flex; gap:10px;">
+                        <button id="modal-cancel" style="flex:1; background:#eef2f3; color:#7f8c8d; border:1px solid #d5dbdb; padding:10px; border-radius:6px; cursor:pointer;">Abbrechen</button>
+                        <button id="modal-submit" style="flex:1; background:#27AE60; color:white; border:none; padding:10px; border-radius:6px; cursor:pointer; font-weight:bold;">Bestätigen</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            const input = overlay.querySelector('#modal-input');
+            input.focus();
+            
+            overlay.querySelector('#modal-cancel').onclick = () => { document.body.removeChild(overlay); resolve(null); };
+            overlay.querySelector('#modal-submit').onclick = () => {
+                const val = input.value.trim();
+                document.body.removeChild(overlay);
+                resolve(val || null);
+            };
+            input.onkeydown = (e) => {
+                if (e.key === "Enter") overlay.querySelector('#modal-submit').click();
+            };
+        });
+    }
+};
+
+// --- ADMIN LOGIN MIT CUSTOM PROMPT ---
 if (isAdminPage) {
     setTimeout(async () => {
-        const login = prompt("StepFree Admin-Bereich\nBitte Passwort eingeben:");
+        const login = await CustomUI.prompt("🔒 Admin-Bereich", "Bitte Passwort eingeben:", "Passwort...", "password");
         if (!login) {
             window.location.href = "index.html";
             return;
@@ -25,7 +82,6 @@ const DATA_URL_BASE = "https://stepfree-7c252-default-rtdb.europe-west1.firebase
 let map, myLocationMarker, reportsData = [], activeMarkers = {};
 let activeSelectedFilters = [];
 
-// Hilfsfunktion zur Formatierung des Datums im Popup
 function formatierenDatum(timestamp) {
     if (!timestamp) return "Unbekannt";
     const date = new Date(timestamp);
@@ -135,8 +191,6 @@ async function loadFromCommunity() {
                         r.checkInRequestedBy = null;
                     }
                     if (!r.hasOwnProperty('createdAt')) {
-                        // KORREKTUR: Alte Punkte ohne Datum erhalten einen fixen alten Zeitstempel (z.B. 1. Jan 2026),
-                        // damit sie nicht fälschlicherweise als "Brandneu" (unter 48h) gefiltert werden.
                         r.createdAt = 1767222000000; 
                     }
                     
@@ -215,7 +269,6 @@ function drawMarkersOnMap() {
         let markerTypes = Array.isArray(r.typ) ? r.typ : [r.typ];
         markerTypes = markerTypes.map(t => t === "WC barrierefrei" ? "WC" : t);
 
-        // --- INTELLIGENTE FILTER-ERWEITERUNG ---
         if (activeSelectedFilters.length > 0) {
             const zweiTageInMs = 2 * 24 * 60 * 60 * 1000;
             
@@ -274,9 +327,7 @@ function drawMarkersOnMap() {
         
         const m = L.marker([r.lat, r.lng], { icon }).addTo(map);
         
-        if (isAdminPage && r.status === "new") {
-            m.on('click', () => adminReviewDone(r.id));
-        }
+        if (isAdminPage && r.status === "new") m.on('click', () => adminReviewDone(r.id));
         
         let content = `<div style="font-family:sans-serif; min-width:230px;">`;
         
@@ -289,7 +340,6 @@ function drawMarkersOnMap() {
             content += `<b style="color:#2ecc71;">🌟 Offiziell Bestätigt</b><br>`;
         }
         
-        // KORREKTUR: Datum wird jetzt für ALLE Benutzer formatiert im Popup angezeigt
         if (r.createdAt) {
             content += `<span style="font-size:0.85em; color:#7f8c8d; display:block; margin-top:2px; margin-bottom:5px;">📅 Gemeldet am: <b>${formatierenDatum(r.createdAt)}</b></span>`;
         }
@@ -321,7 +371,6 @@ function drawMarkersOnMap() {
         content += `</div>`;
 
         let hatEingeecheckt = localStorage.getItem(`checkedIn_${r.id}`) === "true";
-        
         let disabledAttr = "";
         let buttonStyleModifier = "cursor:pointer;";
         
@@ -363,21 +412,21 @@ function drawMarkersOnMap() {
     });
 }
 
-function addToFavorites(id, lat, lng) {
-    const customTitle = prompt("Unter welchem Namen möchtest du diesen Punkt auf deiner Merkliste speichern?");
-    if (!customTitle) return;
+// --- MERKLISTE MIT CUSTOM PROMPT ---
+async function addToFavorites(id, lat, lng) {
+    const customTitle = await CustomUI.prompt("⭐ Merkliste", "Unter welchem Namen möchtest du diesen Ort speichern?", "z.B. Mein Stammbäcker...");
+    if (!customTitle) return; 
 
     let favorites = JSON.parse(localStorage.getItem('stepfree_favorites') || "[]");
     
     if (favorites.some(f => f.id === id)) {
-        alert("Dieser Ort befindet sich bereits auf deiner Merkliste!");
+        await CustomUI.confirm("Hinweis", "Dieser Ort befindet sich bereits auf deiner Merkliste!", "Ok", "");
         return;
     }
 
     favorites.push({ id, title: customTitle, lat, lng });
     localStorage.setItem('stepfree_favorites', JSON.stringify(favorites));
     renderFavoritesList();
-    alert("Erfolgreich auf deiner persönlichen Merkliste gespeichert!");
 }
 
 function renderFavoritesList() {
@@ -398,9 +447,10 @@ function renderFavoritesList() {
         
         item.innerHTML = `
             <span onclick="jumpToFavorite('${f.id}', ${f.lat}, ${f.lng})" style="cursor:pointer; font-weight:bold; color:#2980b9; flex:1; font-size:0.95em;">📍 ${f.title}</span>
-            <button onclick="removeFromFavorites('${f.id}')" style="background:none; border:none; color:#e74c3c; cursor:pointer; font-size:1.1em;">🗑️</button>
+            <button id="del-fav-${f.id}" style="background:none; border:none; color:#e74c3c; cursor:pointer; font-size:1.1em;">🗑️</button>
         `;
         listContainer.appendChild(item);
+        item.querySelector(`#del-fav-${f.id}`).onclick = () => removeFromFavorites(f.id);
     });
 }
 
@@ -418,7 +468,7 @@ async function jumpToFavorite(id, lat, lng) {
         if (markerKey && activeMarkers[markerKey]) {
             activeMarkers[markerKey].openPopup();
         } else {
-            alert("Der Punkt befindet sich außerhalb deines aktuellen Kartenausschnitts oder wurde entfernt.");
+            CustomUI.confirm("Fehler", "Der Punkt befindet sich außerhalb des aktuellen Ausschnitts oder wurde entfernt.", "Ok", "");
         }
     }, 400);
 }
@@ -430,8 +480,10 @@ function removeFromFavorites(id) {
     renderFavoritesList();
 }
 
+// --- ADMIN LÖSCHEN MIT CUSTOM CONFIRM ---
 async function directDelete(id) {
-    if (confirm("Diesen Punkt wirklich für alle löschen?")) {
+    const sicher = await CustomUI.confirm("🗑️ Eintrag löschen", "Möchtest du diesen Punkt wirklich unwiderruflich für alle User löschen?");
+    if (sicher) {
         reportsData = reportsData.filter(r => r.id !== id);
         try {
             await fetch(`${DATA_URL_BASE}/${id}.json`, { method: 'DELETE' });
@@ -447,7 +499,6 @@ function confirmByAdmin(id) {
         report.status = "confirmed"; 
         drawMarkersOnMap();
         updateSingleMarkerInCommunity(report);
-        alert("Eintrag erfolgreich verifiziert!");
     }
 }
 
@@ -458,10 +509,10 @@ function askForCheck(id) {
         r.needsCheck = true;
         updateSingleMarkerInCommunity(r);
         drawMarkersOnMap();
-        alert("Admin-Check erfolgreich angefordert! Voting-Buttons wurden gesperrt.");
     }
 }
 
+// --- VERIFIZIERUNG MIT KORRIGIERTEM CUSTOM OVERLAY ---
 function verifyByLocation(id) {
     updateStatus("Prüfe Standort...", "#3498db");
     navigator.geolocation.getCurrentPosition((pos) => {
@@ -477,55 +528,72 @@ function verifyByLocation(id) {
             const basisZeit = report.expiresAt && report.expiresAt > Date.now() ? report.expiresAt : Date.now();
 
             if (markerTypes.some(t => t.includes("Baustelle"))) {
-                const aktion = prompt("Baustellen-Menü:\n1 = Existiert noch (7 Tage Verlängerung)\n2 = Festes Enddatum eintragen/ändern\n3 = Komplett aufgelöst (Löschen)\nBitte Zahl eingeben:");
+                const modalOverlay = document.createElement('div');
+                modalOverlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; display:flex; align-items:center; justify-content:center; font-family:sans-serif; padding:20px; box-sizing:border-box;";
                 
-                if (aktion === "1") {
+                modalOverlay.innerHTML = `
+                    <div style="background:white; padding:20px; border-radius:12px; max-width:320px; width:100%; box-shadow:0 4px 15px rgba(0,0,0,0.3); box-sizing:border-box;">
+                        <h3 style="margin-top:0; color:#2c3e50; font-size:1.15em; text-align:center;">🚧 Baustellen-Management</h3>
+                        <p style="font-size:0.9em; color:#7f8c8d; text-align:center; margin-bottom:15px;">Bitte wähle den aktuellen Status der Baustelle vor Ort:</p>
+                        <button id="btn-extend" style="display:block; width:100%; background:#3498db; color:white; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:8px; font-size:0.95em;">🔄 Existiert noch (+7 Tage)</button>
+                        <button id="btn-date" style="display:block; width:100%; background:#f1c40f; color:#2c3e50; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:8px; font-size:0.95em;">📅 Enddatum ändern</button>
+                        <button id="btn-delete" style="display:block; width:100%; background:#e74c3c; color:white; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:12px; font-size:0.95em;">🗑️ Komplett aufgelöst</button>
+                        <button id="btn-cancel" style="display:block; width:100%; background:#eef2f3; color:#7f8c8d; border:1px solid #d5dbdb; padding:8px; border-radius:6px; cursor:pointer; font-size:0.9em;">Abbrechen</button>
+                    </div>
+                `;
+                document.body.appendChild(modalOverlay);
+                
+                modalOverlay.querySelector('#btn-extend').onclick = () => {
                     report.expiresAt = basisZeit + siebenTage;
                     report.baustellenEnddatum = null;
-                    alert("Baustelle um 7 Tage verlängert!");
-                } else if (aktion === "2") {
-                    const datumInput = prompt("Bitte Enddatum im Format JJJJ-MM-TT eingeben (z.B. 2026-06-30):");
+                    document.body.removeChild(modalOverlay);
+                    finalizeVerificationProcess(report);
+                };
+                
+                modalOverlay.querySelector('#btn-date').onclick = async () => {
+                    document.body.removeChild(modalOverlay);
+                    // CustomUI prompt statt nativem prompt
+                    const datumInput = await CustomUI.prompt("📅 Enddatum festlegen", "Bitte neues Enddatum im Format JJJJ-MM-TT eingeben:", "2026-12-31");
                     if (datumInput && !isNaN(Date.parse(datumInput))) {
                         report.baustellenEnddatum = datumInput;
                         report.expiresAt = Date.parse(datumInput) + einTag;
-                        alert("Festes Enddatum gespeichert!");
-                    } else {
-                        alert("Ungültiges Datum. Vorgang abgebrochen.");
-                        return;
+                        finalizeVerificationProcess(report);
                     }
-                } else if (aktion === "3") {
+                };
+                
+                modalOverlay.querySelector('#btn-delete').onclick = () => {
                     report.expiresAt = Date.now() - 1000;
-                    alert("Baustelle wird als gelöscht gemeldet!");
-                } else {
-                    alert("Ungültige Auswahl.");
-                    return;
-                }
-            } else if (markerTypes.some(t => t.includes("E-Scooter") || t.includes("Mülltonne"))) {
+                    document.body.removeChild(modalOverlay);
+                    finalizeVerificationProcess(report);
+                };
+                
+                modalOverlay.querySelector('#btn-cancel').onclick = () => { document.body.removeChild(modalOverlay); };
+                return; 
+            } 
+            else if (markerTypes.some(t => t.includes("E-Scooter") || t.includes("Mülltonne"))) {
                 report.expiresAt = basisZeit + einTag;
-                alert("Erfolgreich eingecheckt! Um 24 Stunden verlängert.");
-            } else {
-                alert("Erfolgreich verifiziert!");
             }
-
-            report.needsCheck = false;
-            report.verifiedAt = new Date().toLocaleString('de-DE'); 
-
-            if (report.checkInRequestedBy === "admin") {
-                localStorage.setItem(`checkedIn_${report.id}`, "true");
-                alert("Sonderstimme aktiviert! Die Buttons sind jetzt bunt für dich. Bitte gib deine Stimme ab!");
-            }
-            
-            if (report.checkInRequestedBy === "system") {
-                report.checkInRequestedBy = null;
-            }
-
-            updateSingleMarkerInCommunity(report);
-            drawMarkersOnMap();
+            finalizeVerificationProcess(report);
         } else {
-            alert(`Check-In fehlgeschlagen! Du bist ${Math.round(dist * 1000)}m entfernt.`);
+            updateStatus("Community Live ✅", "#27AE60");
         }
-        updateStatus("Community Live ✅", "#27AE60");
-    }, () => alert("GPS-Zugriff verweigert!"));
+    }, () => {});
+}
+
+function finalizeVerificationProcess(report) {
+    report.needsCheck = false;
+    report.verifiedAt = new Date().toLocaleString('de-DE'); 
+
+    if (report.checkInRequestedBy === "admin") {
+        localStorage.setItem(`checkedIn_${report.id}`, "true");
+    }
+    if (report.checkInRequestedBy === "system") {
+        report.checkInRequestedBy = null;
+    }
+
+    updateSingleMarkerInCommunity(report);
+    drawMarkersOnMap();
+    updateStatus("Community Live ✅", "#27AE60");
 }
 
 function openSelectionPopup(latlng) {
@@ -549,10 +617,6 @@ function openSelectionPopup(latlng) {
           <label><input type="checkbox" name="typ" value="Parkplatz"> 🅿️ Parkplatz</label>
           <label><input type="checkbox" name="typ" value="Barrierefreier Ort"> 📍 Barrierefreier Ort</label>
           <hr style="margin: 5px 0; border: none; border-top: 1px solid #ccc;">
-          <strong>🚉 Bahnsteig</strong>
-          <label><input type="checkbox" name="typ" value="Höhenunterschied"> ⚠️ Stufe am Zug</label>
-          <label><input type="checkbox" name="typ" value="Niveaugleicher Einstieg"> ✅ Einstieg eben</label>
-          <hr style="margin: 8px 0; border: none; border-top: 1px solid #ccc;">
           <strong>Zusatzinformationen:</strong>
           <input type="text" id="multiDetails" placeholder="z.B. Rampe im 1. OG..." style="padding: 8px; border: 1px solid #ccc; border-radius: 6px; width: 93%;">
           <button type="submit" style="background:#27AE60; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:10px; font-size:1em;">💾 Eintrag speichern</button>
@@ -567,10 +631,7 @@ function finalizeMultiReport(event, lat, lng) {
     const checkboxes = document.querySelectorAll('#multiReportForm input[name="typ"]:checked');
     const gewaehlteTypen = Array.from(checkboxes).map(cb => cb.value);
     
-    if (gewaehlteTypen.length === 0) {
-        alert("Bitte wähle mindestens eine Eigenschaft aus!");
-        return;
-    }
+    if (gewaehlteTypen.length === 0) return;
     
     const kommentarText = document.getElementById('multiDetails').value;
     const einTag = 24 * 60 * 60 * 1000;
@@ -595,7 +656,7 @@ function finalizeMultiReport(event, lat, lng) {
         expiresAt: ablaufZeit,
         checkInRequestedBy: null,
         sonderVoting: { ja: 0, nein: 0 },
-        createdAt: Date.now() // Korrekt: Jeder neue Punkt erhält hier sein echtes Erstellungsdatum
+        createdAt: Date.now() 
     };
 
     reportsData.push(neuerPunkt);
@@ -609,19 +670,16 @@ async function vote(id, change) {
     if (!report) return;
     
     let myVotes = JSON.parse(localStorage.getItem('userVotes') || "{}");
-    if (myVotes[id]) return alert("Bereits abgestimmt!");
+    if (myVotes[id]) return;
     
     let hatEingeecheckt = localStorage.getItem(`checkedIn_${id}`) === "true";
 
     if (report.checkInRequestedBy === "admin" && hatEingeecheckt) {
         if (!report.sonderVoting) report.sonderVoting = { ja: 0, nein: 0 };
-        
         if (change === 1) report.sonderVoting.ja += 1;
         if (change === -1) report.sonderVoting.nein += 1;
-        
         localStorage.removeItem(`checkedIn_${id}`);
         report.checkInRequestedBy = null; 
-        alert("Deine Vor-Ort-Sonderstimme wurde exklusiv gezählt!");
     } else {
         report.votes += change;
         if (report.votes <= -3) report.status = "review";
@@ -629,7 +687,6 @@ async function vote(id, change) {
     
     myVotes[id] = true;
     localStorage.setItem('userVotes', JSON.stringify(myVotes));
-    
     updateSingleMarkerInCommunity(report);
     drawMarkersOnMap();
 }
