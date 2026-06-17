@@ -114,14 +114,10 @@ async function loadFromCommunity() {
             let geladeneMarker = [];
             
             if (result) {
-                // DAUERHAFTE LÖSUNG: Wir nutzen Object.entries(), um den echten Firebase-Key (k) zu greifen
                 geladeneMarker = Object.entries(result).map(([k, r]) => {
                     if (!r) return null;
-                    
-                    // Wir zwingen die ID dazu, exakt dem Namen des Firebase-Ordners zu entsprechen
                     r.id = k; 
                     
-                    // Automatische Reparatur: Fehlende Felder direkt im Speicher ergänzen, falls sie alt sind
                     if (!r.hasOwnProperty('sonderVoting') || r.sonderVoting === null) {
                         r.sonderVoting = { ja: 0, nein: 0 };
                     }
@@ -190,7 +186,6 @@ function resetAllFilters() {
     drawMarkersOnMap();
 }
 
-// --- OPTIMIERTES ZEICHNEN DER MARKER ---
 function drawMarkersOnMap() {
     if (!map) return;
     const isAdminPage = window.location.pathname.includes("admin.html");
@@ -232,7 +227,6 @@ function drawMarkersOnMap() {
         }
     
         let borderStyle = "";
-        // NEU: Der gelbe Ring, wenn das System oder der Admin einen Check fordern
         if (r.needsCheck || r.checkInRequestedBy) {
             borderStyle = "box-shadow: 0 0 0 4px #ffcc00, 0 0 12px #ffcc00; border: 2px solid #ffcc00;";
         } else if (r.status === "confirmed") {
@@ -257,17 +251,17 @@ function drawMarkersOnMap() {
         
         let content = `<div style="font-family:sans-serif; min-width:230px;">`;
         
+        // Letzter Check-In hier exklusiv für Admins eingebunden:
         if (isAdminPage) {
             if (r.votes <= -3) content += `<b style="color:red;">⚠️ KRITISCH (Votes)</b><br>`;
-            else if (r.status === "confirmed") {
-                content += `<b style="color:#2ecc71;">✅ VOM ADMIN BESTÄTIGT</b><br>`;
-                // NEU: Zeigt dem Admin das Verifizierungsdatum nur an, wenn ER den Check ausgelöst hat
-                if (r.verifiedAt && r.checkInRequestedBy === "admin") {
-                    content += `<span style="font-size:0.85em; color:#555;">Verifiziert am: ${r.verifiedAt}</span><br>`;
-                }
-            }
+            else if (r.status === "confirmed") content += `<b style="color:#2ecc71;">✅ VOM ADMIN BESTÄTIGT</b><br>`;
             else if (r.votes >= 3) content += `<b style="color:#2ecc71;">🔥 FREIGABE BEREIT</b><br>`;
             else if (r.status === "new") content += `<b style="color:#3498db;">🆕 NEUER EINTRAG</b><br>`;
+            
+            // Zeigt NUR dem Admin das Verifizierungsdatum an
+            if (r.verifiedAt) {
+                content += `<span style="font-size:0.85em; color:#555; display:block; margin-top:2px;">📍 Letzter Check-In: <b>${r.verifiedAt}</b></span>`;
+            }
         } else if (r.status === "confirmed") {
             content += `<b style="color:#2ecc71;">🌟 Offiziell Bestätigt</b><br>`;
         }
@@ -288,7 +282,6 @@ function drawMarkersOnMap() {
 
         content += `<p style="margin: 8px 0; color:#555; font-style:italic;">"${r.kommentar || 'Keine Zusatzinfos'}"</p>`;
         
-        // Vertrauens-Anzeige erweitern um das Sonder-Voting im Admin-Bereich
         content += `<div style="background:#eee; padding:5px; border-radius:5px; text-align:center; margin-bottom:10px; font-size: 0.9em;">`;
         content += `Vertrauen: <b>${r.votes || 0}</b>`;
         if (isAdminPage && r.sonderVoting) {
@@ -296,15 +289,12 @@ function drawMarkersOnMap() {
         }
         content += `</div>`;
 
-        // --- ENTSCHEIDUNG FÜR DIE VOTING BUTTONS ---
-        let userVotes = JSON.parse(localStorage.getItem('userVotes') || "{}");
         let hatEingeecheckt = localStorage.getItem(`checkedIn_${r.id}`) === "true";
         
-        // Buttons deaktivieren, wenn vom Admin angefordert UND der User noch nicht vor Ort war
         let disabledAttr = "";
         let buttonStyleModifier = "cursor:pointer;";
         
-        if (r.checkInRequestedBy === "admin" && !hatEingeecheckt) {
+        if ((r.checkInRequestedBy === "admin" || r.needsCheck === true) && !hatEingeecheckt) {
             disabledAttr = "disabled";
             buttonStyleModifier = "background:#cccccc; color:#888888; opacity:0.6; cursor:not-allowed;";
         }
@@ -340,6 +330,7 @@ function drawMarkersOnMap() {
     });
 }
 
+
 async function directDelete(id) {
     if (confirm("Diesen Punkt wirklich für alle löschen?")) {
         reportsData = reportsData.filter(r => r.id !== id);
@@ -361,7 +352,6 @@ function confirmByAdmin(id) {
     }
 }
 
-// Admin fordert dediziert den Check an (Buttons frieren ein)
 function askForCheck(id) {
     const r = reportsData.find(item => item.id === id);
     if (r) {
@@ -373,7 +363,6 @@ function askForCheck(id) {
     }
 }
 
-// --- INTELLIGENTER VOR-ORT-CHECK-IN ---
 function verifyByLocation(id) {
     updateStatus("Prüfe Standort...", "#3498db");
     navigator.geolocation.getCurrentPosition((pos) => {
@@ -382,33 +371,31 @@ function verifyByLocation(id) {
 
         const dist = getDistance(pos.coords.latitude, pos.coords.longitude, report.lat, report.lng);
 
-        // 50 Meter Radius-Check
         if (dist <= 0.05) { 
             let markerTypes = Array.isArray(report.typ) ? report.typ : [report.typ];
             const einTag = 24 * 60 * 60 * 1000;
             const siebenTage = 7 * einTag;
             const basisZeit = report.expiresAt && report.expiresAt > Date.now() ? report.expiresAt : Date.now();
 
-            // Falls es sich um eine Baustelle handelt fragen wir nach Optionen
             if (markerTypes.some(t => t.includes("Baustelle"))) {
                 const aktion = prompt("Baustellen-Menü:\n1 = Existiert noch (7 Tage Verlängerung)\n2 = Festes Enddatum eintragen/ändern\n3 = Komplett aufgelöst (Löschen)\nBitte Zahl eingeben:");
                 
                 if (aktion === "1") {
                     report.expiresAt = basisZeit + siebenTage;
-                    report.baustellenEnddatum = null; // Entfernt festes Datum zugunsten der Verlängerung
+                    report.baustellenEnddatum = null;
                     alert("Baustelle um 7 Tage verlängert!");
                 } else if (aktion === "2") {
                     const datumInput = prompt("Bitte Enddatum im Format JJJJ-MM-TT eingeben (z.B. 2026-06-30):");
                     if (datumInput && !isNaN(Date.parse(datumInput))) {
                         report.baustellenEnddatum = datumInput;
-                        report.expiresAt = Date.parse(datumInput) + einTag; // Hält bis zum Tag nach Ablauf
+                        report.expiresAt = Date.parse(datumInput) + einTag;
                         alert("Festes Enddatum gespeichert!");
                     } else {
                         alert("Ungültiges Datum. Vorgang abgebrochen.");
                         return;
                     }
                 } else if (aktion === "3") {
-                    report.expiresAt = Date.now() - 1000; // Sofort ablaufen lassen
+                    report.expiresAt = Date.now() - 1000;
                     alert("Baustelle wird als gelöscht gemeldet!");
                 } else {
                     alert("Ungültige Auswahl.");
@@ -421,17 +408,14 @@ function verifyByLocation(id) {
                 alert("Erfolgreich verifiziert!");
             }
 
-            // Flags zurücksetzen
             report.needsCheck = false;
-            report.verifiedAt = new Date().toLocaleString('de-DE');
+            report.verifiedAt = new Date().toLocaleString('de-DE'); // Setzt das aktuelle Check-In-Datum
 
-            // Sonderstimm-Freischaltung via LocalStorage aktivieren
             if (report.checkInRequestedBy === "admin") {
                 localStorage.setItem(`checkedIn_${report.id}`, "true");
                 alert("Sonderstimme aktiviert! Die Buttons sind jetzt bunt für dich. Bitte gib deine Stimme ab!");
             }
             
-            // Wenn System-Check aktiv war, jetzt freigeben
             if (report.checkInRequestedBy === "system") {
                 report.checkInRequestedBy = null;
             }
@@ -510,8 +494,8 @@ function finalizeMultiReport(event, lat, lng) {
         votes: 0, 
         status: "new",
         expiresAt: ablaufZeit,
-        checkInRequestedBy: null, // Feld im System anlegen
-        sonderVoting: { ja: 0, nein: 0 } // Struktur initialisieren
+        checkInRequestedBy: null,
+        sonderVoting: { ja: 0, nein: 0 }
     };
 
     reportsData.push(neuerPunkt);
@@ -520,7 +504,6 @@ function finalizeMultiReport(event, lat, lng) {
     map.closePopup();
 }
 
-// --- GESANDERTES STIMMSYSTEM (SONDERSTIMME) ---
 async function vote(id, change) {
     const report = reportsData.find(r => r.id === id);
     if (!report) return;
@@ -530,19 +513,16 @@ async function vote(id, change) {
     
     let hatEingeecheckt = localStorage.getItem(`checkedIn_${id}`) === "true";
 
-    // Falls vom Admin gefordert und eingecheckt -> Sonderstimm-Topf befüllen
     if (report.checkInRequestedBy === "admin" && hatEingeecheckt) {
         if (!report.sonderVoting) report.sonderVoting = { ja: 0, nein: 0 };
         
         if (change === 1) report.sonderVoting.ja += 1;
         if (change === -1) report.sonderVoting.nein += 1;
         
-        // Nach abgegebener Sonderstimme bereinigen wir die Sperre für den User
         localStorage.removeItem(`checkedIn_${id}`);
-        report.checkInRequestedBy = null; // Schaltet den Marker wieder in den Normalmodus
+        report.checkInRequestedBy = null; 
         alert("Deine Vor-Ort-Sonderstimme wurde exklusiv gezählt!");
     } else {
-        // Normales Voting-System
         report.votes += change;
         if (report.votes <= -3) report.status = "review";
     }
