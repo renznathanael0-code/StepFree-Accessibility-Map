@@ -640,6 +640,7 @@ function openSelectionPopup(latlng) {
           <label><input type="checkbox" name="typ" value="Baustelle"> 🚧 Baustelle</label>
           <label><input type="checkbox" name="typ" value="E-Scooter"> 🛴 E-Scooter im Weg</label>
           <label><input type="checkbox" name="typ" value="Mülltonne"> 🗑️ Mülltonne blockiert</label>
+          
           <hr style="margin: 5px 0; border: none; border-top: 1px solid #ccc;">
           <strong>✨ Barrierefreiheit im Alltag</strong>
           <label><input type="checkbox" name="typ" value="Aufzug vorhanden"> 🛗 Aufzug vorhanden</label>
@@ -647,9 +648,15 @@ function openSelectionPopup(latlng) {
           <label><input type="checkbox" name="typ" value="WC"> 🚽 WC vorhanden</label>
           <label><input type="checkbox" name="typ" value="Parkplatz"> 🅿️ Parkplatz</label>
           <label><input type="checkbox" name="typ" value="Barrierefreier Ort"> 📍 Barrierefreier Ort</label>
+          
+          <hr style="margin: 5px 0; border: none; border-top: 1px solid #ccc;">
+          <strong>🚉 Am Bahnsteig / Einstieg zum Zug</strong>
+          <label><input type="checkbox" name="typ" value="Höhenunterschied am Zug"> ⚠️ Stufe am Zug (Kritisch)</label>
+          <label><input type="checkbox" name="typ" value="Niveaugleicher Einstieg"> ✅ Einstieg eben (Stufenlos)</label>
+          
           <hr style="margin: 5px 0; border: none; border-top: 1px solid #ccc;">
           <strong>Zusatzinformationen:</strong>
-          <input type="text" id="multiDetails" placeholder="z.B. Rampe im 1. OG..." style="padding: 8px; border: 1px solid #ccc; border-radius: 6px; width: 93%;">
+          <input type="text" id="multiDetails" placeholder="z.B. Gleis 3, Rampe im 1. OG..." style="padding: 8px; border: 1px solid #ccc; border-radius: 6px; width: 93%;">
           <button type="submit" style="background:#27AE60; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:10px; font-size:1em;">💾 Eintrag speichern</button>
         </div>
       </form>
