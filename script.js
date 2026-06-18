@@ -12,13 +12,15 @@ const CustomUI = {
                     <h3 style="margin-top:0; color:#2c3e50; font-size:1.2em;">${titel}</h3>
                     <p style="font-size:0.95em; color:#7f8c8d; margin-bottom:20px; line-height:1.4;">${text}</p>
                     <div style="display:flex; gap:10px;">
-                        <button id="modal-nein" style="flex:1; background:#eef2f3; color:#7f8c8d; border:1px solid #d5dbdb; padding:10px; border-radius:6px; cursor:pointer; font-weight:bold;">${neinText}</button>
+                        ${neinText ? `<button id="modal-nein" style="flex:1; background:#eef2f3; color:#7f8c8d; border:1px solid #d5dbdb; padding:10px; border-radius:6px; cursor:pointer; font-weight:bold;">${neinText}</button>` : ''}
                         <button id="modal-ja" style="flex:1; background:#e74c3c; color:white; border:none; padding:10px; border-radius:6px; cursor:pointer; font-weight:bold;">${jaText}</button>
                     </div>
                 </div>
             `;
             document.body.appendChild(overlay);
-            overlay.querySelector('#modal-nein').onclick = () => { document.body.removeChild(overlay); resolve(false); };
+            if (neinText) {
+                overlay.querySelector('#modal-nein').onclick = () => { document.body.removeChild(overlay); resolve(false); };
+            }
             overlay.querySelector('#modal-ja').onclick = () => { document.body.removeChild(overlay); resolve(true); };
         });
     },
@@ -56,7 +58,29 @@ const CustomUI = {
     }
 };
 
-// --- ADMIN LOGIN MIT CUSTOM PROMPT ---
+// --- HILFSFUNKTION FÜR VERIFIZIERUNGS-FEEDBACK OVERLAYS ---
+function showVerificationStatus(erfolgreich, nachricht) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; display:flex; align-items:center; justify-content:center; font-family:sans-serif; padding:20px; box-sizing:border-box;";
+    
+    const farbe = erfolgreich ? "#27AE60" : "#E74C3C";
+    const titel = erfolgreich ? "✅ Check-In erfolgreich" : "❌ Check-In fehlgeschlagen";
+    
+    overlay.innerHTML = `
+        <div style="background:white; padding:25px; border-radius:12px; max-width:320px; width:100%; box-shadow:0 4px 20px rgba(0,0,0,0.3); text-align:center;">
+            <div style="font-size:3em; margin-bottom:10px;">${erfolgreich ? '🎉' : '📍'}</div>
+            <h3 style="margin-top:0; color:${farbe}; font-size:1.25em;">${titel}</h3>
+            <p style="font-size:0.95em; color:#555; margin-bottom:20px; line-height:1.4;">${nachricht}</p>
+            <button id="status-close" style="width:100%; background:${farbe}; color:white; border:none; padding:12px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:1em;">OK</button>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#status-close').onclick = () => {
+        document.body.removeChild(overlay);
+    };
+}
+
+// --- ADMIN LOGIN MIT CUSTOM PROMPT (KORRIGIERT) ---
 if (isAdminPage) {
     setTimeout(async () => {
         const login = await CustomUI.prompt("🔒 Admin-Bereich", "Bitte Passwort eingeben:", "Passwort...", "password");
@@ -72,7 +96,8 @@ if (isAdminPage) {
         if (hashHex === "b6e97cdceff5afead6676708d2261e8a915078ff0f2fa77856aae786ad6ac78c") {
             console.log("Admin erfolgreich eingeloggt.");
         } else {
-            alert("Zugriff verweigert!");
+            // Ersetzt das alte native alert() durch ein CustomUI HTML-Fenster
+            await CustomUI.confirm("🔒 Zugriff verweigert", "Das eingegebene Passwort ist falsch.", "Zur Startseite", "");
             window.location.href = "index.html";
         }
     }, 100); 
@@ -552,7 +577,6 @@ function verifyByLocation(id) {
                 
                 modalOverlay.querySelector('#btn-date').onclick = async () => {
                     document.body.removeChild(modalOverlay);
-                    // CustomUI prompt statt nativem prompt
                     const datumInput = await CustomUI.prompt("📅 Enddatum festlegen", "Bitte neues Enddatum im Format JJJJ-MM-TT eingeben:", "2026-12-31");
                     if (datumInput && !isNaN(Date.parse(datumInput))) {
                         report.baustellenEnddatum = datumInput;
@@ -575,9 +599,13 @@ function verifyByLocation(id) {
             }
             finalizeVerificationProcess(report);
         } else {
+            // Fehlgeschlagener Check-In: Zeigt das neue visuelle HTML-Overlay für ungenauen Standort
+            showVerificationStatus(false, "Du bist zu weit von diesem Hindernis entfernt (mehr als 50m). Ein Check-In ist nur direkt vor Ort möglich.");
             updateStatus("Community Live ✅", "#27AE60");
         }
-    }, () => {});
+    }, () => {
+        showVerificationStatus(false, "Dein Standort konnte nicht ermittelt werden. Bitte aktiviere GPS auf deinem Gerät.");
+    });
 }
 
 function finalizeVerificationProcess(report) {
@@ -594,6 +622,9 @@ function finalizeVerificationProcess(report) {
     updateSingleMarkerInCommunity(report);
     drawMarkersOnMap();
     updateStatus("Community Live ✅", "#27AE60");
+    
+    // Erfolgreicher Check-In: Zeigt das neue visuelle HTML-Feedback-Overlay an!
+    showVerificationStatus(true, "Vielen Dank! Deine Verifizierung vor Ort wurde erfolgreich im System gespeichert und die Live-Daten aktualisiert.");
 }
 
 function openSelectionPopup(latlng) {
@@ -644,6 +675,9 @@ function finalizeMultiReport(event, lat, lng) {
         ablaufZeit = Date.now() + siebenTage;
     }
     
+    // Änderung: Wenn der Admin den Punkt erstellt, wird der Status direkt 'active' (Kein blauer Ring!)
+    const initialStatus = isAdminPage ? "active" : "new";
+    
     const neuerPunkt = {
         lat: lat, 
         lng: lng, 
@@ -652,7 +686,7 @@ function finalizeMultiReport(event, lat, lng) {
         kommentar: kommentarText || "", 
         id: "id_" + Date.now(), 
         votes: 0, 
-        status: "new",
+        status: initialStatus,
         expiresAt: ablaufZeit,
         checkInRequestedBy: null,
         sonderVoting: { ja: 0, nein: 0 },
