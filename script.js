@@ -537,69 +537,35 @@ function askForCheck(id) {
     }
 }
 
-// --- VERIFIZIERUNG MIT KORRIGIERTEM CUSTOM OVERLAY ---
+// --- VERIFIZIERUNG & MANAGEMENT MIT ADMIN-BYPASS & 3-STIMMEN-LÖSCHUNG ---
 function verifyByLocation(id) {
+    const report = reportsData.find(r => r.id === id);
+    if (!report) return;
+
+    let markerTypes = Array.isArray(report.typ) ? report.typ : [report.typ];
+    const isSpecialType = markerTypes.some(t => t.includes("Baustelle") || t.includes("Aufzug defekt"));
+
+    // FEATURE 2: Wenn es ein Admin auf admin.html ist, direkt in das Management-Overlay springen (Bypass)
+    if (isAdminPage && isSpecialType) {
+        openManagementOverlay(report);
+        return;
+    }
+
+    // Für normale User folgt die GPS-Standortprüfung
     updateStatus("Prüfe Standort...", "#3498db");
     navigator.geolocation.getCurrentPosition((pos) => {
-        const report = reportsData.find(r => r.id === id);
-        if (!report) return;
-
         const dist = getDistance(pos.coords.latitude, pos.coords.longitude, report.lat, report.lng);
 
         if (dist <= 0.05) { 
-            let markerTypes = Array.isArray(report.typ) ? report.typ : [report.typ];
-            const einTag = 24 * 60 * 60 * 1000;
-            const siebenTage = 7 * einTag;
-            const basisZeit = report.expiresAt && report.expiresAt > Date.now() ? report.expiresAt : Date.now();
-
-            if (markerTypes.some(t => t.includes("Baustelle"))) {
-                const modalOverlay = document.createElement('div');
-                modalOverlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; display:flex; align-items:center; justify-content:center; font-family:sans-serif; padding:20px; box-sizing:border-box;";
-                
-                modalOverlay.innerHTML = `
-                    <div style="background:white; padding:20px; border-radius:12px; max-width:320px; width:100%; box-shadow:0 4px 15px rgba(0,0,0,0.3); box-sizing:border-box;">
-                        <h3 style="margin-top:0; color:#2c3e50; font-size:1.15em; text-align:center;">🚧 Baustellen-Management</h3>
-                        <p style="font-size:0.9em; color:#7f8c8d; text-align:center; margin-bottom:15px;">Bitte wähle den aktuellen Status der Baustelle vor Ort:</p>
-                        <button id="btn-extend" style="display:block; width:100%; background:#3498db; color:white; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:8px; font-size:0.95em;">🔄 Existiert noch (+7 Tage)</button>
-                        <button id="btn-date" style="display:block; width:100%; background:#f1c40f; color:#2c3e50; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:8px; font-size:0.95em;">📅 Enddatum ändern</button>
-                        <button id="btn-delete" style="display:block; width:100%; background:#e74c3c; color:white; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:12px; font-size:0.95em;">🗑️ Komplett aufgelöst</button>
-                        <button id="btn-cancel" style="display:block; width:100%; background:#eef2f3; color:#7f8c8d; border:1px solid #d5dbdb; padding:8px; border-radius:6px; cursor:pointer; font-size:0.9em;">Abbrechen</button>
-                    </div>
-                `;
-                document.body.appendChild(modalOverlay);
-                
-                modalOverlay.querySelector('#btn-extend').onclick = () => {
-                    report.expiresAt = basisZeit + siebenTage;
-                    report.baustellenEnddatum = null;
-                    document.body.removeChild(modalOverlay);
-                    finalizeVerificationProcess(report);
-                };
-                
-                modalOverlay.querySelector('#btn-date').onclick = async () => {
-                    document.body.removeChild(modalOverlay);
-                    const datumInput = await CustomUI.prompt("📅 Enddatum festlegen", "Bitte neues Enddatum im Format JJJJ-MM-TT eingeben:", "2026-12-31");
-                    if (datumInput && !isNaN(Date.parse(datumInput))) {
-                        report.baustellenEnddatum = datumInput;
-                        report.expiresAt = Date.parse(datumInput) + einTag;
-                        finalizeVerificationProcess(report);
-                    }
-                };
-                
-                modalOverlay.querySelector('#btn-delete').onclick = () => {
-                    report.expiresAt = Date.now() - 1000;
-                    document.body.removeChild(modalOverlay);
-                    finalizeVerificationProcess(report);
-                };
-                
-                modalOverlay.querySelector('#btn-cancel').onclick = () => { document.body.removeChild(modalOverlay); };
-                return; 
-            } 
-            else if (markerTypes.some(t => t.includes("E-Scooter") || t.includes("Mülltonne"))) {
+            if (isSpecialType) {
+                openManagementOverlay(report);
+            } else if (markerTypes.some(t => t.includes("E-Scooter") || t.includes("Mülltonne"))) {
+                const einTag = 24 * 60 * 60 * 1000;
+                const basisZeit = report.expiresAt && report.expiresAt > Date.now() ? report.expiresAt : Date.now();
                 report.expiresAt = basisZeit + einTag;
+                finalizeVerificationProcess(report);
             }
-            finalizeVerificationProcess(report);
         } else {
-            // Fehlgeschlagener Check-In: Zeigt das neue visuelle HTML-Overlay für ungenauen Standort
             showVerificationStatus(false, "Du bist zu weit von diesem Hindernis entfernt (mehr als 50m). Ein Check-In ist nur direkt vor Ort möglich.");
             updateStatus("Community Live ✅", "#27AE60");
         }
@@ -608,23 +574,117 @@ function verifyByLocation(id) {
     });
 }
 
-function finalizeVerificationProcess(report) {
+// Hilfsfunktion zum Öffnen des Status-Overlays (Baustelle & Aufzug)
+function openManagementOverlay(report) {
+    let markerTypes = Array.isArray(report.typ) ? report.typ : [report.typ];
+    const einTag = 24 * 60 * 60 * 1000;
+    const siebenTage = 7 * einTag;
+    const basisZeit = report.expiresAt && report.expiresAt > Date.now() ? report.expiresAt : Date.now();
+
+    // Setze den Löschzähler auf 0, falls er noch nie existiert hat
+    if (typeof report.loeschCheckIns === "undefined") {
+        report.loeschCheckIns = 0;
+    }
+
+    const modalOverlay = document.createElement('div');
+    modalOverlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; display:flex; align-items:center; justify-content:center; font-family:sans-serif; padding:20px; box-sizing:border-box;";
+    
+    // Dynamischer Titel je nach Typ
+    const overlayTitel = markerTypes.some(t => t.includes("Aufzug")) ? "🛗 Aufzugs-Management" : "🚧 Baustellen-Management";
+    
+    // FEATURE 3: Text auf dem Lösch-Button zeigt den aktuellen Counter (z.B. 0/3 oder als Admin ein direktes Löschen)
+    const loeschButtonText = isAdminPage ? "🗑️ Komplett aufgelöst (Sofort)" : `🗑️ Komplett aufgelöst (${report.loeschCheckIns}/3)`;
+
+    modalOverlay.innerHTML = `
+        <div style="background:white; padding:20px; border-radius:12px; max-width:320px; width:100%; box-shadow:0 4px 15px rgba(0,0,0,0.3); box-sizing:border-box;">
+            <h3 style="margin-top:0; color:#2c3e50; font-size:1.15em; text-align:center;">${overlayTitel}</h3>
+            <p style="font-size:0.9em; color:#7f8c8d; text-align:center; margin-bottom:15px;">Bitte wähle den aktuellen Status vor Ort:</p>
+            <button id="btn-extend" style="display:block; width:100%; background:#3498db; color:white; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:8px; font-size:0.95em;">🔄 Existiert noch (+7 Tage)</button>
+            <button id="btn-date" style="display:block; width:100%; background:#f1c40f; color:#2c3e50; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:8px; font-size:0.95em;">📅 Enddatum ändern</button>
+            <button id="btn-delete" style="display:block; width:100%; background:#e74c3c; color:white; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:12px; font-size:0.95em;">${loeschButtonText}</button>
+            <button id="btn-cancel" style="display:block; width:100%; background:#eef2f3; color:#7f8c8d; border:1px solid #d5dbdb; padding:8px; border-radius:6px; cursor:pointer; font-size:0.9em;">Abbrechen</button>
+        </div>
+    `;
+    document.body.appendChild(modalOverlay);
+    
+    // Option 1: Verlängerung um 7 Tage (1 Check-In reicht aus)
+    modalOverlay.querySelector('#btn-extend').onclick = () => {
+        report.expiresAt = basisZeit + siebenTage;
+        report.baustellenEnddatum = null;
+        document.body.removeChild(modalOverlay);
+        finalizeVerificationProcess(report);
+    };
+    
+    // Option 2: Enddatum ändern (1 Check-In reicht aus)
+    modalOverlay.querySelector('#btn-date').onclick = async () => {
+        document.body.removeChild(modalOverlay);
+        const datumInput = await CustomUI.prompt("📅 Enddatum festlegen", "Bitte neues Enddatum im Format JJJJ-MM-TT eingeben:", "2026-12-31");
+        if (datumInput && !isNaN(Date.parse(datumInput))) {
+            report.baustellenEnddatum = datumInput;
+            report.expiresAt = Date.parse(datumInput) + einTag;
+            finalizeVerificationProcess(report);
+        }
+    };
+    
+    // Option 3: Komplett aufgelöst (FEATURE 2 & 3: Zähl-Logik & Admin-Bypass)
+    modalOverlay.querySelector('#btn-delete').onclick = () => {
+        document.body.removeChild(modalOverlay);
+        
+        if (isAdminPage) {
+            // Admin löscht sofort
+            report.expiresAt = Date.now() - 1000;
+            finalizeVerificationProcess(report);
+        } else {
+            // Normaler User erhöht Stimmenanzahl
+            report.loeschCheckIns += 1;
+            
+            if (report.loeschCheckIns >= 3) {
+                report.expiresAt = Date.now() - 1000; // Marker abgelaufen -> wird gelöscht
+                finalizeVerificationProcess(report, "Meldung wurde durch 3 Check-Ins erfolgreich aufgelöst!");
+            } else {
+                // Noch nicht genug Stimmen: Aktualisiere den Marker, behalte ihn aber auf der Karte
+                const benoetigt = 3 - report.loeschCheckIns;
+                finalizeVerificationProcess(report, `Bestätigt! Es werden noch ${benoetigt} weitere Check-Ins benötigt, um diese Meldung komplett aufzuheben.`);
+            }
+        }
+    };
+    
+    modalOverlay.querySelector('#btn-cancel').onclick = () => { document.body.removeChild(modalOverlay); };
+}
+
+function finalizeVerificationProcess(report, benutzerNachricht = null) {
     report.needsCheck = false;
     report.verifiedAt = new Date().toLocaleString('de-DE'); 
 
+    // Logik für Admin-geforderte Checks & Sonder-Voting initialisieren falls nötig
     if (report.checkInRequestedBy === "admin") {
         localStorage.setItem(`checkedIn_${report.id}`, "true");
+        if (!report.sonderVoting) {
+            report.sonderVoting = { ja: 0, nein: 0 };
+        }
     }
     if (report.checkInRequestedBy === "system") {
         report.checkInRequestedBy = null;
     }
 
+    // Daten synchronisieren und Karte neu zeichnen
     updateSingleMarkerInCommunity(report);
     drawMarkersOnMap();
     updateStatus("Community Live ✅", "#27AE60");
     
-    // Erfolgreicher Check-In: Zeigt das neue visuelle HTML-Feedback-Overlay an!
-    showVerificationStatus(true, "Vielen Dank! Deine Verifizierung vor Ort wurde erfolgreich im System gespeichert und die Live-Daten aktualisiert.");
+    // Verhindert das Schließen des Popups: Wir suchen den neu gezeichneten Marker und öffnen sein Popup wieder
+    setTimeout(() => {
+        const markerKey = Object.keys(reportsData).find(key => reportsData[key].id === report.id);
+        if (markerKey && activeMarkers[markerKey] && report.expiresAt > Date.now()) {
+            activeMarkers[markerKey].openPopup();
+        }
+    }, 100);
+
+    // Visuelles HTML-Feedback-Overlay mit dynamischem Text anzeigen
+    const standardText = "Vielen Dank! Deine Verifizierung vor Ort wurde erfolgreich im System gespeichert und die Live-Daten aktualisiert.";
+    const anzuzeigenderText = benutzerNachricht ? benutzerNachricht : standardText;
+    
+    showVerificationStatus(true, anzuzeigenderText);
 }
 
 function openSelectionPopup(latlng) {
@@ -671,17 +731,18 @@ function finalizeMultiReport(event, lat, lng) {
     
     if (gewaehlteTypen.length === 0) return;
     
-    const kommentarText = document.getElementById('multiDetails').value;
+        const kommentarText = document.getElementById('multiDetails').value;
     const einTag = 24 * 60 * 60 * 1000;
     const siebenTage = 7 * einTag;
     let ablaufZeit = null;
 
+    // FEATURE 1: Auch "Aufzug defekt" bekommt ein Basis-Limit von 7 Tagen
     if (gewaehlteTypen.some(t => t === "E-Scooter" || t === "Mülltonne")) {
         ablaufZeit = Date.now() + einTag;
-    } else if (gewaehlteTypen.some(t => t === "Baustelle")) {
+    } else if (gewaehlteTypen.some(t => t === "Baustelle" || t === "Aufzug defekt")) {
         ablaufZeit = Date.now() + siebenTage;
     }
-    
+ 
     // Änderung: Wenn der Admin den Punkt erstellt, wird der Status direkt 'active' (Kein blauer Ring!)
     const initialStatus = isAdminPage ? "active" : "new";
     
