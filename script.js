@@ -540,10 +540,13 @@ function askForCheck(id) {
     if (r) {
         r.checkInRequestedBy = "admin";
         r.needsCheck = true;
+        // Struktur direkt mitsenden, damit das System weiß, dass ein Sonder-Voting läuft
+        r.sonderVoting = { ja: 0, nein: 0 }; 
         updateSingleMarkerInCommunity(r);
         drawMarkersOnMap();
     }
 }
+
 
 // --- VERIFIZIERUNG & MANAGEMENT MIT ADMIN-BYPASS & 3-STIMMEN-LÖSCHUNG ---
 function verifyByLocation(id) {
@@ -788,20 +791,24 @@ async function vote(id, change) {
     
     let hatEingeecheckt = localStorage.getItem(`checkedIn_${id}`) === "true";
 
-    if (report.checkInRequestedBy === "admin" && hatEingeecheckt) {
-        if (!report.sonderVoting) report.sonderVoting = { ja: 0, nein: 0 };
+    // KORREKTUR: Wir prüfen, ob der User eingecheckt hat und ein Sonder-Voting aktiv/initialisiert ist
+    if (hatEingeecheckt && report.sonderVoting) {
         if (change === 1) report.sonderVoting.ja += 1;
         if (change === -1) report.sonderVoting.nein += 1;
+        
+        // Nach der Stimmabgabe löschen wir den Check-In, damit die Buttons wieder in den Standardmodus gehen
         localStorage.removeItem(`checkedIn_${id}`);
-        report.checkInRequestedBy = null; 
     } else {
+        // Normales Standard-Voting für reguläre Marker
         report.votes += change;
         if (report.votes <= -3) report.status = "review";
     }
     
     myVotes[id] = true;
     localStorage.setItem('userVotes', JSON.stringify(myVotes));
-    updateSingleMarkerInCommunity(report);
+    
+    // WICHTIG: Sofort speichern und Karte updaten, damit die Buttons wieder umschalten!
+    await updateSingleMarkerInCommunity(report);
     drawMarkersOnMap();
 }
 
