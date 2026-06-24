@@ -417,6 +417,13 @@ function drawMarkersOnMap() {
 
         if (isAdminPage) {
             content += `<div style="border-top:1px solid #ccc; padding-top:10px; margin-top:5px;">`;
+            
+            // ADMIN OVERLAY BYPASS BUTTON
+            const istSonderTyp = markerTypes.some(t => t.includes("Baustelle") || t.includes("Aufzug defekt"));
+            if (istSonderTyp) {
+                content += `<button onclick="openManagementOverlay(reportsData.find(item => item.id === '${r.id}'))" style="background:#9b59b6; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">⚙️ Status & Enddatum verwalten</button>`;
+            }
+
             if (r.votes >= 3 && r.status !== "confirmed") {
                 content += `<button onclick="confirmByAdmin('${r.id}')" style="background:#2ecc71; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">👁️ Für User freigeben</button>`;
             }
@@ -425,7 +432,8 @@ function drawMarkersOnMap() {
                     <button onclick="askForCheck('${r.id}')" style="background:#4285F4; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Admin-Check fordern</button>
                 </div>`;
         } else {
-            const isTempType = markerTypes.some(t => t.includes("E-Scooter") || t.includes("Mülltonne") || t.includes("Baustelle"));
+            // ERGÄNZUNG: Auch "Aufzug defekt" schaltet jetzt für den normalen User das Standort-Check-In frei
+            const isTempType = markerTypes.some(t => t.includes("E-Scooter") || t.includes("Mülltonne") || t.includes("Baustelle") || t.includes("Aufzug defekt"));
             if (r.needsCheck || r.checkInRequestedBy || isTempType) {
                 content += `<button onclick="verifyByLocation('${r.id}')" style="background:#f39c12; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Hier einchecken & verifizieren</button>`;
             }
