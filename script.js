@@ -664,18 +664,17 @@ function openManagementOverlay(report) {
 }
 
 function finalizeVerificationProcess(report, benutzerNachricht = null) {
-    report.needsCheck = false;
+    report.needsCheck = false; // Gelber Ring weg!
     report.verifiedAt = new Date().toLocaleString('de-DE'); 
 
-    // Sofort im lokalen Speicher sichern, damit die Buttons für diesen User AKTIV werden
+    // Sofort im lokalen Speicher sichern, damit die Buttons AKTIV werden
     localStorage.setItem(`checkedIn_${report.id}`, "true");
 
     if (report.checkInRequestedBy === "admin") {
         if (!report.sonderVoting) {
             report.sonderVoting = { ja: 0, nein: 0 };
         }
-        // WICHTIG: Flag entfernen, da der geforderte Check-In hiermit ERLEDIGT ist!
-        report.checkInRequestedBy = null; 
+        // WICHTIG: NICHT auf null setzen! Das bleibt "admin", damit das System weiß, dass ein Sonder-Voting läuft!
     }
     
     if (report.checkInRequestedBy === "system") {
@@ -687,7 +686,7 @@ function finalizeVerificationProcess(report, benutzerNachricht = null) {
     drawMarkersOnMap();
     updateStatus("Community Live ✅", "#27AE60");
     
-    // Popup wieder öffnen und Inhalt updaten, damit die Buttons sofort aktiv sichtbar sind
+    // Popup wieder öffnen
     setTimeout(() => {
         const markerKey = Object.keys(reportsData).find(key => reportsData[key].id === report.id);
         if (markerKey && activeMarkers[markerKey] && (!report.expiresAt || report.expiresAt > Date.now())) {
@@ -695,8 +694,7 @@ function finalizeVerificationProcess(report, benutzerNachricht = null) {
         }
     }, 150);
 
-    // Visuelles HTML-Feedback-Overlay mit dynamischem Text anzeigen
-    const standardText = "Vielen Dank! Deine Verifizierung vor Ort wurde erfolgreich im System gespeichert und die Live-Daten aktualisiert.";
+    const standardText = "Vielen Dank! Deine Verifizierung vor Ort wurde erfolgreich im System gespeichert. Du kannst jetzt abstimmen!";
     const anzuzeigenderText = benutzerNachricht ? benutzerNachricht : standardText;
     
     showVerificationStatus(true, anzuzeigenderText);
@@ -787,27 +785,30 @@ async function vote(id, change) {
     if (!report) return;
     
     let myVotes = JSON.parse(localStorage.getItem('userVotes') || "{}");
-    if (myVotes[id]) return;
     
     let hatEingeecheckt = localStorage.getItem(`checkedIn_${id}`) === "true";
 
-    // KORREKTUR: Wir prüfen, ob der User eingecheckt hat und ein Sonder-Voting aktiv/initialisiert ist
-    if (hatEingeecheckt && report.sonderVoting) {
+    // Wenn der Admin den Check gefordert hat UND der User eingecheckt ist -> Sonder-Voting!
+    if (report.checkInRequestedBy === "admin" && hatEingeecheckt) {
+        if (!report.sonderVoting) report.sonderVoting = { ja: 0, nein: 0 };
+        
         if (change === 1) report.sonderVoting.ja += 1;
         if (change === -1) report.sonderVoting.nein += 1;
         
-        // Nach der Stimmabgabe löschen wir den Check-In, damit die Buttons wieder in den Standardmodus gehen
+        // Jetzt ist das Sonder-Voting vorbei: Flags aufräumen
         localStorage.removeItem(`checkedIn_${id}`);
+        report.checkInRequestedBy = null; 
     } else {
-        // Normales Standard-Voting für reguläre Marker
+        // Normales Standard-Voting (nur blockieren, wenn kein Sonder-Voting läuft)
+        if (myVotes[id]) return;
+        
         report.votes += change;
         if (report.votes <= -3) report.status = "review";
+        
+        myVotes[id] = true;
+        localStorage.setItem('userVotes', JSON.stringify(myVotes));
     }
     
-    myVotes[id] = true;
-    localStorage.setItem('userVotes', JSON.stringify(myVotes));
-    
-    // WICHTIG: Sofort speichern und Karte updaten, damit die Buttons wieder umschalten!
     await updateSingleMarkerInCommunity(report);
     drawMarkersOnMap();
 }
