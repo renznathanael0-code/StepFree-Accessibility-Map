@@ -664,13 +664,17 @@ function finalizeVerificationProcess(report, benutzerNachricht = null) {
     report.needsCheck = false;
     report.verifiedAt = new Date().toLocaleString('de-DE'); 
 
-    // Logik für Admin-geforderte Checks & Sonder-Voting initialisieren falls nötig
+    // Sofort im lokalen Speicher sichern, damit die Buttons für diesen User AKTIV werden
+    localStorage.setItem(`checkedIn_${report.id}`, "true");
+
     if (report.checkInRequestedBy === "admin") {
-        localStorage.setItem(`checkedIn_${report.id}`, "true");
         if (!report.sonderVoting) {
             report.sonderVoting = { ja: 0, nein: 0 };
         }
+        // WICHTIG: Flag entfernen, da der geforderte Check-In hiermit ERLEDIGT ist!
+        report.checkInRequestedBy = null; 
     }
+    
     if (report.checkInRequestedBy === "system") {
         report.checkInRequestedBy = null;
     }
@@ -680,13 +684,13 @@ function finalizeVerificationProcess(report, benutzerNachricht = null) {
     drawMarkersOnMap();
     updateStatus("Community Live ✅", "#27AE60");
     
-    // Verhindert das Schließen des Popups: Wir suchen den neu gezeichneten Marker und öffnen sein Popup wieder
+    // Popup wieder öffnen und Inhalt updaten, damit die Buttons sofort aktiv sichtbar sind
     setTimeout(() => {
         const markerKey = Object.keys(reportsData).find(key => reportsData[key].id === report.id);
-        if (markerKey && activeMarkers[markerKey] && report.expiresAt > Date.now()) {
+        if (markerKey && activeMarkers[markerKey] && (!report.expiresAt || report.expiresAt > Date.now())) {
             activeMarkers[markerKey].openPopup();
         }
-    }, 100);
+    }, 150);
 
     // Visuelles HTML-Feedback-Overlay mit dynamischem Text anzeigen
     const standardText = "Vielen Dank! Deine Verifizierung vor Ort wurde erfolgreich im System gespeichert und die Live-Daten aktualisiert.";
