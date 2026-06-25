@@ -701,6 +701,11 @@ function openSelectionPopup(latlng) {
           <label><input type="checkbox" name="typ" value="Barrierefreier Ort"> 📍 Barrierefreier Ort</label>
           
           <hr style="margin: 5px 0; border: none; border-top: 1px solid #ccc;">
+          <strong>🚉 Am Bahnsteig / Einstieg zum Zug</strong>
+          <label><input type="checkbox" name="typ" value="Höhenunterschied"> ⚠️ Höhenunterschied am Zug</label>
+          <label><input type="checkbox" name="typ" value="Niveaugleicher"> ✅ Niveaugleicher Einstieg</label>
+          
+          <hr style="margin: 5px 0; border: none; border-top: 1px solid #ccc;">
           <strong>Zusatzinformationen:</strong>
           <input type="text" id="multiDetails" placeholder="z.B. Gleis 3, Rampe im 1. OG..." style="padding: 8px; border: 1px solid #ccc; border-radius: 6px; width: 93%;">
           <button type="submit" style="background:#27AE60; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:10px; font-size:1em;">💾 Eintrag speichern</button>
