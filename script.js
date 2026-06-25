@@ -439,11 +439,14 @@ function drawMarkersOnMap() {
             }
         }
         
-        content += `</div>`;
+                content += `</div>`;
         m.bindPopup(content);
-        activeMarkers[index] = m;
+        
+        // KORREKTUR: Nutze die eindeutige Firebase-ID statt des Schleifen-Index!
+        activeMarkers[r.id] = m; 
     });
 }
+
 
 // --- MERKLISTE MIT CUSTOM PROMPT ---
 async function addToFavorites(id, lat, lng) {
@@ -664,7 +667,7 @@ function openManagementOverlay(report) {
 }
 
 function finalizeVerificationProcess(report, benutzerNachricht = null) {
-    report.needsCheck = false; // Gelber Ring weg!
+    report.needsCheck = false; // Gelber Ring weg
     report.verifiedAt = new Date().toLocaleString('de-DE'); 
 
     // Sofort im lokalen Speicher sichern, damit die Buttons AKTIV werden
@@ -674,7 +677,6 @@ function finalizeVerificationProcess(report, benutzerNachricht = null) {
         if (!report.sonderVoting) {
             report.sonderVoting = { ja: 0, nein: 0 };
         }
-        // WICHTIG: NICHT auf null setzen! Das bleibt "admin", damit das System weiß, dass ein Sonder-Voting läuft!
     }
     
     if (report.checkInRequestedBy === "system") {
@@ -686,14 +688,14 @@ function finalizeVerificationProcess(report, benutzerNachricht = null) {
     drawMarkersOnMap();
     updateStatus("Community Live ✅", "#27AE60");
     
-    // Popup wieder öffnen
+    // KORREKTUR: Popup über die echte ID direkt wieder öffnen
     setTimeout(() => {
-        const markerKey = Object.keys(reportsData).find(key => reportsData[key].id === report.id);
-        if (markerKey && activeMarkers[markerKey] && (!report.expiresAt || report.expiresAt > Date.now())) {
-            activeMarkers[markerKey].openPopup();
+        if (activeMarkers[report.id] && (!report.expiresAt || report.expiresAt > Date.now())) {
+            activeMarkers[report.id].openPopup();
         }
     }, 150);
 
+    // Visuelles HTML-Feedback-Overlay mit dynamischem Text anzeigen
     const standardText = "Vielen Dank! Deine Verifizierung vor Ort wurde erfolgreich im System gespeichert. Du kannst jetzt abstimmen!";
     const anzuzeigenderText = benutzerNachricht ? benutzerNachricht : standardText;
     
