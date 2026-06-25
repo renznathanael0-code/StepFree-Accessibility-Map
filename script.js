@@ -80,7 +80,7 @@ function showVerificationStatus(erfolgreich, nachricht) {
     };
 }
 
-// --- ADMIN LOGIN MIT CUSTOM PROMPT (KORRIGIERT) ---
+// --- ADMIN LOGIN ---
 if (isAdminPage) {
     setTimeout(async () => {
         const login = await CustomUI.prompt("🔒 Admin-Bereich", "Bitte Passwort eingeben:", "Passwort...", "password");
@@ -96,7 +96,6 @@ if (isAdminPage) {
         if (hashHex === "b6e97cdceff5afead6676708d2261e8a915078ff0f2fa77856aae786ad6ac78c") {
             console.log("Admin erfolgreich eingeloggt.");
         } else {
-            // Ersetzt das alte native alert() durch ein CustomUI HTML-Fenster
             await CustomUI.confirm("🔒 Zugriff verweigert", "Das eingegebene Passwort ist falsch.", "Zur Startseite", "");
             window.location.href = "index.html";
         }
@@ -218,6 +217,8 @@ async function loadFromCommunity() {
                     if (!r.hasOwnProperty('createdAt')) {
                         r.createdAt = 1767222000000; 
                     }
+                    // KORREKTUR: Absicherung gegen NaN bei den Löschzählern
+                    r.loeschCheckIns = r.loeschCheckIns || 0;
                     
                     return r;
                 }).filter(r => r !== null && r.lng >= southWest.lng && r.lng <= northEast.lng);
@@ -288,7 +289,7 @@ function drawMarkersOnMap() {
     Object.values(activeMarkers).forEach(m => map.removeLayer(m));
     activeMarkers = {};
     
-    reportsData.forEach((r, index) => {
+    reportsData.forEach((r) => {
         if (r.expiresAt && r.expiresAt < jetzt) return;
 
         let markerTypes = Array.isArray(r.typ) ? r.typ : [r.typ];
@@ -395,12 +396,11 @@ function drawMarkersOnMap() {
         }
         content += `</div>`;
 
-                let hatEingeecheckt = localStorage.getItem(`checkedIn_${r.id}`) === "true";
+        let hatEingeecheckt = localStorage.getItem(`checkedIn_${r.id}`) === "true";
         let disabledAttr = "";
         let btnStimmtStyle = "background:#27AE60; color:white; cursor:pointer;";
         let btnFalschStyle = "background:#E67E22; color:white; cursor:pointer;";
         
-        // Wenn ein Check aktiv ist, der User aber NOCH NICHT eingecheckt hat -> Grau blockieren
         if ((r.checkInRequestedBy === "admin" || r.needsCheck === true) && !hatEingeecheckt) {
             disabledAttr = "disabled";
             btnStimmtStyle = "background:#cccccc; color:#888888; opacity:0.6; cursor:not-allowed;";
@@ -413,6 +413,7 @@ function drawMarkersOnMap() {
                 <button ${disabledAttr} onclick="vote('${r.id}', -1)" style="flex:1; border:none; padding:8px; border-radius:5px; font-weight:bold; ${btnFalschStyle}">❌ Falsch</button>
             </div>`;
   
+        // KORREKTUR: Korrekte Google-Maps Navigationsstruktur mit reparierter Variablen-Interpolation
         const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}&travelmode=walking`;
         content += `<a href="${googleUrl}" target="_blank" style="display:block; background:#4285F4; color:white; text-align:center; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:10px;">Route in Google Maps starten</a>`;
 
@@ -421,7 +422,6 @@ function drawMarkersOnMap() {
         if (isAdminPage) {
             content += `<div style="border-top:1px solid #ccc; padding-top:10px; margin-top:5px;">`;
             
-            // ADMIN OVERLAY BYPASS BUTTON
             const istSonderTyp = markerTypes.some(t => t.includes("Baustelle") || t.includes("Aufzug defekt"));
             if (istSonderTyp) {
                 content += `<button onclick="openManagementOverlay(reportsData.find(item => item.id === '${r.id}'))" style="background:#9b59b6; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">⚙️ Status & Enddatum verwalten</button>`;
@@ -435,23 +435,19 @@ function drawMarkersOnMap() {
                     <button onclick="askForCheck('${r.id}')" style="background:#4285F4; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Admin-Check fordern</button>
                 </div>`;
         } else {
-            // ERGÄNZUNG: Auch "Aufzug defekt" schaltet jetzt für den normalen User das Standort-Check-In frei
             const isTempType = markerTypes.some(t => t.includes("E-Scooter") || t.includes("Mülltonne") || t.includes("Baustelle") || t.includes("Aufzug defekt"));
             if (r.needsCheck || r.checkInRequestedBy || isTempType) {
                 content += `<button onclick="verifyByLocation('${r.id}')" style="background:#f39c12; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Hier einchecken & verifizieren</button>`;
             }
         }
         
-                content += `</div>`;
+        content += `</div>`;
         m.bindPopup(content);
-        
-        // KORREKTUR: Nutze die eindeutige Firebase-ID statt des Schleifen-Index!
         activeMarkers[r.id] = m; 
     });
 }
 
-
-// --- MERKLISTE MIT CUSTOM PROMPT ---
+// --- MERKLISTE ---
 async function addToFavorites(id, lat, lng) {
     const customTitle = await CustomUI.prompt("⭐ Merkliste", "Unter welchem Namen möchtest du diesen Ort speichern?", "z.B. Mein Stammbäcker...");
     if (!customTitle) return; 
@@ -502,10 +498,10 @@ async function jumpToFavorite(id, lat, lng) {
     map.setView([lat, lng], 17);
     await loadFromCommunity();
 
+    // KORREKTUR: Greift nun direkt und ohne Umwege auf den Marker-Key zu
     setTimeout(() => {
-        const markerKey = Object.keys(reportsData).find(key => reportsData[key].id === id);
-        if (markerKey && activeMarkers[markerKey]) {
-            activeMarkers[markerKey].openPopup();
+        if (activeMarkers[id]) {
+            activeMarkers[id].openPopup();
         } else {
             CustomUI.confirm("Fehler", "Der Punkt befindet sich außerhalb des aktuellen Ausschnitts oder wurde entfernt.", "Ok", "");
         }
@@ -519,7 +515,7 @@ function removeFromFavorites(id) {
     renderFavoritesList();
 }
 
-// --- ADMIN LÖSCHEN MIT CUSTOM CONFIRM ---
+// --- ADMIN CONTROL ---
 async function directDelete(id) {
     const sicher = await CustomUI.confirm("🗑️ Eintrag löschen", "Möchtest du diesen Punkt wirklich unwiderruflich für alle User löschen?");
     if (sicher) {
@@ -546,15 +542,13 @@ function askForCheck(id) {
     if (r) {
         r.checkInRequestedBy = "admin";
         r.needsCheck = true;
-        // Struktur direkt mitsenden, damit das System weiß, dass ein Sonder-Voting läuft
         r.sonderVoting = { ja: 0, nein: 0 }; 
         updateSingleMarkerInCommunity(r);
         drawMarkersOnMap();
     }
 }
 
-
-// --- VERIFIZIERUNG & MANAGEMENT MIT ADMIN-BYPASS & 3-STIMMEN-LÖSCHUNG ---
+// --- VERIFIZIERUNG & MANAGEMENT ---
 function verifyByLocation(id) {
     const report = reportsData.find(r => r.id === id);
     if (!report) return;
@@ -562,13 +556,11 @@ function verifyByLocation(id) {
     let markerTypes = Array.isArray(report.typ) ? report.typ : [report.typ];
     const isSpecialType = markerTypes.some(t => t.includes("Baustelle") || t.includes("Aufzug defekt"));
 
-    // FEATURE 2: Wenn es ein Admin auf admin.html ist, direkt in das Management-Overlay springen (Bypass)
     if (isAdminPage && isSpecialType) {
         openManagementOverlay(report);
         return;
     }
 
-    // Für normale User folgt die GPS-Standortprüfung
     updateStatus("Prüfe Standort...", "#3498db");
     navigator.geolocation.getCurrentPosition((pos) => {
         const dist = getDistance(pos.coords.latitude, pos.coords.longitude, report.lat, report.lng);
@@ -591,14 +583,12 @@ function verifyByLocation(id) {
     });
 }
 
-// Hilfsfunktion zum Öffnen des Status-Overlays (Baustelle & Aufzug)
 function openManagementOverlay(report) {
     let markerTypes = Array.isArray(report.typ) ? report.typ : [report.typ];
     const einTag = 24 * 60 * 60 * 1000;
     const siebenTage = 7 * einTag;
     const basisZeit = report.expiresAt && report.expiresAt > Date.now() ? report.expiresAt : Date.now();
 
-    // Setze den Löschzähler auf 0, falls er noch nie existiert hat
     if (typeof report.loeschCheckIns === "undefined") {
         report.loeschCheckIns = 0;
     }
@@ -606,10 +596,7 @@ function openManagementOverlay(report) {
     const modalOverlay = document.createElement('div');
     modalOverlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; display:flex; align-items:center; justify-content:center; font-family:sans-serif; padding:20px; box-sizing:border-box;";
     
-    // Dynamischer Titel je nach Typ
     const overlayTitel = markerTypes.some(t => t.includes("Aufzug")) ? "🛗 Aufzugs-Management" : "🚧 Baustellen-Management";
-    
-    // FEATURE 3: Text auf dem Lösch-Button zeigt den aktuellen Counter (z.B. 0/3 oder als Admin ein direktes Löschen)
     const loeschButtonText = isAdminPage ? "🗑️ Komplett aufgelöst (Sofort)" : `🗑️ Komplett aufgelöst (${report.loeschCheckIns}/3)`;
 
     modalOverlay.innerHTML = `
@@ -624,7 +611,6 @@ function openManagementOverlay(report) {
     `;
     document.body.appendChild(modalOverlay);
     
-    // Option 1: Verlängerung um 7 Tage (1 Check-In reicht aus)
     modalOverlay.querySelector('#btn-extend').onclick = () => {
         report.expiresAt = basisZeit + siebenTage;
         report.baustellenEnddatum = null;
@@ -632,7 +618,6 @@ function openManagementOverlay(report) {
         finalizeVerificationProcess(report);
     };
     
-    // Option 2: Enddatum ändern (1 Check-In reicht aus)
     modalOverlay.querySelector('#btn-date').onclick = async () => {
         document.body.removeChild(modalOverlay);
         const datumInput = await CustomUI.prompt("📅 Enddatum festlegen", "Bitte neues Enddatum im Format JJJJ-MM-TT eingeben:", "2026-12-31");
@@ -643,23 +628,18 @@ function openManagementOverlay(report) {
         }
     };
     
-    // Option 3: Komplett aufgelöst (FEATURE 2 & 3: Zähl-Logik & Admin-Bypass)
     modalOverlay.querySelector('#btn-delete').onclick = () => {
         document.body.removeChild(modalOverlay);
         
         if (isAdminPage) {
-            // Admin löscht sofort
             report.expiresAt = Date.now() - 1000;
             finalizeVerificationProcess(report);
         } else {
-            // Normaler User erhöht Stimmenanzahl
             report.loeschCheckIns += 1;
-            
             if (report.loeschCheckIns >= 3) {
-                report.expiresAt = Date.now() - 1000; // Marker abgelaufen -> wird gelöscht
+                report.expiresAt = Date.now() - 1000;
                 finalizeVerificationProcess(report, "Meldung wurde durch 3 Check-Ins erfolgreich aufgelöst!");
             } else {
-                // Noch nicht genug Stimmen: Aktualisiere den Marker, behalte ihn aber auf der Karte
                 const benoetigt = 3 - report.loeschCheckIns;
                 finalizeVerificationProcess(report, `Bestätigt! Es werden noch ${benoetigt} weitere Check-Ins benötigt, um diese Meldung komplett aufzuheben.`);
             }
@@ -673,7 +653,6 @@ async function finalizeVerificationProcess(report, benutzerNachricht = null) {
     report.needsCheck = false; 
     report.verifiedAt = new Date().toLocaleString('de-DE'); 
 
-    // Sofort im lokalen Speicher sichern
     localStorage.setItem(`checkedIn_${report.id}`, "true");
 
     if (report.checkInRequestedBy === "admin") {
@@ -686,11 +665,9 @@ async function finalizeVerificationProcess(report, benutzerNachricht = null) {
         report.checkInRequestedBy = null;
     }
 
-    // Erst in Firebase speichern, dann die Community-Daten frisch laden
     await updateSingleMarkerInCommunity(report);
     await loadFromCommunity(); 
     
-    // Jetzt das Popup des frisch geladenen Markers öffnen
     setTimeout(() => {
         if (activeMarkers[report.id]) {
             activeMarkers[report.id].openPopup();
@@ -724,11 +701,6 @@ function openSelectionPopup(latlng) {
           <label><input type="checkbox" name="typ" value="Barrierefreier Ort"> 📍 Barrierefreier Ort</label>
           
           <hr style="margin: 5px 0; border: none; border-top: 1px solid #ccc;">
-          <strong>🚉 Am Bahnsteig / Einstieg zum Zug</strong>
-          <label><input type="checkbox" name="typ" value="Höhenunterschied am Zug"> ⚠️ Stufe am Zug (Kritisch)</label>
-          <label><input type="checkbox" name="typ" value="Niveaugleicher Einstieg"> ✅ Einstieg eben (Stufenlos)</label>
-          
-          <hr style="margin: 5px 0; border: none; border-top: 1px solid #ccc;">
           <strong>Zusatzinformationen:</strong>
           <input type="text" id="multiDetails" placeholder="z.B. Gleis 3, Rampe im 1. OG..." style="padding: 8px; border: 1px solid #ccc; border-radius: 6px; width: 93%;">
           <button type="submit" style="background:#27AE60; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:10px; font-size:1em;">💾 Eintrag speichern</button>
@@ -745,19 +717,17 @@ function finalizeMultiReport(event, lat, lng) {
     
     if (gewaehlteTypen.length === 0) return;
     
-        const kommentarText = document.getElementById('multiDetails').value;
+    const kommentarText = document.getElementById('multiDetails').value;
     const einTag = 24 * 60 * 60 * 1000;
     const siebenTage = 7 * einTag;
     let ablaufZeit = null;
 
-    // FEATURE 1: Auch "Aufzug defekt" bekommt ein Basis-Limit von 7 Tagen
     if (gewaehlteTypen.some(t => t === "E-Scooter" || t === "Mülltonne")) {
         ablaufZeit = Date.now() + einTag;
     } else if (gewaehlteTypen.some(t => t === "Baustelle" || t === "Aufzug defekt")) {
         ablaufZeit = Date.now() + siebenTage;
     }
  
-    // Änderung: Wenn der Admin den Punkt erstellt, wird der Status direkt 'active' (Kein blauer Ring!)
     const initialStatus = isAdminPage ? "active" : "new";
     
     const neuerPunkt = {
@@ -786,21 +756,17 @@ async function vote(id, change) {
     if (!report) return;
     
     let myVotes = JSON.parse(localStorage.getItem('userVotes') || "{}");
-    
     let hatEingeecheckt = localStorage.getItem(`checkedIn_${id}`) === "true";
 
-    // Wenn der Admin den Check gefordert hat UND der User eingecheckt ist -> Sonder-Voting!
     if (report.checkInRequestedBy === "admin" && hatEingeecheckt) {
         if (!report.sonderVoting) report.sonderVoting = { ja: 0, nein: 0 };
         
         if (change === 1) report.sonderVoting.ja += 1;
         if (change === -1) report.sonderVoting.nein += 1;
         
-        // Jetzt ist das Sonder-Voting vorbei: Flags aufräumen
         localStorage.removeItem(`checkedIn_${id}`);
         report.checkInRequestedBy = null; 
     } else {
-        // Normales Standard-Voting (nur blockieren, wenn kein Sonder-Voting läuft)
         if (myVotes[id]) return;
         
         report.votes += change;
