@@ -602,6 +602,10 @@ function openManagementOverlay(report) {
     const siebenTage = 7 * einTag;
     const basisZeit = report.expiresAt && report.expiresAt > Date.now() ? report.expiresAt : Date.now();
 
+    // SCHUTZVORRICHTUNG: Prüfen, ob dieser User hier gerade schon aktiv war
+    // (Admins sind davon natürlich ausgenommen)
+    const hasManagedThisTurn = localStorage.getItem(`managed_${report.id}`) === "true";
+
     if (typeof report.loeschCheckIns === "undefined") {
         report.loeschCheckIns = 0;
     }
@@ -624,37 +628,63 @@ function openManagementOverlay(report) {
     `;
     document.body.appendChild(modalOverlay);
     
-    modalOverlay.querySelector('#btn-extend').onclick = () => {
+    modalOverlay.querySelector('#btn-extend').onclick = async () => {
+        document.body.removeChild(modalOverlay);
+        
+        // Sperre für normale User
+        if (!isAdminPage && hasManagedThisTurn) {
+            await CustomUI.confirm("📢 Aktion gesperrt", "Du hast den Status dieses Ortes bei diesem Besuch bereits aktualisiert.", "Verstanden", "");
+            return;
+        }
+
         report.expiresAt = basisZeit + siebenTage;
         report.baustellenEnddatum = null;
-        document.body.removeChild(modalOverlay);
+        
+        if (!isAdminPage) localStorage.setItem(`managed_${report.id}`, "true");
         finalizeVerificationProcess(report);
     };
     
     modalOverlay.querySelector('#btn-date').onclick = async () => {
         document.body.removeChild(modalOverlay);
+        
+        // Sperre für normale User
+        if (!isAdminPage && hasManagedThisTurn) {
+            await CustomUI.confirm("📢 Aktion gesperrt", "Du hast den Status dieses Ortes bei diesem Besuch bereits aktualisiert.", "Verstanden", "");
+            return;
+        }
+
         const datumInput = await CustomUI.prompt("📅 Enddatum festlegen", "Bitte neues Enddatum im Format JJJJ-MM-TT eingeben:", "2026-12-31");
         if (datumInput && !isNaN(Date.parse(datumInput))) {
             report.baustellenEnddatum = datumInput;
             report.expiresAt = Date.parse(datumInput) + einTag;
+            
+            if (!isAdminPage) localStorage.setItem(`managed_${report.id}`, "true");
             finalizeVerificationProcess(report);
         }
     };
     
-    modalOverlay.querySelector('#btn-delete').onclick = () => {
+    modalOverlay.querySelector('#btn-delete').onclick = async () => {
         document.body.removeChild(modalOverlay);
         
         if (isAdminPage) {
             report.expiresAt = Date.now() - 1000;
             finalizeVerificationProcess(report);
         } else {
+            // Riegl gegen Spamming der Löschung
+            if (hasManagedThisTurn) {
+                await CustomUI.confirm("📢 Schon abgestimmt", "Du hast für diesen Ort bereits eingecheckt. Es wird pro Person nur eine Status-Meldung akzeptiert.", "Verstanden", "");
+                return;
+            }
+
             report.loeschCheckIns += 1;
+            localStorage.setItem(`managed_${report.id}`, "true"); // User sperren
+
             if (report.loeschCheckIns >= 3) {
                 report.expiresAt = Date.now() - 1000;
                 finalizeVerificationProcess(report, "Meldung wurde durch 3 Check-Ins erfolgreich aufgelöst!");
             } else {
                 const benoetigt = 3 - report.loeschCheckIns;
-                finalizeVerificationProcess(report, `Bestätigt! Es werden noch ${benoetigt} weitere Check-Ins benötigt, um diese Meldung komplett aufzuheben.`);
+                finalizeVerificationProcess(report, `Bestätigt! Es werden noch ${benoetigt} weitere Check-Ins von anderen Nutzern benötigt, um diese Meldung komplett aufzuheben.`);
             }
         }
     };
@@ -785,7 +815,16 @@ async function vote(id, change) {
         localStorage.removeItem(`checkedIn_${id}`);
         report.checkInRequestedBy = null; 
     } else {
-        if (myVotes[id]) return;
+        // HIER WAR DER STILLE REUTER: Jetzt mit schickem UI-Feedback
+        if (myVotes[id]) {
+            await CustomUI.confirm(
+                "📢 Schon abgestimmt", 
+                "Du hast für diesen Ort bereits deine Stimme abgegeben. Um Manipulationen zu vermeiden, ist nur eine Stimme pro Person erlaubt.", 
+                "Verstanden", 
+                "" // Leerer String löscht den Abbrechen-Button, damit es ein reines Info-Fenster wird
+            );
+            return;
+        }
         
         report.votes += change;
         if (report.votes <= -3) report.status = "review";
