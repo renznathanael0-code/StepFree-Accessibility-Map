@@ -556,22 +556,35 @@ function verifyByLocation(id) {
     let markerTypes = Array.isArray(report.typ) ? report.typ : [report.typ];
     const isSpecialType = markerTypes.some(t => t.includes("Baustelle") || t.includes("Aufzug defekt"));
 
+    // Wenn es ein Admin auf admin.html ist, direkt in das Management-Overlay springen (Bypass)
     if (isAdminPage && isSpecialType) {
         openManagementOverlay(report);
         return;
     }
 
+    // Für normale User folgt die GPS-Standortprüfung
     updateStatus("Prüfe Standort...", "#3498db");
     navigator.geolocation.getCurrentPosition((pos) => {
         const dist = getDistance(pos.coords.latitude, pos.coords.longitude, report.lat, report.lng);
 
         if (dist <= 0.05) { 
-            if (isSpecialType) {
+            // FALL 1: Es läuft ein vom Admin geforderter Check-In (Sonder-Voting vorbereiten)
+            if (report.checkInRequestedBy === "admin" || report.needsCheck === true) {
+                finalizeVerificationProcess(report, "Check-In erfolgreich! Das Sonder-Voting ist jetzt freigeschaltet. Bitte stimme ab!");
+            }
+            // FALL 2: Es ist eine Baustelle oder ein defekter Aufzug (Management-Overlay öffnen)
+            else if (isSpecialType) {
                 openManagementOverlay(report);
-            } else if (markerTypes.some(t => t.includes("E-Scooter") || t.includes("Mülltonne"))) {
+            } 
+            // FALL 3: Temporäre Hindernisse (Verlängerung um 24h)
+            else if (markerTypes.some(t => t.includes("E-Scooter") || t.includes("Mülltonne"))) {
                 const einTag = 24 * 60 * 60 * 1000;
                 const basisZeit = report.expiresAt && report.expiresAt > Date.now() ? report.expiresAt : Date.now();
                 report.expiresAt = basisZeit + einTag;
+                finalizeVerificationProcess(report);
+            }
+            // FALL 4: Sicherheitsnetz für alle anderen ständigen Marker (falls User einfach so einchecken)
+            else {
                 finalizeVerificationProcess(report);
             }
         } else {
