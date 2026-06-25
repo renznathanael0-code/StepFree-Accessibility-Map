@@ -602,9 +602,9 @@ function openManagementOverlay(report) {
     const siebenTage = 7 * einTag;
     const basisZeit = report.expiresAt && report.expiresAt > Date.now() ? report.expiresAt : Date.now();
 
-    // SCHUTZVORRICHTUNG: Prüfen, ob dieser User hier gerade schon aktiv war
-    // (Admins sind davon natürlich ausgenommen)
-    const hasManagedThisTurn = localStorage.getItem(`managed_${report.id}`) === "true";
+    // 🕒 NEU: Prüfen, ob der User innerhalb der letzten 24 Stunden hier schon aktiv war
+    const lockTimestamp = localStorage.getItem(`managed_${report.id}`);
+    const hasManagedThisTurn = lockTimestamp && (Date.now() - parseInt(lockTimestamp) < 24 * 60 * 60 * 1000);
 
     if (typeof report.loeschCheckIns === "undefined") {
         report.loeschCheckIns = 0;
@@ -628,41 +628,74 @@ function openManagementOverlay(report) {
     `;
     document.body.appendChild(modalOverlay);
     
+    // --- BUTTON: Verlängern ---
     modalOverlay.querySelector('#btn-extend').onclick = async () => {
         document.body.removeChild(modalOverlay);
         
-        // Sperre für normale User
         if (!isAdminPage && hasManagedThisTurn) {
-            await CustomUI.confirm("📢 Aktion gesperrt", "Du hast den Status dieses Ortes bei diesem Besuch bereits aktualisiert.", "Verstanden", "");
+            await CustomUI.confirm("📢 Aktion gesperrt", "Du hast den Status dieses Ortes in den letzten 24 Stunden bereits aktualisiert.", "Verstanden", "");
             return;
         }
 
         report.expiresAt = basisZeit + siebenTage;
         report.baustellenEnddatum = null;
         
-        if (!isAdminPage) localStorage.setItem(`managed_${report.id}`, "true");
+        if (!isAdminPage) localStorage.setItem(`managed_${report.id}`, Date.now().toString());
         finalizeVerificationProcess(report);
     };
     
+    // --- BUTTON: Enddatum ändern (Jetzt mit echtem HTML5 Datepicker!) ---
     modalOverlay.querySelector('#btn-date').onclick = async () => {
         document.body.removeChild(modalOverlay);
         
-        // Sperre für normale User
         if (!isAdminPage && hasManagedThisTurn) {
-            await CustomUI.confirm("📢 Aktion gesperrt", "Du hast den Status dieses Ortes bei diesem Besuch bereits aktualisiert.", "Verstanden", "");
+            await CustomUI.confirm("📢 Aktion gesperrt", "Du hast den Status dieses Ortes in den letzten 24 Stunden bereits aktualisiert.", "Verstanden", "");
             return;
         }
 
-        const datumInput = await CustomUI.prompt("📅 Enddatum festlegen", "Bitte neues Enddatum im Format JJJJ-MM-TT eingeben:", "2026-12-31");
-        if (datumInput && !isNaN(Date.parse(datumInput))) {
-            report.baustellenEnddatum = datumInput;
-            report.expiresAt = Date.parse(datumInput) + einTag;
-            
-            if (!isAdminPage) localStorage.setItem(`managed_${report.id}`, "true");
-            finalizeVerificationProcess(report);
-        }
+        // Schnelles, schickes Datums-Auswahl-Modal erzeugen
+        const dateModal = document.createElement('div');
+        dateModal.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:100000; display:flex; align-items:center; justify-content:center; font-family:sans-serif; padding:20px; box-sizing:border-box;";
+        
+        // Formatiere das heutige Datum als Mindestdatum (YYYY-MM-DD)
+        const heute = new Date().toISOString().split('T')[0];
+
+        dateModal.innerHTML = `
+            <div style="background:white; padding:20px; border-radius:12px; max-width:300px; width:100%; box-shadow:0 4px 15px rgba(0,0,0,0.3); box-sizing:border-box; text-align:center;">
+                <h3 style="margin-top:0; color:#2c3e50; font-size:1.1em;">📅 Enddatum wählen</h3>
+                <p style="font-size:0.85em; color:#7f8c8d; margin-bottom:12px;">Wann ist die Störung voraussichtlich behoben?</p>
+                <input type="date" id="datepicker-input" min="${heute}" style="width:90%; padding:10px; border:1px solid #ccc; border-radius:6px; font-size:1em; margin-bottom:15px; font-family:sans-serif;">
+                <div style="display:flex; gap:8px;">
+                    <button id="date-submit" style="flex:1; background:#27AE60; color:white; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer;">Speichern</button>
+                    <button id="date-cancel" style="flex:1; background:#eef2f3; color:#7f8c8d; border:1px solid #d5dbdb; padding:10px; border-radius:6px; cursor:pointer;">Abbrechen</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(dateModal);
+
+        // Fokus auf das Datumsfeld legen
+        const dateInput = dateModal.querySelector('#datepicker-input');
+        
+        dateModal.querySelector('#date-submit').onclick = () => {
+            const gewaehltesDatum = dateInput.value;
+            if (gewaehltesDatum) {
+                document.body.removeChild(dateModal);
+                report.baustellenEnddatum = gewaehltesDatum;
+                report.expiresAt = Date.parse(gewaehltesDatum) + einTag;
+                
+                if (!isAdminPage) localStorage.setItem(`managed_${report.id}`, Date.now().toString());
+                finalizeVerificationProcess(report);
+            } else {
+                alert("Bitte wähle ein gültiges Datum aus.");
+            }
+        };
+
+        dateModal.querySelector('#date-cancel').onclick = () => {
+            document.body.removeChild(dateModal);
+        };
     };
     
+    // --- BUTTON: Auflösen ---
     modalOverlay.querySelector('#btn-delete').onclick = async () => {
         document.body.removeChild(modalOverlay);
         
@@ -670,14 +703,13 @@ function openManagementOverlay(report) {
             report.expiresAt = Date.now() - 1000;
             finalizeVerificationProcess(report);
         } else {
-            // Riegl gegen Spamming der Löschung
             if (hasManagedThisTurn) {
-                await CustomUI.confirm("📢 Schon abgestimmt", "Du hast für diesen Ort bereits eingecheckt. Es wird pro Person nur eine Status-Meldung akzeptiert.", "Verstanden", "");
+                await CustomUI.confirm("📢 Schon abgestimmt", "Du hast für diesen Ort bereits eingecheckt. Es wird pro Person nur eine Status-Meldung alle 24 Stunden akzeptiert.", "Verstanden", "");
                 return;
             }
 
             report.loeschCheckIns += 1;
-            localStorage.setItem(`managed_${report.id}`, "true"); // User sperren
+            localStorage.setItem(`managed_${report.id}`, Date.now().toString()); // Zeitstempel setzen
 
             if (report.loeschCheckIns >= 3) {
                 report.expiresAt = Date.now() - 1000;
