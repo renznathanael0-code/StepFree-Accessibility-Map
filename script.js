@@ -395,21 +395,24 @@ function drawMarkersOnMap() {
         }
         content += `</div>`;
 
-        let hatEingeecheckt = localStorage.getItem(`checkedIn_${r.id}`) === "true";
+                let hatEingeecheckt = localStorage.getItem(`checkedIn_${r.id}`) === "true";
         let disabledAttr = "";
-        let buttonStyleModifier = "cursor:pointer;";
+        let btnStimmtStyle = "background:#27AE60; color:white; cursor:pointer;";
+        let btnFalschStyle = "background:#E67E22; color:white; cursor:pointer;";
         
+        // Wenn ein Check aktiv ist, der User aber NOCH NICHT eingecheckt hat -> Grau blockieren
         if ((r.checkInRequestedBy === "admin" || r.needsCheck === true) && !hatEingeecheckt) {
             disabledAttr = "disabled";
-            buttonStyleModifier = "background:#cccccc; color:#888888; opacity:0.6; cursor:not-allowed;";
+            btnStimmtStyle = "background:#cccccc; color:#888888; opacity:0.6; cursor:not-allowed;";
+            btnFalschStyle = "background:#cccccc; color:#888888; opacity:0.6; cursor:not-allowed;";
         }
 
         content += `
             <div style="display:flex; gap:5px; margin-bottom:10px;">
-                <button ${disabledAttr} onclick="vote('${r.id}', 1)" style="flex:1; background:#27AE60; color:white; border:none; padding:8px; border-radius:5px; ${disabledAttr ? buttonStyleModifier : 'cursor:pointer;'}">✅ Stimmt</button>
-                <button ${disabledAttr} onclick="vote('${r.id}', -1)" style="flex:1; background:#E67E22; color:white; border:none; padding:8px; border-radius:5px; ${disabledAttr ? buttonStyleModifier : 'cursor:pointer;'}">❌ Falsch</button>
+                <button ${disabledAttr} onclick="vote('${r.id}', 1)" style="flex:1; border:none; padding:8px; border-radius:5px; font-weight:bold; ${btnStimmtStyle}">✅ Stimmt</button>
+                <button ${disabledAttr} onclick="vote('${r.id}', -1)" style="flex:1; border:none; padding:8px; border-radius:5px; font-weight:bold; ${btnFalschStyle}">❌ Falsch</button>
             </div>`;
-        
+  
         const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}&travelmode=walking`;
         content += `<a href="${googleUrl}" target="_blank" style="display:block; background:#4285F4; color:white; text-align:center; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:10px;">Route in Google Maps starten</a>`;
 
@@ -666,11 +669,11 @@ function openManagementOverlay(report) {
     modalOverlay.querySelector('#btn-cancel').onclick = () => { document.body.removeChild(modalOverlay); };
 }
 
-function finalizeVerificationProcess(report, benutzerNachricht = null) {
-    report.needsCheck = false; // Gelber Ring weg
+async function finalizeVerificationProcess(report, benutzerNachricht = null) {
+    report.needsCheck = false; 
     report.verifiedAt = new Date().toLocaleString('de-DE'); 
 
-    // Sofort im lokalen Speicher sichern, damit die Buttons AKTIV werden
+    // Sofort im lokalen Speicher sichern
     localStorage.setItem(`checkedIn_${report.id}`, "true");
 
     if (report.checkInRequestedBy === "admin") {
@@ -683,23 +686,19 @@ function finalizeVerificationProcess(report, benutzerNachricht = null) {
         report.checkInRequestedBy = null;
     }
 
-    // Daten synchronisieren und Karte neu zeichnen
-    updateSingleMarkerInCommunity(report);
-    drawMarkersOnMap();
-    updateStatus("Community Live ✅", "#27AE60");
+    // Erst in Firebase speichern, dann die Community-Daten frisch laden
+    await updateSingleMarkerInCommunity(report);
+    await loadFromCommunity(); 
     
-    // KORREKTUR: Popup über die echte ID direkt wieder öffnen
+    // Jetzt das Popup des frisch geladenen Markers öffnen
     setTimeout(() => {
-        if (activeMarkers[report.id] && (!report.expiresAt || report.expiresAt > Date.now())) {
+        if (activeMarkers[report.id]) {
             activeMarkers[report.id].openPopup();
         }
-    }, 150);
+    }, 300);
 
-    // Visuelles HTML-Feedback-Overlay mit dynamischem Text anzeigen
-    const standardText = "Vielen Dank! Deine Verifizierung vor Ort wurde erfolgreich im System gespeichert. Du kannst jetzt abstimmen!";
-    const anzuzeigenderText = benutzerNachricht ? benutzerNachricht : standardText;
-    
-    showVerificationStatus(true, anzuzeigenderText);
+    const standardText = "Vielen Dank! Deine Verifizierung vor Ort wurde erfolgreich gespeichert. Du kannst jetzt abstimmen!";
+    showVerificationStatus(true, benutzerNachricht ? benutzerNachricht : standardText);
 }
 
 function openSelectionPopup(latlng) {
