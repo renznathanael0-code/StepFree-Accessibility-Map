@@ -325,6 +325,7 @@ function drawMarkersOnMap() {
             else if (singleType.includes("Baustelle")) { emoji = "🚧"; markerFarbe = "#F1C40F"; }
             else if (singleType.includes("E-Scooter")) { emoji = "🛴"; markerFarbe = "#D35400"; } 
             else if (singleType.includes("Mülltonne")) { emoji = "🗑️"; markerFarbe = "#7F8C8D"; } 
+            else if (singleType.includes("sonstiges")) { emoji = "🪨️"; markerFarbe = "#5F9EA0"; } 
             else if (singleType.includes("Aufzug vorhanden")) { emoji = "🛗"; markerFarbe = "#27AE60"; }
             else if (singleType.includes("Rampe vorhanden")) { emoji = "📐"; markerFarbe = "#16A085"; }
             else if (singleType.includes("WC")) { emoji = "🚽"; markerFarbe = "#2ECC71"; }
@@ -766,7 +767,8 @@ function openSelectionPopup(latlng) {
           <label><input type="checkbox" name="typ" value="Baustelle"> 🚧 Baustelle</label>
           <label><input type="checkbox" name="typ" value="E-Scooter"> 🛴 E-Scooter im Weg</label>
           <label><input type="checkbox" name="typ" value="Mülltonne"> 🗑️ Mülltonne blockiert</label>
-          
+          <label><input type="checkbox" name="typ" value="sonstiges">🪨 sonstige Hindernisse</label>
+                        
           <hr style="margin: 5px 0; border: none; border-top: 1px solid #ccc;">
           <strong>✨ Barrierefreiheit im Alltag</strong>
           <label><input type="checkbox" name="typ" value="Aufzug vorhanden"> 🛗 Aufzug vorhanden</label>
