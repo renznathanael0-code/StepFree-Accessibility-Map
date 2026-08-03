@@ -417,13 +417,13 @@ function drawMarkersOnMap() {
             else if (singleType.includes("Niveaugleicher")) { emoji = "✅"; markerFarbe = "#2980B9"; }
         }
     
-        // --- 1. KRANZ-DESIGN LOGIK (INKLUSIVE KI-WARNUNG) ---
+        // --- 1. OPTIMIERTE KRANZ-DESIGN LOGIK (KI-WARNUNG FÜR JEDEN SICHTBAR) ---
         let borderStyle = "";
-        if (isAdminPage) {
-            if (r.status === "ai_failed") {
-                // Violetter Kranz bei KI-Verdacht auf Spam/Fake
-                borderStyle = "box-shadow: 0 0 0 4px #9b59b6, 0 0 12px #9b59b6; border: 2px solid #9b59b6;"; 
-            } else if (r.status === "needs_review" || r.loeschCheckIns >= 3) {
+        if (r.status === "ai_failed") {
+            // Violetter Kranz bei KI-Verdacht auf Spam/Fake – leuchtet sofort überall auf!
+            borderStyle = "box-shadow: 0 0 0 4px #9b59b6, 0 0 12px #9b59b6; border: 2px solid #9b59b6;"; 
+        } else if (isAdminPage) {
+            if (r.status === "needs_review" || r.loeschCheckIns >= 3) {
                 borderStyle = "box-shadow: 0 0 0 4px #e74c3c, 0 0 12px #e74c3c; border: 2px solid #e74c3c;"; 
             } else if (r.status === "ready_for_confirm" || r.votes >= 3) {
                 borderStyle = "box-shadow: 0 0 0 4px #2ecc71, 0 0 12px #2ecc71; border: 2px solid #2ecc71;"; 
@@ -447,12 +447,12 @@ function drawMarkersOnMap() {
         
         let content = `<div style="font-family:sans-serif; min-width:230px;">`;
         
-        // --- 2. POPUP-STATUS TEXTE (ADMIN & KI) ---
-        if (isAdminPage) {
-            if (r.status === "ai_failed") {
-                content += `<b style="color:#9b59b6;">🤖 KI-WARNUNG: Verdacht auf Fake/Spam</b><br>`;
-                if (r.kiWarnung) content += `<span style="font-size:0.85em; color:#9b59b6; display:block; margin-bottom:5px;">Grund: <i>${r.kiWarnung}</i></span>`;
-            } else if (r.status === "needs_review" || r.loeschCheckIns >= 3) {
+        // --- 2. POPUP-STATUS TEXTE (KI-TEXT JETZT AUCH FÜR USER) ---
+        if (r.status === "ai_failed") {
+            content += `<b style="color:#9b59b6;">🤖 KI-WARNUNG: Verdacht auf Fake/Spam</b><br>`;
+            if (r.kiWarnung) content += `<span style="font-size:0.85em; color:#9b59b6; display:block; margin-bottom:5px;">Grund: <i>${r.kiWarnung}</i></span>`;
+        } else if (isAdminPage) {
+            if (r.status === "needs_review" || r.loeschCheckIns >= 3) {
                 content += `<b style="color:#e74c3c;">⚠️ PRÜFUNG ERFORDERLICH (3x Falsch gemeldet)</b><br>`;
             } else if (r.status === "confirmed") {
                 content += `<b style="color:#2ecc71;">✅ VOM ADMIN BESTÄTIGT</b><br>`;
@@ -491,7 +491,7 @@ function drawMarkersOnMap() {
         content += `<a href="${googleUrl}" target="_blank" style="display:block; background:#4285F4; color:white; text-align:center; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:10px;">Route in Google Maps starten</a>`;
         content += `<button onclick="addToFavorites('${r.id}', ${r.lat}, ${r.lng})" style="display:block; width:100%; background:#f1c40f; color:#2c3e50; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:10px;">⭐ Auf Merkliste speichern</button>`;
 
-        // --- 3. AKTUALISIERTE ADMIN ACTIONS (INKLUSIVE KI-RETTUNGSBUTTON) ---
+        // --- 3. ADMIN ACTIONS ---
         if (isAdminPage) {
             content += `<div style="border-top:1px solid #ccc; padding-top:10px; margin-top:5px;">`;
             
@@ -942,40 +942,3 @@ function kiKeyEinrichten() {
 }
 
 window.onload = initApp;
-
-// ==========================================
-// 📱 TEMPORÄRER KI-TESTER FÜR IPAD
-// ==========================================
-const testBtn = document.createElement('button');
-testBtn.innerText = "🤖 KI-Test starten";
-testBtn.style.cssText = "position:fixed; bottom:20px; left:20px; z-index:999999; background:#9b59b6; color:white; border:none; padding:12px 16px; border-radius:8px; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.3);";
-document.body.appendChild(testBtn);
-
-testBtn.onclick = async () => {
-    const gespeicherterKey = localStorage.getItem("gemini_api_key");
-    
-    // 1. Check ob Key da ist
-    if (!gespeicherterKey || gespeicherterKey === "DEIN_GEMINI_API_KEY") {
-        alert("❌ Fehler: Kein API-Key im localStorage gefunden!\nNutze zuerst die Funktion zum Einrichten.");
-        const neuerKey = prompt("Key direkt hier eintragen:");
-        if(neuerKey) localStorage.setItem("gemini_api_key", neuerKey.trim());
-        return;
-    }
-    
-    alert(`🔑 Key vorhanden (endet auf ...${gespeicherterKey.slice(-4)}). Starte Abfrage mit Beleidigung...`);
-    
-    // 2. KI-Funktion triggern
-    try {
-        const ergebnis = await pruefeEintragMitKI(
-            ["Aufzug defekt"], 
-            "Haha ihr Opfer hier gibt es gar keinen", 
-            48.775, 
-            9.182
-        );
-        
-        // 3. Ergebnis anzeigen
-        alert(`🤖 KI-RÜCKMELDUNG:\n\nPlauisbel: ${ergebnis.plausibel}\nGrund: ${ergebnis.grund}`);
-    } catch (e) {
-        alert(`❌ Schwerer Fehler bei der Abfrage:\n${e.message}`);
-    }
-};
