@@ -933,3 +933,40 @@ function kiKeyEinrichten() {
 }
 
 window.onload = initApp;
+
+// ==========================================
+// 📱 TEMPORÄRER KI-TESTER FÜR IPAD
+// ==========================================
+const testBtn = document.createElement('button');
+testBtn.innerText = "🤖 KI-Test starten";
+testBtn.style.cssText = "position:fixed; bottom:20px; left:20px; z-index:999999; background:#9b59b6; color:white; border:none; padding:12px 16px; border-radius:8px; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.3);";
+document.body.appendChild(testBtn);
+
+testBtn.onclick = async () => {
+    const gespeicherterKey = localStorage.getItem("gemini_api_key");
+    
+    // 1. Check ob Key da ist
+    if (!gespeicherterKey || gespeicherterKey === "DEIN_GEMINI_API_KEY") {
+        alert("❌ Fehler: Kein API-Key im localStorage gefunden!\nNutze zuerst die Funktion zum Einrichten.");
+        const neuerKey = prompt("Key direkt hier eintragen:");
+        if(neuerKey) localStorage.setItem("gemini_api_key", neuerKey.trim());
+        return;
+    }
+    
+    alert(`🔑 Key vorhanden (endet auf ...${gespeicherterKey.slice(-4)}). Starte Abfrage mit Beleidigung...`);
+    
+    // 2. KI-Funktion triggern
+    try {
+        const ergebnis = await pruefeEintragMitKI(
+            ["Aufzug defekt"], 
+            "Haha ihr Opfer hier gibt es gar keinen", 
+            48.775, 
+            9.182
+        );
+        
+        // 3. Ergebnis anzeigen
+        alert(`🤖 KI-RÜCKMELDUNG:\n\nPlauisbel: ${ergebnis.plausibel}\nGrund: ${ergebnis.grund}`);
+    } catch (e) {
+        alert(`❌ Schwerer Fehler bei der Abfrage:\n${e.message}`);
+    }
+};
