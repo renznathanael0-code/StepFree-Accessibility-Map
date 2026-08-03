@@ -3,17 +3,15 @@ const isAdminPage = window.location.pathname.includes("admin.html");
 // ==========================================
 // 🤖 NEU: GEMINI KI-FILTER FÜR SPAM & FAKES
 // ==========================================
-// Hier deinen API-Key aus dem Google AI Studio eintragen
-// Holt den Key sicher aus dem Browser-Speicher des Geräts
-const GEMINI_API_KEY = localStorage.getItem("gemini_api_key") || "DEIN_GEMINI_API_KEY";
-
-
 async function pruefeEintragMitKI(typen, kommentar, lat, lng) {
-    if (GEMINI_API_KEY === "DEIN_GEMINI_API_KEY" || !GEMINI_API_KEY) {
-        return { plausibel: true, grund: "KI-Check übersprungen (Kein Key)" };
+    // Holt den Key bei jedem Aufruf frisch aus dem Speicher
+    const aktuellerKey = localStorage.getItem("gemini_api_key");
+
+    if (!aktuellerKey || aktuellerKey === "DEIN_GEMINI_API_KEY" || aktuellerKey.trim() === "") {
+        return { plausibel: true, grund: "KI-Check übersprungen (Kein Key hinterlegt)" };
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${aktuellerKey}`;
     
     const prompt = `
     Du bist ein Sicherheits-Filter für eine Barrierefreiheits-App. Ein Nutzer hat folgenden Ort/Hindernis gemeldet:
@@ -41,13 +39,20 @@ async function pruefeEintragMitKI(typen, kommentar, lat, lng) {
         });
         
         const data = await response.json();
+        
+        // Fängt Fehler von Google ab (z.B. abgelaufener/falscher Key)
+        if (data.error) {
+            return { plausibel: true, grund: `Google-API-Fehler: ${data.error.message} (Code: ${data.error.code})` };
+        }
+        
         const textAntwort = data.candidates[0].content.parts[0].text.trim();
         
         // Bereinigt eventuelle Markdown-Blöcke der KI und parst das JSON
         return JSON.parse(textAntwort.replace(/```json|```/g, ""));
     } catch (e) {
         console.error("KI-Prüfung fehlgeschlagen:", e);
-        return { plausibel: true, grund: "Fehler bei der KI-Abfrage, vorsorglich erlaubt." };
+        // Zeigt nun den exakten Systemfehler im iPad-Popup an
+        return { plausibel: true, grund: `Code-Absturz: ${e.message}` };
     }
 }
 
