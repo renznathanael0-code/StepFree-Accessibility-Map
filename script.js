@@ -824,7 +824,7 @@ function openSelectionPopup(latlng) {
   }
 
   showStep1();
-}
+} // <-- Hier war der Fehler! openSelectionPopup wird nun korrekt geschlossen.
 
 // --- INTEGRIERTER KI-CHECK VOR DEM ABSPEICHERN ---
 async function finalizeMultiReportDirect(gewaehlteTypen, kommentarText, lat, lng, manuellesEnddatum) {
@@ -912,13 +912,24 @@ window.downloadBackup = downloadBackup;
 function toggleMenu() {
     const menu = document.getElementById('side-menu');
     const overlay = document.getElementById('menu-overlay');
-    menu.classList.toggle('open');
-    overlay.classList.toggle('show');
+    if (menu) menu.classList.toggle('open');
+    if (overlay) overlay.classList.toggle('show');
 }
 
 function toggleLegend() {
     const legend = document.getElementById('map-legend');
-    if (legend) legend.classList.toggle('collapsed');
+    if (legend) {
+        legend.classList.toggle('collapsed');
+    }
+}
+
+function kiKeyEinrichten() {
+    const neuerKey = prompt("Bitte füge hier deinen Gemini API-Key ein:");
+    if (neuerKey && neuerKey.trim() !== "") {
+        localStorage.setItem("gemini_api_key", neuerKey.trim());
+        alert("🔑 Key erfolgreich auf diesem Gerät gespeichert! Die App lädt sich jetzt neu.");
+        location.reload(); 
+    }
 }
 
 window.onload = initApp;
