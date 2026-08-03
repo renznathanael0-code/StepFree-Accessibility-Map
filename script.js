@@ -1,7 +1,19 @@
 const isAdminPage = window.location.pathname.includes("admin.html");
 
-// --- WEB NOTIFICATION SYSTEM (Push-Benachrichtigungen) ---
+// --- MODERN SERVICE WORKER & PUSH REGISTRATION ---
 const PushService = {
+    async registerServiceWorker() {
+        if ('serviceWorker' in navigator) {
+            try {
+                const reg = await navigator.serviceWorker.register('sw.js');
+                console.log('Service Worker registriert mit Scope:', reg.scope);
+                return reg;
+            } catch (error) {
+                console.error('Service Worker Registrierung fehlgeschlagen:', error);
+            }
+        }
+        return null;
+    },
     async requestPermission() {
         if (!("Notification" in window)) return false;
         if (Notification.permission === "granted") return true;
@@ -10,14 +22,6 @@ const PushService = {
             return permission === "granted";
         }
         return false;
-    },
-    send(titel, nachricht) {
-        if ("Notification" in window && Notification.permission === "granted") {
-            new Notification(titel, {
-                body: nachricht,
-                icon: "favicon.ico"
-            });
-        }
     }
 };
 
@@ -77,27 +81,6 @@ const CustomUI = {
     }
 };
 
-function showVerificationStatus(erfolgreich, nachricht) {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; display:flex; align-items:center; justify-content:center; font-family:sans-serif; padding:20px; box-sizing:border-box;";
-    
-    const farbe = erfolgreich ? "#27AE60" : "#E74C3C";
-    const titel = erfolgreich ? "✅ Status aktualisiert" : "❌ Prüfung fehlgeschlagen";
-    
-    overlay.innerHTML = `
-        <div style="background:white; padding:25px; border-radius:12px; max-width:320px; width:100%; box-shadow:0 4px 20px rgba(0,0,0,0.3); text-align:center;">
-            <div style="font-size:3em; margin-bottom:10px;">${erfolgreich ? '🎉' : '📍'}</div>
-            <h3 style="margin-top:0; color:${farbe}; font-size:1.25em;">${titel}</h3>
-            <p style="font-size:0.95em; color:#555; margin-bottom:20px; line-height:1.4;">${nachricht}</p>
-            <button id="status-close" style="width:100%; background:${farbe}; color:white; border:none; padding:12px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:1em;">OK</button>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-    overlay.querySelector('#status-close').onclick = () => {
-        document.body.removeChild(overlay);
-    };
-}
-
 // --- ADMIN LOGIN ---
 if (isAdminPage) {
     setTimeout(async () => {
@@ -140,21 +123,13 @@ function updateStatus(text, color) {
     }
 }
 
-function getDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; // Distanz in km
-}
-
 async function initApp() {
     const splash = document.getElementById('splash-screen');
     map = L.map('map').setView([48.775, 9.182], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     
+    // SW Registrieren & Rechte einholen
+    await PushService.registerServiceWorker();
     await PushService.requestPermission();
     
     map.on('click', e => openSelectionPopup(e.latlng));
@@ -255,15 +230,12 @@ async function loadFromCommunity() {
 async function saveSingleMarkerToCommunity(neuerPunkt) {
     updateStatus("Speichere...", "#f39c12");
     try {
-        const response = await fetch(`${DATA_URL_BASE}/${neuerPunkt.id}.json`, {
+        await fetch(`${DATA_URL_BASE}/${neuerPunkt.id}.json`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(neuerPunkt)
         });
-        if (response.ok) {
-            updateStatus("Community Live ✅", "#27AE60");
-            PushService.send("Neuer Ort gemeldet", `Ein Eintrag für "${neuerPunkt.typ.join(', ')}" wurde erfolgreich geteilt.`);
-        }
+        updateStatus("Community Live ✅", "#27AE60");
     } catch (err) { 
         updateStatus("Sync-Fehler ❌", "#e74c3c");
     }
@@ -276,7 +248,6 @@ async function updateSingleMarkerInCommunity(punkt) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(punkt)
         });
-        PushService.send("Eintrag aktualisiert", "Der Status des Ortes wurde in der Live-Datenbank aktualisiert.");
     } catch (err) {
         console.error("Update-Fehler:", err);
     }
@@ -386,8 +357,8 @@ function drawMarkersOnMap() {
         if (r.createdAt) {
             content += `<span style="font-size:0.85em; color:#7f8c8d; display:block; margin-top:2px; margin-bottom:5px;">📅 Gemeldet am: <b>${formatierenDatum(r.createdAt)}</b></span>`;
         }
-        if (isAdminPage && r.verifiedAt) {
-            content += `<span style="font-size:0.85em; color:#555; display:block; margin-top:2px;">📍 Letzter Check-In: <b>${r.verifiedAt}</b></span>`;
+        if (r.verifiedAt) {
+            content += `<span style="font-size:0.85em; color:#555; display:block; margin-top:2px;">📍 Letztes Feedback: <b>${r.verifiedAt}</b></span>`;
         }
         
         content += `<div style="margin-top:5px; margin-bottom:5px;">`;
@@ -409,10 +380,9 @@ function drawMarkersOnMap() {
         content += `<a href="${googleUrl}" target="_blank" style="display:block; background:#4285F4; color:white; text-align:center; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:10px;">Route in Google Maps starten</a>`;
         content += `<button onclick="addToFavorites('${r.id}', ${r.lat}, ${r.lng})" style="display:block; width:100%; background:#f1c40f; color:#2c3e50; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:10px;">⭐ Auf Merkliste speichern</button>`;
 
-        // Modifiziert: Die „Stimmt/Falsch“-Buttons wurden gelöscht. Es gibt nur noch den interaktiven Status/Verifizierungs-Button.
+        // HIER ENTFERNT: Der Verifizierungs-Button existiert nicht mehr. Das läuft jetzt rein über Push-Aktionen.
         if (isAdminPage) {
             content += `<div style="border-top:1px solid #ccc; padding-top:10px; margin-top:5px;">`;
-            content += `<button onclick="openManagementOverlay(reportsData.find(item => item.id === '${r.id}'))" style="background:#9b59b6; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">⚙️ Status & Enddatum verwalten</button>`;
             if (r.votes >= 3 && r.status !== "confirmed") {
                 content += `<button onclick="confirmByAdmin('${r.id}')" style="background:#2ecc71; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">👁️ Für User freigeben</button>`;
             }
@@ -420,8 +390,6 @@ function drawMarkersOnMap() {
                     <button onclick="directDelete('${r.id}')" style="background:#e74c3c; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">🗑️ Löschen</button>
                     <button onclick="askForCheck('${r.id}')" style="background:#4285F4; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Admin-Check fordern</button>
                 </div>`;
-        } else {
-            content += `<button onclick="verifyByLocation('${r.id}')" style="background:#f39c12; color:white; border:none; padding:10px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Status melden / Verifizieren</button>`;
         }
         
         content += `</div>`;
@@ -524,184 +492,6 @@ function askForCheck(id) {
         updateSingleMarkerInCommunity(r);
         drawMarkersOnMap();
     }
-}
-
-// --- GEOPRÜFUNG (50m Radius) ---
-function checkLocationAccess(targetLat, targetLng, successCallback) {
-    updateStatus("Prüfe GPS-Standort...", "#3498db");
-    if (!currentUserPosition) {
-        navigator.geolocation.getCurrentPosition((pos) => {
-            currentUserPosition = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            evaluateDistance(currentUserPosition, targetLat, targetLng, successCallback);
-        }, () => {
-            showVerificationStatus(false, "Dein Standort konnte nicht ermittelt werden. Bitte aktiviere GPS.");
-            updateStatus("Community Live ✅", "#27AE60");
-        });
-    } else {
-        evaluateDistance(currentUserPosition, targetLat, targetLng, successCallback);
-    }
-}
-
-function evaluateDistance(userPos, targetLat, targetLng, successCallback) {
-    const dist = getDistance(userPos.lat, userPos.lng, targetLat, targetLng);
-    if (dist <= 0.05) { // 50 Meter
-        successCallback();
-    } else {
-        showVerificationStatus(false, "Du bist zu weit entfernt (mehr als 50m). Eine Verifizierung ist nur direkt vor Ort möglich.");
-        updateStatus("Community Live ✅", "#27AE60");
-    }
-}
-
-function verifyByLocation(id) {
-    const report = reportsData.find(r => r.id === id);
-    if (!report) return;
-
-    checkLocationAccess(report.lat, report.lng, () => {
-        openManagementOverlay(report);
-    });
-}
-
-function openManagementOverlay(report) {
-    let markerTypes = Array.isArray(report.typ) ? report.typ : [report.typ];
-    const einTag = 24 * 60 * 60 * 1000;
-    const siebenTage = 7 * einTag;
-    const basisZeit = report.expiresAt && report.expiresAt > Date.now() ? report.expiresAt : Date.now();
-
-    const lockTimestamp = localStorage.getItem(`managed_${report.id}`);
-    const hasManagedThisTurn = lockTimestamp && (Date.now() - parseInt(lockTimestamp) < 24 * 60 * 60 * 1000);
-
-    if (typeof report.loeschCheckIns === "undefined") {
-        report.loeschCheckIns = 0;
-    }
-
-    const modalOverlay = document.createElement('div');
-    modalOverlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; display:flex; align-items:center; justify-content:center; font-family:sans-serif; padding:20px; box-sizing:border-box;";
-    
-    // Dynamische Titel-Generierung je nach Zustand
-    let overlayTitel = "📍 Status überprüfen";
-    if (markerTypes.some(t => t.includes("Aufzug"))) overlayTitel = "🛗 Aufzugs-Management";
-    else if (markerTypes.some(t => t.includes("Baustelle"))) overlayTitel = "🚧 Baustellen-Management";
-    else if (markerTypes.some(t => t.includes("Scooter") || t.includes("Müll"))) overlayTitel = "🛴 Weg-Blockade prüfen";
-
-    const loeschButtonText = isAdminPage ? "🗑️ Komplett aufgelöst (Sofort)" : `🗑️ Problem behoben / Nicht vorhanden (${report.loeschCheckIns}/3)`;
-
-    modalOverlay.innerHTML = `
-        <div style="background:white; padding:20px; border-radius:12px; max-width:320px; width:100%; box-shadow:0 4px 15px rgba(0,0,0,0.3); box-sizing:border-box;">
-            <h3 style="margin-top:0; color:#2c3e50; font-size:1.15em; text-align:center;">${overlayTitel}</h3>
-            <p style="font-size:0.9em; color:#7f8c8d; text-align:center; margin-bottom:15px;">Wie sieht es aktuell vor Ort aus?</p>
-            <button id="btn-extend" style="display:block; width:100%; background:#3498db; color:white; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:8px; font-size:0.95em;">🔄 Problem existiert noch (Verlängern)</button>
-            <button id="btn-date" style="display:block; width:100%; background:#f1c40f; color:#2c3e50; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:8px; font-size:0.95em;">📅 Enddatum ändern/angeben</button>
-            <button id="btn-delete" style="display:block; width:100%; background:#e74c3c; color:white; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer; margin-bottom:12px; font-size:0.95em;">${loeschButtonText}</button>
-            <button id="btn-cancel" style="display:block; width:100%; background:#eef2f3; color:#7f8c8d; border:1px solid #d5dbdb; padding:8px; border-radius:6px; cursor:pointer; font-size:0.9em;">Abbrechen</button>
-        </div>
-    `;
-    document.body.appendChild(modalOverlay);
-    
-    // --- BUTTON: Existiert noch ---
-    modalOverlay.querySelector('#btn-extend').onclick = async () => {
-        document.body.removeChild(modalOverlay);
-        if (!isAdminPage && hasManagedThisTurn) {
-            await CustomUI.confirm("📢 Aktion gesperrt", "Du hast den Status heute bereits aktualisiert.", "Verstanden", "");
-            return;
-        }
-        report.expiresAt = basisZeit + (markerTypes.some(t => t.includes("Scooter") || t.includes("Müll")) ? einTag : siebenTage);
-        report.baustellenEnddatum = null;
-        
-        // Simuliertes Vertrauen/Voting durch die Push-Verlängerung erhöhen
-        report.votes += 1;
-
-        if (!isAdminPage) localStorage.setItem(`managed_${report.id}`, Date.now().toString());
-        finalizeVerificationProcess(report, "Vielen Dank! Die Meldung wurde erfolgreich als 'aktiv' bestätigt.");
-    };
-    
-    // --- BUTTON: Enddatum ändern ---
-    modalOverlay.querySelector('#btn-date').onclick = async () => {
-        document.body.removeChild(modalOverlay);
-        if (!isAdminPage && hasManagedThisTurn) {
-            await CustomUI.confirm("📢 Aktion gesperrt", "Du hast den Status heute bereits aktualisiert.", "Verstanden", "");
-            return;
-        }
-
-        const dateModal = document.createElement('div');
-        dateModal.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:100000; display:flex; align-items:center; justify-content:center; font-family:sans-serif; padding:20px; box-sizing:border-box;";
-        const heute = new Date().toISOString().split('T')[0];
-
-        dateModal.innerHTML = `
-            <div style="background:white; padding:20px; border-radius:12px; max-width:300px; width:100%; box-shadow:0 4px 15px rgba(0,0,0,0.3); box-sizing:border-box; text-align:center;">
-                <h3 style="margin-top:0; color:#2c3e50; font-size:1.1em;">📅 Enddatum wählen</h3>
-                <p style="font-size:0.85em; color:#7f8c8d; margin-bottom:12px;">Wann wird die Störung behoben sein?</p>
-                <input type="date" id="datepicker-input" min="${heute}" style="width:90%; padding:10px; border:1px solid #ccc; border-radius:6px; font-size:1em; margin-bottom:15px;">
-                <div style="display:flex; gap:8px;">
-                    <button id="date-submit" style="flex:1; background:#27AE60; color:white; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer;">Speichern</button>
-                    <button id="date-cancel" style="flex:1; background:#eef2f3; color:#7f8c8d; border:1px solid #d5dbdb; padding:10px; border-radius:6px; cursor:pointer;">Abbrechen</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(dateModal);
-        const dateInput = dateModal.querySelector('#datepicker-input');
-        
-        dateModal.querySelector('#date-submit').onclick = () => {
-            const gewaehltesDatum = dateInput.value;
-            if (gewaehltesDatum) {
-                document.body.removeChild(dateModal);
-                report.baustellenEnddatum = gewaehltesDatum;
-                report.expiresAt = Date.parse(gewaehltesDatum) + einTag;
-                if (!isAdminPage) localStorage.setItem(`managed_${report.id}`, Date.now().toString());
-                finalizeVerificationProcess(report, "Enddatum erfolgreich aktualisiert!");
-            }
-        };
-        dateModal.querySelector('#date-cancel').onclick = () => document.body.removeChild(dateModal);
-    };
-    
-    // --- BUTTON: Aufgelöst / Falsch ---
-    modalOverlay.querySelector('#btn-delete').onclick = async () => {
-        document.body.removeChild(modalOverlay);
-        if (isAdminPage) {
-            report.expiresAt = Date.now() - 1000;
-            finalizeVerificationProcess(report, "Meldung wurde gelöscht.");
-        } else {
-            if (hasManagedThisTurn) {
-                await CustomUI.confirm("📢 Schon abgestimmt", "Du hast heute bereits eine Rückmeldung gegeben.", "Verstanden", "");
-                return;
-            }
-            report.loeschCheckIns += 1;
-            report.votes -= 1; // Vertrauensscore sinkt analog zur Falsch-Meldung
-
-            localStorage.setItem(`managed_${report.id}`, Date.now().toString());
-
-            if (report.loeschCheckIns >= 3) {
-                report.expiresAt = Date.now() - 1000;
-                finalizeVerificationProcess(report, "Das Hindernis wurde durch die Community erfolgreich von der Karte entfernt!");
-            } else {
-                const benoetigt = 3 - report.loeschCheckIns;
-                finalizeVerificationProcess(report, `Rückmeldung registriert! Es werden noch ${benoetigt} weitere Meldungen benötigt, um das Hindernis zu entfernen.`);
-            }
-        }
-    };
-    
-    modalOverlay.querySelector('#btn-cancel').onclick = () => document.body.removeChild(modalOverlay);
-}
-
-async function finalizeVerificationProcess(report, benutzerNachricht = null) {
-    report.needsCheck = false; 
-    report.verifiedAt = new Date().toLocaleString('de-DE'); 
-    localStorage.setItem(`checkedIn_${report.id}`, "true");
-
-    if (report.checkInRequestedBy === "admin") {
-        report.checkInRequestedBy = null;
-    }
-
-    await updateSingleMarkerInCommunity(report);
-    await loadFromCommunity(); 
-    
-    setTimeout(() => {
-        if (activeMarkers[report.id]) {
-            activeMarkers[report.id].openPopup();
-        }
-    }, 300);
-
-    const standardText = "Vielen Dank! Deine Rückmeldung wurde erfolgreich verarbeitet.";
-    showVerificationStatus(true, benutzerNachricht ? benutzerNachricht : standardText);
 }
 
 function openSelectionPopup(latlng) {
@@ -954,7 +744,7 @@ function finalizeMultiReportDirect(gewaehlteTypen, kommentarText, lat, lng, manu
         farbe: gewaehlteTypen.length > 1 ? "#2c3e50" : "#9B59B6", 
         kommentar: kommentarText || "", 
         id: "id_" + Date.now(), 
-        votes: 1, // Ersteller gibt direkt ersten Vertrauenspunkt
+        votes: 1, 
         status: initialStatus,
         expiresAt: ablaufZeit,
         baustellenEnddatum: manuellesEnddatum || null,
