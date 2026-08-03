@@ -11,7 +11,9 @@ async function pruefeEintragMitKI(typen, kommentar, lat, lng) {
         return { plausibel: true, grund: "KI-Check übersprungen (Kein Key hinterlegt)" };
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${aktuellerKey}`;
+    // Wir nutzen das aktuelle, stabile Gemini 2.5 Flash Modell über die finale v1-API
+const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${aktuellerKey}`;
+
 
 
     
