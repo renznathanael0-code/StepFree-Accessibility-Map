@@ -153,6 +153,9 @@ async function initApp() {
     
     await loadFromCommunity();
     renderFavoritesList(); 
+
+    // --- NEU: GPS-Wächter starten, sobald alle Daten geladen sind ---
+    starteHintergrundGpsWaechter();
     
     if (splash) {
         setTimeout(() => {
@@ -183,6 +186,44 @@ function setupLocationTracking() {
         }
     });
 }
+
+// Gedächtnis für die App, damit pro Spaziergang nur einmal pro Marker gefragt wird
+let bereitsGefragteMarker = new Set();
+
+function starteHintergrundGpsWaechter() {
+    // Alle 15 Sekunden den Standort checken und mit den Markern abgleichen
+    setInterval(() => {
+        if (!currentUserPosition || reportsData.length === 0) return;
+
+        reportsData.forEach(marker => {
+            // Wenn wir diesen Marker in dieser Session schon abgefragt haben, überspringen
+            if (bereitsGefragteMarker.has(marker.id)) return;
+
+            // Distanz zwischen User und Hindernis berechnen (in Metern)
+            const userLatLng = L.latLng(currentUserPosition.lat, currentUserPosition.lng);
+            const markerLatLng = L.latLng(marker.lat, marker.lng);
+            const distanz = userLatLng.distanceTo(markerLatLng);
+
+            // Wenn der User näher als 50 Meter dran ist...
+            if (distanz <= 50) {
+                // Marker auf die Blacklist setzen, damit nicht dauernd gefragt wird
+                bereitsGefragteMarker.add(marker.id);
+
+                // Signal an den Service Worker senden, dass er die Push-Nachricht abfeuern soll
+                if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({
+                        type: 'TRIGGER_PROMPT',
+                        payload: {
+                            markerId: marker.id,
+                            typ: Array.isArray(marker.typ) ? marker.typ.join(", ") : marker.typ
+                        }
+                    });
+                }
+            }
+        });
+    }, 15000); // 15000 Millisekunden = 15 Sekunden
+}
+
 
 async function loadFromCommunity() {
     if (!map) return;

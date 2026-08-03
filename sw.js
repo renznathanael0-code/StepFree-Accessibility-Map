@@ -94,3 +94,25 @@ self.addEventListener('notificationclick', function(event) {
         .catch(err => console.error("Hintergrund-Sync fehlgeschlagen:", err))
     );
 });
+
+// --- NEU: Empfängt Signale direkt aus der App (für den GPS-Hintergrund-Check) ---
+self.addEventListener('message', function(event) {
+    if (event.data && event.data.type === 'TRIGGER_PROMPT') {
+        const data = event.data.payload;
+        
+        const options = {
+            body: `Du bist in der Nähe von: ${data.typ}. Existiert es noch?`,
+            icon: 'favicon.ico',
+            badge: 'favicon.ico',
+            tag: data.markerId,
+            data: { markerId: data.markerId, typ: data.typ },
+            actions: [
+                { action: 'still_there', title: '🔄 Existiert noch', icon: '' },
+                { action: 'resolved', title: '🗑️ Ist behoben', icon: '' }
+            ],
+            requireInteraction: true
+        };
+
+        self.registration.showNotification("Hindernis-Check!", options);
+    }
+});
