@@ -12,7 +12,7 @@ async function pruefeEintragMitKI(typen, kommentar, lat, lng) {
     }
 
     // Wir nutzen das aktuelle, stabile Gemini 2.5 Flash Modell über die finale v1-API
-const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.6-flash:generateContent?key=${aktuellerKey}`;
+const url = `https://generativelanguage.googleapis.com/v1/models/gemini-3.6-flash:generateContent?key=${aktuellerKey}`;
 
 
 
