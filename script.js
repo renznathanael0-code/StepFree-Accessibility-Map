@@ -874,7 +874,7 @@ function openSelectionPopup(latlng) {
 
     setModalContent(`
       <!-- Überschrift ganz oben -->
-      <div id="swipe-container" style="text-align:center; margin-bottom: 20px; cursor:grab; user-select:none;">
+      <div id="swipe-container" style="text-align:center; margin-bottom: 20px; user-select:none;">
         <h3 style="margin: 0; color: #1e293b; font-size: 1.3em; font-weight: 700;">${cat.title}</h3>
         <p style="font-size: 0.75em; color: #94a3b8; margin: 4px 0 0 0;">Wische nach links oder rechts zum Wechseln</p>
       </div>
@@ -897,7 +897,7 @@ function openSelectionPopup(latlng) {
       </div>
     `);
 
-    // --- SWIPE-ERKENNUNG (Auf dem gesamten Inhaltsbereich) ---
+    // Swipe-Erkennung
     const swipeContainer = overlay.querySelector('#swipe-container').parentNode;
     let startX = 0;
 
@@ -908,9 +908,9 @@ function openSelectionPopup(latlng) {
 
       saveCurrentCheckboxes();
 
-      if (diffX > 50) { // Linkswisch -> Vorwärts
+      if (diffX > 50) { 
         if (catIndex < currentCats.length - 1) showStep2(catIndex + 1);
-      } else if (diffX < -50) { // Rechtswisch -> Rückwärts
+      } else if (diffX < -50) { 
         if (catIndex > 0) showStep2(catIndex - 1);
       }
     };
@@ -918,7 +918,6 @@ function openSelectionPopup(latlng) {
     swipeContainer.ontouchstart = handleStart;
     swipeContainer.ontouchend = handleEnd;
 
-    // Klick-Funktionalität für die Dots aktivieren
     overlay.querySelectorAll('.nav-dot').forEach(dot => {
       dot.onclick = () => {
         saveCurrentCheckboxes();
@@ -953,7 +952,6 @@ function openSelectionPopup(latlng) {
 
   // === SCHRITT 3: KOMMENTAR & WEITERE HINZUFÜGEN ===
   function showFinalizeStep() {
-    // Dynamischer Text für den Hinzufügen-Button
     const addMoreText = mainCategory === "frei" ? "⚠️ Hindernis hinzufügen" : "✨ Barrierefreien Ort hinzufügen";
 
     setModalContent(`
@@ -971,7 +969,6 @@ function openSelectionPopup(latlng) {
         <input type="text" id="multiDetails" placeholder="z.B. Gleis 3, Aufzug im Nordflügel..." style="width:100%; padding:12px; border:2px solid #e2e8f0; border-radius:12px; box-sizing:border-box; font-size:1em; outline:none;">
       </label>
 
-      <!-- NEU: Button zum Kombinieren von Barrierefrei + Hindernis -->
       <button id="btn-mix-categories" style="display:block; width:100%; background:#f1f5f9; color:#3b82f6; border:2px dashed #3b82f6; padding:12px; border-radius:12px; font-weight:bold; cursor:pointer; font-size:0.9em; margin-bottom:20px; text-align:center;">
         ➕ ${addMoreText}
       </button>
@@ -982,11 +979,8 @@ function openSelectionPopup(latlng) {
       </div>
     `);
 
-    // Logik für den Mix-Kategorien Button
     overlay.querySelector('#btn-mix-categories').onclick = () => {
-      // Kategorie umschalten (von Frei zu Hindernis oder umgekehrt)
       mainCategory = mainCategory === "frei" ? "hindernis" : "frei";
-      // Zurück zur Eigenschaftenauswahl der neuen Hauptkategorie springen
       showStep2(0);
     };
 
@@ -994,30 +988,20 @@ function openSelectionPopup(latlng) {
 
     overlay.querySelector('#btn-submit-final').onclick = () => {
       const details = overlay.querySelector('#multiDetails').value;
-      const fakeEvent = {
-        preventDefault: () => {},
-        target: {
-          querySelectorAll: () => selectedTypes.map(val => ({ value: val, checked: true })),
-          querySelector: () => ({ value: details })
-        }
-      };
-
       document.body.removeChild(overlay);
-      finalizeMultiReport(fakeEvent, latlng.lat, latlng.lng);
+      
+      // Übergibt die gesammelten Daten nun direkt an die bereinigte Speicherfunktion
+      finalizeMultiReportDirect(selectedTypes, details, latlng.lat, latlng.lng);
     };
   }
 
   showStep1();
 }
 
-function finalizeMultiReport(event, lat, lng) {
-    event.preventDefault();
-    const checkboxes = document.querySelectorAll('#multiReportForm input[name="typ"]:checked');
-    const gewaehlteTypen = Array.from(checkboxes).map(cb => cb.value);
+// === NEUE, DIREKTE SPEICHER-FUNKTION (Ersetzt die fehlerhafte alte Version) ===
+function finalizeMultiReportDirect(gewaehlteTypen, kommentarText, lat, lng) {
+    if (!gewaehlteTypen || gewaehlteTypen.length === 0) return;
     
-    if (gewaehlteTypen.length === 0) return;
-    
-    const kommentarText = document.getElementById('multiDetails').value;
     const einTag = 24 * 60 * 60 * 1000;
     const siebenTage = 7 * einTag;
     let ablaufZeit = null;
@@ -1050,6 +1034,7 @@ function finalizeMultiReport(event, lat, lng) {
     saveSingleMarkerToCommunity(neuerPunkt);
     map.closePopup();
 }
+
 
 async function vote(id, change) {
     const report = reportsData.find(r => r.id === id);
