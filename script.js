@@ -335,8 +335,9 @@ function drawMarkersOnMap() {
                 if (filter === "status_bestaetigt") return r.status === "confirmed";
                 if (filter === "status_check_aktiv") return (r.needsCheck === true || r.checkInRequestedBy !== null);
                 if (filter === "admin_neu") return r.status === "new";
-                if (filter === "admin_zu_bestaetigen") return (r.votes >= 3 && r.status !== "confirmed");
-                if (filter === "admin_kritisch") return r.votes <= -3;
+                // Filter an neue Kranz-Logik angepasst:
+                if (filter === "admin_zu_bestaetigen") return (r.status === "ready_for_confirm" || r.votes >= 3) && r.status !== "confirmed";
+                if (filter === "admin_kritisch") return r.status === "needs_review" || r.loeschCheckIns >= 3;
                 return markerTypes.some(t => t.includes(filter) || filter.includes(t));
             });
             if (!passtZuFiltern) return; 
@@ -364,15 +365,24 @@ function drawMarkersOnMap() {
             else if (singleType.includes("Niveaugleicher")) { emoji = "✅"; markerFarbe = "#2980B9"; }
         }
     
+        // --- 1. KRANZ-DESIGN LOGIK ---
         let borderStyle = "";
-        if (r.needsCheck || r.checkInRequestedBy) {
-            borderStyle = "box-shadow: 0 0 0 4px #ffcc00, 0 0 12px #ffcc00; border: 2px solid #ffcc00;";
-        } else if (r.status === "confirmed") {
-            borderStyle = "box-shadow: 0 0 15px 5px #2ecc71; border: 2px solid #2ecc71;";
-        } else if (isAdminPage) {
-            if (r.votes <= -3) borderStyle = "box-shadow: 0 0 15px 5px red; border: 2px solid red;"; 
-            else if (r.votes >= 3) borderStyle = "box-shadow: 0 0 15px 5px #2ecc71; border: 2px solid #2ecc71;"; 
-            else if (r.status === "new") borderStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;"; 
+        if (isAdminPage) {
+            if (r.status === "needs_review" || r.loeschCheckIns >= 3) {
+                // Roter Kranz bei 3 Fehlmeldungen
+                borderStyle = "box-shadow: 0 0 0 4px #e74c3c, 0 0 12px #e74c3c; border: 2px solid #e74c3c;"; 
+            } else if (r.status === "ready_for_confirm" || r.votes >= 3) {
+                // Grüner Kranz bei 3 richtigen Meldungen
+                borderStyle = "box-shadow: 0 0 0 4px #2ecc71, 0 0 12px #2ecc71; border: 2px solid #2ecc71;"; 
+            } else if (r.status === "new") {
+                // Standardmäßiger blauer Kranz für neue Einträge
+                borderStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;"; 
+            }
+        } else {
+            // Ansicht für normale User (Bestätigte Orte leuchten grün)
+            if (r.status === "confirmed") {
+                borderStyle = "box-shadow: 0 0 15px 5px #2ecc71; border: 2px solid #2ecc71;";
+            }
         }
         
         const icon = L.divIcon({
@@ -386,11 +396,17 @@ function drawMarkersOnMap() {
         
         let content = `<div style="font-family:sans-serif; min-width:230px;">`;
         
+        // --- 2. POPUP-STATUS TEXTE (ADMIN) ---
         if (isAdminPage) {
-            if (r.votes <= -3) content += `<b style="color:red;">⚠️ KRITISCH</b><br>`;
-            else if (r.status === "confirmed") content += `<b style="color:#2ecc71;">✅ VOM ADMIN BESTÄTIGT</b><br>`;
-            else if (r.votes >= 3) content += `<b style="color:#2ecc71;">🔥 FREIGABE BEREIT</b><br>`;
-            else if (r.status === "new") content += `<b style="color:#3498db;">🆕 NEUER EINTRAG</b><br>`;
+            if (r.status === "needs_review" || r.loeschCheckIns >= 3) {
+                content += `<b style="color:#e74c3c;">⚠️ PRÜFUNG ERFORDERLICH (3x Falsch gemeldet)</b><br>`;
+            } else if (r.status === "confirmed") {
+                content += `<b style="color:#2ecc71;">✅ VOM ADMIN BESTÄTIGT</b><br>`;
+            } else if (r.status === "ready_for_confirm" || r.votes >= 3) {
+                content += `<b style="color:#2ecc71;">🔥 FREIGABE BEREIT (3x Richtig gemeldet)</b><br>`;
+            } else if (r.status === "new") {
+                content += `<b style="color:#3498db;">🆕 NEUER EINTRAG</b><br>`;
+            }
         } else if (r.status === "confirmed") {
             content += `<b style="color:#2ecc71;">🌟 Offiziell Bestätigt</b><br>`;
         }
@@ -421,12 +437,15 @@ function drawMarkersOnMap() {
         content += `<a href="${googleUrl}" target="_blank" style="display:block; background:#4285F4; color:white; text-align:center; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:10px;">Route in Google Maps starten</a>`;
         content += `<button onclick="addToFavorites('${r.id}', ${r.lat}, ${r.lng})" style="display:block; width:100%; background:#f1c40f; color:#2c3e50; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:10px;">⭐ Auf Merkliste speichern</button>`;
 
-        // HIER ENTFERNT: Der Verifizierungs-Button existiert nicht mehr. Das läuft jetzt rein über Push-Aktionen.
+        // --- 3. AKTUALISIERTE ADMIN ACTIONS ---
         if (isAdminPage) {
             content += `<div style="border-top:1px solid #ccc; padding-top:10px; margin-top:5px;">`;
-            if (r.votes >= 3 && r.status !== "confirmed") {
-                content += `<button onclick="confirmByAdmin('${r.id}')" style="background:#2ecc71; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">👁️ Für User freigeben</button>`;
+            
+            // Zeigt den Bestätigungsbutton, wenn bereit zur Freigabe ODER bei rotem Warnkranz (zum Wieder-Geraderücken)
+            if ((r.votes >= 3 || r.status === "ready_for_confirm" || r.status === "needs_review") && r.status !== "confirmed") {
+                content += `<button onclick="confirmByAdmin('${r.id}')" style="background:#2ecc71; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">👁️ Eintrag verifizieren / freigeben</button>`;
             }
+            
             content += `
                     <button onclick="directDelete('${r.id}')" style="background:#e74c3c; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">🗑️ Löschen</button>
                     <button onclick="askForCheck('${r.id}')" style="background:#4285F4; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Admin-Check fordern</button>

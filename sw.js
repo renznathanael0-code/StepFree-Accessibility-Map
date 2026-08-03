@@ -1,55 +1,58 @@
 // --- SERVICE WORKER FOR INTERACTIVE PUSH NOTIFICATIONS ---
-
 const DATA_URL_BASE = "https://stepfree-7c252-default-rtdb.europe-west1.firebasedatabase.app/mapdata/markers";
 
-// 1. Empfangen der Push-Nachricht (Simuliert oder über echten Push-Server)
 self.addEventListener('push', function(event) {
-    let data = { titel: "Hindernis-Check", nachricht: "Stehst du gerade vor dem Hindernis?", markerId: "unknown", typ: "Hindernis" };
-    
+    let data = { titel: "Orts-Check", nachricht: "Stimmen die Angaben zu diesem Ort?", markerId: "unknown", typ: "Ort" };
     if (event.data) {
-        try {
-            data = event.data.json();
-        } catch(e) {
-            data.nachricht = event.data.text();
-        }
+        try { data = event.data.json(); } catch(e) { data.nachricht = event.data.text(); }
     }
-
-    // Wir bauen interaktive Action-Buttons direkt in die Android/iOS-Benachrichtigung
     const options = {
         body: data.nachricht,
         icon: 'favicon.ico',
         badge: 'favicon.ico',
-        tag: data.markerId, // Wichtig: Die ID des Markers als Tag speichern
+        tag: data.markerId,
         data: { markerId: data.markerId, typ: data.typ },
         actions: [
-            { action: 'still_there', title: '🔄 Existiert noch', icon: '' },
-            { action: 'resolved', title: '🗑️ Ist behoben', icon: '' }
+            { action: 'still_there', title: '🔄 Richtig / Existiert noch', icon: '' },
+            { action: 'resolved', title: '🗑️ Falsch / Ist behoben', icon: '' }
         ],
-        requireInteraction: true // Benachrichtigung verschwindet nicht von alleine
+        requireInteraction: true
     };
-
-    event.waitUntil(
-        self.registration.showNotification(data.titel, options)
-    );
+    event.waitUntil(self.registration.showNotification(data.titel, options));
 });
 
-// 2. Klick-Handler für die Buttons in der Push-Benachrichtigung
+self.addEventListener('message', function(event) {
+    if (event.data && event.data.type === 'TRIGGER_PROMPT') {
+        const data = event.data.payload;
+        const options = {
+            body: `Du bist bei: ${data.typ}. Stimmt diese Meldung vor Ort?`,
+            icon: 'favicon.ico',
+            badge: 'favicon.ico',
+            tag: data.markerId,
+            data: { markerId: data.markerId, typ: data.typ },
+            actions: [
+                { action: 'still_there', title: '🔄 Richtig', icon: '' },
+                { action: 'resolved', title: '🗑️ Falsch / Behoben', icon: '' }
+            ],
+            requireInteraction: true
+        };
+        self.registration.showNotification("Orts-Check!", options);
+    }
+});
+
 self.addEventListener('notificationclick', function(event) {
     const notification = event.notification;
     const action = event.action;
     const markerId = notification.data.markerId;
     const markerTyp = notification.data.typ;
     
-    notification.close(); // Benachrichtigung sofort schließen
+    notification.close();
 
-    // Wenn der User nur auf die Nachricht klickt statt auf einen Button
     if (!action) {
-        // Optional: App öffnen
         event.waitUntil(clients.openWindow("index.html"));
         return;
     }
 
-    // Hintergrund-Aktion starten: Daten direkt an Firebase senden, ohne die App zu öffnen!
     event.waitUntil(
         fetch(`${DATA_URL_BASE}/${markerId}.json`)
         .then(response => response.json())
@@ -59,32 +62,40 @@ self.addEventListener('notificationclick', function(event) {
             const einTag = 24 * 60 * 60 * 1000;
             const siebenTage = 7 * einTag;
             const basisZeit = report.expiresAt && report.expiresAt > Date.now() ? report.expiresAt : Date.now();
+            
+            // Counter initialisieren, falls noch nicht vorhanden
+            report.loeschCheckIns = report.loeschCheckIns || 0;
+            report.votes = report.votes || 0;
 
             if (action === 'still_there') {
-                // Ablaufdatum verlängern
+                // Positives Feedback (Richtig / Existiert noch)
+                report.votes += 1;
+                
+                // Falls flüchtiges Hindernis, Zeit verlängern
                 const istFluechtig = markerTyp.includes("Scooter") || markerTyp.includes("Müll");
-                report.expiresAt = basisZeit + (istFluechtig ? einTag : siebenTage);
-                report.baustellenEnddatum = null;
-                report.votes = (report.votes || 0) + 1;
-                report.needsCheck = false;
-                report.checkInRequestedBy = null;
-                report.verifiedAt = new Date().toLocaleString('de-DE') + " (via Push)";
+                if (report.expiresAt) {
+                    report.expiresAt = basisZeit + (istFluechtig ? einTag : siebenTage);
+                }
+                
+                // Bei 3 richtigen Klicks -> Bereit für Admin-Bestätigung (Grüner Kranz)
+                if (report.votes >= 3 && report.status !== "confirmed") {
+                    report.status = "ready_for_confirm";
+                }
+                
+                report.verifiedAt = new Date().toLocaleString('de-DE') + " (via Push: Richtig)";
 
             } else if (action === 'resolved') {
-                // Lösch-Zähler hochsetzen
-                report.loeschCheckIns = (report.loeschCheckIns || 0) + 1;
-                report.votes = (report.votes || 0) - 1;
-                report.needsCheck = false;
-                report.checkInRequestedBy = null;
-                report.verifiedAt = new Date().toLocaleString('de-DE') + " (via Push)";
-
+                // Negatives Feedback (Falsch / Behoben)
+                report.loeschCheckIns += 1;
+                
+                // Bei 3 falschen Klicks -> Kritisch zur Admin-Prüfung (Roter Kranz)
                 if (report.loeschCheckIns >= 3) {
-                    // Direkt in Firebase löschen
-                    return fetch(`${DATA_URL_BASE}/${markerId}.json`, { method: 'DELETE' });
+                    report.status = "needs_review";
                 }
+                
+                report.verifiedAt = new Date().toLocaleString('de-DE') + " (via Push: Falsch)";
             }
 
-            // Aktualisierten Report zurück an Firebase senden
             return fetch(`${DATA_URL_BASE}/${markerId}.json`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -93,26 +104,4 @@ self.addEventListener('notificationclick', function(event) {
         })
         .catch(err => console.error("Hintergrund-Sync fehlgeschlagen:", err))
     );
-});
-
-// --- NEU: Empfängt Signale direkt aus der App (für den GPS-Hintergrund-Check) ---
-self.addEventListener('message', function(event) {
-    if (event.data && event.data.type === 'TRIGGER_PROMPT') {
-        const data = event.data.payload;
-        
-        const options = {
-            body: `Du bist in der Nähe von: ${data.typ}. Existiert es noch?`,
-            icon: 'favicon.ico',
-            badge: 'favicon.ico',
-            tag: data.markerId,
-            data: { markerId: data.markerId, typ: data.typ },
-            actions: [
-                { action: 'still_there', title: '🔄 Existiert noch', icon: '' },
-                { action: 'resolved', title: '🗑️ Ist behoben', icon: '' }
-            ],
-            requireInteraction: true
-        };
-
-        self.registration.showNotification("Hindernis-Check!", options);
-    }
 });
