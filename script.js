@@ -755,41 +755,259 @@ async function finalizeVerificationProcess(report, benutzerNachricht = null) {
 }
 
 function openSelectionPopup(latlng) {
-  const content = `
-    <div style="width: 280px; font-family: sans-serif; padding: 5px; max-height: 420px; overflow-y: auto;">
-      <b style="display: block; text-align: center; margin-bottom: 10px; font-size:1.1em;">Eigenschaften auswählen</b>
-      <form id="multiReportForm" onsubmit="finalizeMultiReport(event, ${latlng.lat}, ${latlng.lng})">
-        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.95em;">
-          <strong>⚠️ Hindernisse</strong>
-          <label><input type="checkbox" name="typ" value="Kein barrierefreier Zugang"> 🚫 Kein Zugang</label>
-          <label><input type="checkbox" name="typ" value="Treppe"> 🪜 Treppe melden</label>
-          <label><input type="checkbox" name="typ" value="Aufzug defekt"> 🛗 Aufzug defekt</label>
-          <label><input type="checkbox" name="typ" value="Baustelle"> 🚧 Baustelle</label>
-          <label><input type="checkbox" name="typ" value="E-Scooter"> 🛴 E-Scooter im Weg</label>
-          <label><input type="checkbox" name="typ" value="Mülltonne"> 🗑️ Mülltonne blockiert</label>
-          <label><input type="checkbox" name="typ" value="sonstiges">🪨 sonstige Hindernisse</label>
-                        
-          <hr style="margin: 5px 0; border: none; border-top: 1px solid #ccc;">
-          <strong>✨ Barrierefreiheit im Alltag</strong>
-          <label><input type="checkbox" name="typ" value="Aufzug vorhanden"> 🛗 Aufzug vorhanden</label>
-          <label><input type="checkbox" name="typ" value="Rampe vorhanden"> 📐 Rampe vorhanden</label>
-          <label><input type="checkbox" name="typ" value="WC"> 🚽 WC vorhanden</label>
-          <label><input type="checkbox" name="typ" value="Parkplatz"> 🅿️ Parkplatz</label>
-          <label><input type="checkbox" name="typ" value="Barrierefreier Ort"> 📍 Barrierefreier Ort</label>
-          
-          <hr style="margin: 5px 0; border: none; border-top: 1px solid #ccc;">
-          <strong>🚉 Am Bahnsteig / Einstieg zum Zug</strong>
-          <label><input type="checkbox" name="typ" value="Höhenunterschied"> ⚠️ Höhenunterschied am Zug</label>
-          <label><input type="checkbox" name="typ" value="Niveaugleicher"> ✅ Niveaugleicher Einstieg</label>
-          
-          <hr style="margin: 5px 0; border: none; border-top: 1px solid #ccc;">
-          <strong>Zusatzinformationen:</strong>
-          <input type="text" id="multiDetails" placeholder="z.B. Gleis 3, Rampe im 1. OG..." style="padding: 8px; border: 1px solid #ccc; border-radius: 6px; width: 93%;">
-          <button type="submit" style="background:#27AE60; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:10px; font-size:1em;">💾 Eintrag speichern</button>
+  // Globaler Speicher für alle ausgewählten Eigenschaften über den gesamten Prozess hinweg
+  let selectedTypes = [];
+  let mainCategory = ""; // "hindernis" oder "frei"
+
+  // Haupt-Overlay erzeugen
+  const overlay = document.createElement('div');
+  overlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index:100000; display:flex; align-items:center; justify-content:center; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding:16px; box-sizing:border-box;";
+  document.body.appendChild(overlay);
+
+  function setModalContent(html) {
+    overlay.innerHTML = `
+      <div style="background: #ffffff; padding: 24px; border-radius: 20px; max-width: 380px; width: 100%; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15); box-sizing: border-box; position: relative; max-height: 85vh; overflow-y: auto;">
+        ${html}
+      </div>
+    `;
+  }
+
+  // === KATEGORIEN-DATEN ===
+  const categoriesData = {
+    hindernis: [
+      {
+        title: "🏢 Im Gebäude",
+        items: [
+          { value: "Aufzug defekt", label: "🛗 Aufzug defekt" },
+          { value: "Treppe", label: "🪜 Treppe ohne Alternative" },
+          { value: "Kein barrierefreier Zugang", label: "🚫 Kein barrierefreier Zugang" }
+        ]
+      },
+      {
+        title: "🛣️ Auf der Straße",
+        items: [
+          { value: "Baustelle", label: "🚧 Baustelle im Weg" },
+          { value: "E-Scooter", label: "🛴 E-Scooter blockiert Gehweg" },
+          { value: "Mülltonne", label: "🗑️ Mülltonne blockiert" },
+          { value: "sonstiges", label: "🪨 Sonstiges Hindernis" }
+        ]
+      },
+      {
+        title: "🚉 Am Bahnsteig",
+        items: [
+          { value: "Höhenunterschied", label: "⚠️ Höhenunterschied am Zug" }
+        ]
+      }
+    ],
+    frei: [
+      {
+        title: "🏢 Im Gebäude",
+        items: [
+          { value: "Aufzug vorhanden", label: "🛗 Aufzug vorhanden" },
+          { value: "Rampe vorhanden", label: "📐 Rampe vorhanden" },
+          { value: "WC", label: "🚽 Barrierefreies WC" }
+        ]
+      },
+      {
+        title: "🛣️ Auf der Straße / Parken",
+        items: [
+          { value: "Parkplatz", label: "🅿️ Behindertenparkplatz" },
+          { value: "Barrierefreier Ort", label: "📍 Allgemein barrierefrei" }
+        ]
+      },
+      {
+        title: "🚉 Am Bahnsteig",
+        items: [
+          { value: "Niveaugleicher", label: "✅ Niveaugleicher Einstieg" }
+        ]
+      }
+    ]
+  };
+
+  // === SCHRITT 1: DIE INITIALE AUSWAHL ===
+  function showStep1() {
+    setModalContent(`
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div style="width: 48px; height: 48px; background: #eff6ff; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px auto; font-size: 1.5em;">📍</div>
+        <h3 style="margin: 0; color: #1e293b; font-size: 1.25em; font-weight: 700;">Neuen Ort eintragen</h3>
+        <p style="color: #64748b; font-size: 0.9em; margin: 6px 0 0 0;">Was möchtest du an dieser Position melden?</p>
+      </div>
+      
+      <button id="btn-choice-hindernis" style="display:flex; align-items:center; justify-content:center; gap:12px; width:100%; background:#ef4444; color:white; border:none; padding:16px; border-radius:12px; font-weight:bold; font-size:1.05em; cursor:pointer; margin-bottom:12px;">
+        <span>⚠️</span> Ein Hindernis melden
+      </button>
+      
+      <button id="btn-choice-frei" style="display:flex; align-items:center; justify-content:center; gap:12px; width:100%; background:#10b981; color:white; border:none; padding:16px; border-radius:12px; font-weight:bold; font-size:1.05em; cursor:pointer; margin-bottom:20px;">
+        <span>✨</span> Barrierefreien Ort melden
+      </button>
+      
+      <button id="btn-close-modal" style="display:block; width:100%; background:#f1f5f9; color:#64748b; border:none; padding:12px; border-radius:10px; cursor:pointer; font-weight: 500;">Abbrechen</button>
+    `);
+
+    overlay.querySelector('#btn-choice-hindernis').onclick = () => { mainCategory = "hindernis"; showStep2(0); };
+    overlay.querySelector('#btn-choice-frei').onclick = () => { mainCategory = "frei"; showStep2(0); };
+    overlay.querySelector('#btn-close-modal').onclick = () => document.body.removeChild(overlay);
+  }
+
+  // === SCHRITT 2: DAS EIGENSCHAFTEN-KARUSSELL ===
+  function showStep2(catIndex) {
+    const currentCats = categoriesData[mainCategory];
+    const cat = currentCats[catIndex];
+    const accentColor = mainCategory === 'hindernis' ? '#ef4444' : '#10b981';
+
+    // Checkboxen generieren
+    let checkboxesHtml = cat.items.map(item => {
+      const isChecked = selectedTypes.includes(item.value) ? "checked" : "";
+      return `
+        <label style="display:flex; align-items:center; gap:12px; background:#f8fafc; padding:14px; border-radius:12px; border:2px solid #e2e8f0; cursor:pointer; transition: all 0.2s; font-size: 0.95em; color: #334155;">
+          <input type="checkbox" name="catItem" value="${item.value}" ${isChecked} style="width: 18px; height: 18px; accent-color: ${accentColor};">
+          <span style="font-weight: 500;">${item.label}</span>
+        </label>
+      `;
+    }).join("");
+
+    // Generiere die Pagination Dots
+    let dotsHtml = currentCats.map((_, idx) => {
+      const isActive = idx === catIndex;
+      return `<div class="nav-dot" data-index="${idx}" style="width: ${isActive ? '24px' : '8px'}; height: 8px; background: ${isActive ? accentColor : '#cbd5e1'}; border-radius: 4px; cursor: pointer; transition: all 0.3s ease;"></div>`;
+    }).join("");
+
+    setModalContent(`
+      <!-- Überschrift ganz oben -->
+      <div id="swipe-container" style="text-align:center; margin-bottom: 20px; cursor:grab; user-select:none;">
+        <h3 style="margin: 0; color: #1e293b; font-size: 1.3em; font-weight: 700;">${cat.title}</h3>
+        <p style="font-size: 0.75em; color: #94a3b8; margin: 4px 0 0 0;">Wische nach links oder rechts zum Wechseln</p>
+      </div>
+
+      <!-- Inhaltsbereich mit Checkboxen -->
+      <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:24px;">
+        ${checkboxesHtml}
+      </div>
+
+      <!-- Pagination Dots & Navigation unten -->
+      <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
+        <div style="display:flex; gap:6px;">
+          ${dotsHtml}
         </div>
-      </form>
-    </div>`;
-  L.popup().setLatLng(latlng).setContent(content).openOn(map);
+        
+        <div style="display:flex; width:100%; gap:10px;">
+          <button id="btn-back-step1" style="flex:1; background:#f1f5f9; color:#64748b; border:none; padding:12px; border-radius:12px; font-weight:600; cursor:pointer;">Zurück</button>
+          <button id="btn-go-finalize" style="flex:2; background:#1e293b; color:white; border:none; padding:12px; border-radius:12px; font-weight:bold; cursor:pointer;">Weiter zum Kommentar 🏁</button>
+        </div>
+      </div>
+    `);
+
+    // --- SWIPE-ERKENNUNG (Auf dem gesamten Inhaltsbereich) ---
+    const swipeContainer = overlay.querySelector('#swipe-container').parentNode;
+    let startX = 0;
+
+    const handleStart = (e) => startX = e.touches ? e.touches[0].clientX : e.clientX;
+    const handleEnd = (e) => {
+      let endX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+      let diffX = startX - endX;
+
+      saveCurrentCheckboxes();
+
+      if (diffX > 50) { // Linkswisch -> Vorwärts
+        if (catIndex < currentCats.length - 1) showStep2(catIndex + 1);
+      } else if (diffX < -50) { // Rechtswisch -> Rückwärts
+        if (catIndex > 0) showStep2(catIndex - 1);
+      }
+    };
+
+    swipeContainer.ontouchstart = handleStart;
+    swipeContainer.ontouchend = handleEnd;
+
+    // Klick-Funktionalität für die Dots aktivieren
+    overlay.querySelectorAll('.nav-dot').forEach(dot => {
+      dot.onclick = () => {
+        saveCurrentCheckboxes();
+        showStep2(parseInt(dot.getAttribute('data-index')));
+      };
+    });
+
+    function saveCurrentCheckboxes() {
+      overlay.querySelectorAll('input[name="catItem"]').forEach(cb => {
+        if (cb.checked && !selectedTypes.includes(cb.value)) {
+          selectedTypes.push(cb.value);
+        } else if (!cb.checked && selectedTypes.includes(cb.value)) {
+          selectedTypes = selectedTypes.filter(val => val !== cb.value);
+        }
+      });
+    }
+
+    overlay.querySelector('#btn-back-step1').onclick = () => {
+      saveCurrentCheckboxes();
+      showStep1();
+    };
+
+    overlay.querySelector('#btn-go-finalize').onclick = () => {
+      saveCurrentCheckboxes();
+      if (selectedTypes.length === 0) {
+        alert("Bitte wähle mindestens eine Eigenschaft aus.");
+        return;
+      }
+      showFinalizeStep();
+    };
+  }
+
+  // === SCHRITT 3: KOMMENTAR & WEITERE HINZUFÜGEN ===
+  function showFinalizeStep() {
+    // Dynamischer Text für den Hinzufügen-Button
+    const addMoreText = mainCategory === "frei" ? "⚠️ Hindernis hinzufügen" : "✨ Barrierefreien Ort hinzufügen";
+
+    setModalContent(`
+      <h3 style="margin-top:0; text-align:center; color:#1e293b; font-weight:700;">Zusammenfassung</h3>
+      
+      <div style="background:#f8fafc; border:1px solid #e2e8f0; padding:12px; border-radius:12px; margin-bottom:16px;">
+        <span style="font-size:0.8em; color:#64748b; font-weight:bold; display:block; margin-bottom:6px;">Bisher ausgewählt:</span>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          ${selectedTypes.map(t => `<span style="background:#e2e8f0; color:#334155; font-size:0.85em; padding:4px 10px; border-radius:20px; font-weight:500;">${t}</span>`).join("")}
+        </div>
+      </div>
+      
+      <label style="display:block; margin-bottom:16px;">
+        <strong style="display:block; margin-bottom:6px; font-size:0.9em; color:#334155;">Zusatzbeschreibung (optional):</strong>
+        <input type="text" id="multiDetails" placeholder="z.B. Gleis 3, Aufzug im Nordflügel..." style="width:100%; padding:12px; border:2px solid #e2e8f0; border-radius:12px; box-sizing:border-box; font-size:1em; outline:none;">
+      </label>
+
+      <!-- NEU: Button zum Kombinieren von Barrierefrei + Hindernis -->
+      <button id="btn-mix-categories" style="display:block; width:100%; background:#f1f5f9; color:#3b82f6; border:2px dashed #3b82f6; padding:12px; border-radius:12px; font-weight:bold; cursor:pointer; font-size:0.9em; margin-bottom:20px; text-align:center;">
+        ➕ ${addMoreText}
+      </button>
+
+      <div style="display:flex; gap:10px;">
+        <button id="btn-submit-final" style="flex:2; background:#27ae60; color:white; border:none; padding:14px; border-radius:12px; font-weight:bold; cursor:pointer; font-size:0.95em;">💾 Speichern</button>
+        <button id="btn-back-to-cats" style="flex:1; background:#f1f5f9; color:#64748b; border:none; padding:14px; border-radius:12px; cursor:pointer; font-weight:500;">Zurück</button>
+      </div>
+    `);
+
+    // Logik für den Mix-Kategorien Button
+    overlay.querySelector('#btn-mix-categories').onclick = () => {
+      // Kategorie umschalten (von Frei zu Hindernis oder umgekehrt)
+      mainCategory = mainCategory === "frei" ? "hindernis" : "frei";
+      // Zurück zur Eigenschaftenauswahl der neuen Hauptkategorie springen
+      showStep2(0);
+    };
+
+    overlay.querySelector('#btn-back-to-cats').onclick = () => showStep2(0);
+
+    overlay.querySelector('#btn-submit-final').onclick = () => {
+      const details = overlay.querySelector('#multiDetails').value;
+      const fakeEvent = {
+        preventDefault: () => {},
+        target: {
+          querySelectorAll: () => selectedTypes.map(val => ({ value: val, checked: true })),
+          querySelector: () => ({ value: details })
+        }
+      };
+
+      document.body.removeChild(overlay);
+      finalizeMultiReport(fakeEvent, latlng.lat, latlng.lng);
+    };
+  }
+
+  showStep1();
 }
 
 function finalizeMultiReport(event, lat, lng) {
