@@ -1,5 +1,56 @@
 const isAdminPage = window.location.pathname.includes("admin.html");
 
+// ==========================================
+// 🤖 NEU: GEMINI KI-FILTER FÜR SPAM & FAKES
+// ==========================================
+// Hier deinen API-Key aus dem Google AI Studio eintragen
+// Holt den Key sicher aus dem Browser-Speicher des Geräts
+const GEMINI_API_KEY = localStorage.getItem("gemini_api_key") || "DEIN_GEMINI_API_KEY";
+
+
+async function pruefeEintragMitKI(typen, kommentar, lat, lng) {
+    if (GEMINI_API_KEY === "DEIN_GEMINI_API_KEY" || !GEMINI_API_KEY) {
+        return { plausibel: true, grund: "KI-Check übersprungen (Kein Key)" };
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    
+    const prompt = `
+    Du bist ein Sicherheits-Filter für eine Barrierefreiheits-App. Ein Nutzer hat folgenden Ort/Hindernis gemeldet:
+    - Typ des Hindernisses: ${typen.join(", ")}
+    - Zusatzkommentar des Nutzers: "${kommentar || 'Kein Kommentar'}"
+    - Koordinaten: Breitengrad ${lat}, Längengrad ${lng}
+
+    Beurteile streng, ob diese Meldung plausibel und ernst gemeint ist. 
+    Kriterien für UNPLAUSIBEL (Spam/Fake):
+    1. Der Kommentar enthält offensichtlichen Spam, Beleidigungen, Buchstabensalat (z.B. "asdasd") oder ist völlig sinnlos im Kontext Barrierefreiheit.
+    2. Der Kommentar widerspricht dem Typ komplett (z.B. Typ "Aufzug defekt", Kommentar "Hier gibt es gar keinen Aufzug, haha").
+
+    Antworte AUSSCHLIESSLICH im folgenden JSON-Format, ohne Markdown, ohne Erklärung drumherum:
+    {
+      "plausibel": true oder false,
+      "grund": "Kurze Begründung auf Deutsch, warum es unplausibel ist oder 'OK' wenn plausibel"
+    }
+    `;
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+        
+        const data = await response.json();
+        const textAntwort = data.candidates[0].content.parts[0].text.trim();
+        
+        // Bereinigt eventuelle Markdown-Blöcke der KI und parst das JSON
+        return JSON.parse(textAntwort.replace(/```json|```/g, ""));
+    } catch (e) {
+        console.error("KI-Prüfung fehlgeschlagen:", e);
+        return { plausibel: true, grund: "Fehler bei der KI-Abfrage, vorsorglich erlaubt." };
+    }
+}
+
 // --- MODERN SERVICE WORKER & PUSH REGISTRATION ---
 const PushService = {
     async registerServiceWorker() {
@@ -191,25 +242,19 @@ function setupLocationTracking() {
 let bereitsGefragteMarker = new Set();
 
 function starteHintergrundGpsWaechter() {
-    // Alle 15 Sekunden den Standort checken und mit den Markern abgleichen
     setInterval(() => {
         if (!currentUserPosition || reportsData.length === 0) return;
 
         reportsData.forEach(marker => {
-            // Wenn wir diesen Marker in dieser Session schon abgefragt haben, überspringen
             if (bereitsGefragteMarker.has(marker.id)) return;
 
-            // Distanz zwischen User und Hindernis berechnen (in Metern)
             const userLatLng = L.latLng(currentUserPosition.lat, currentUserPosition.lng);
             const markerLatLng = L.latLng(marker.lat, marker.lng);
             const distanz = userLatLng.distanceTo(markerLatLng);
 
-            // Wenn der User näher als 50 Meter dran ist...
             if (distanz <= 50) {
-                // Marker auf die Blacklist setzen, damit nicht dauernd gefragt wird
                 bereitsGefragteMarker.add(marker.id);
 
-                // Signal an den Service Worker senden, dass er die Push-Nachricht abfeuern soll
                 if (navigator.serviceWorker.controller) {
                     navigator.serviceWorker.controller.postMessage({
                         type: 'TRIGGER_PROMPT',
@@ -221,9 +266,8 @@ function starteHintergrundGpsWaechter() {
                 }
             }
         });
-    }, 15000); // 15000 Millisekunden = 15 Sekunden
+    }, 15000);
 }
-
 
 async function loadFromCommunity() {
     if (!map) return;
@@ -335,7 +379,6 @@ function drawMarkersOnMap() {
                 if (filter === "status_bestaetigt") return r.status === "confirmed";
                 if (filter === "status_check_aktiv") return (r.needsCheck === true || r.checkInRequestedBy !== null);
                 if (filter === "admin_neu") return r.status === "new";
-                // Filter an neue Kranz-Logik angepasst:
                 if (filter === "admin_zu_bestaetigen") return (r.status === "ready_for_confirm" || r.votes >= 3) && r.status !== "confirmed";
                 if (filter === "admin_kritisch") return r.status === "needs_review" || r.loeschCheckIns >= 3;
                 return markerTypes.some(t => t.includes(filter) || filter.includes(t));
@@ -365,21 +408,20 @@ function drawMarkersOnMap() {
             else if (singleType.includes("Niveaugleicher")) { emoji = "✅"; markerFarbe = "#2980B9"; }
         }
     
-        // --- 1. KRANZ-DESIGN LOGIK ---
+        // --- 1. KRANZ-DESIGN LOGIK (INKLUSIVE KI-WARNUNG) ---
         let borderStyle = "";
         if (isAdminPage) {
-            if (r.status === "needs_review" || r.loeschCheckIns >= 3) {
-                // Roter Kranz bei 3 Fehlmeldungen
+            if (r.status === "ai_failed") {
+                // Violetter Kranz bei KI-Verdacht auf Spam/Fake
+                borderStyle = "box-shadow: 0 0 0 4px #9b59b6, 0 0 12px #9b59b6; border: 2px solid #9b59b6;"; 
+            } else if (r.status === "needs_review" || r.loeschCheckIns >= 3) {
                 borderStyle = "box-shadow: 0 0 0 4px #e74c3c, 0 0 12px #e74c3c; border: 2px solid #e74c3c;"; 
             } else if (r.status === "ready_for_confirm" || r.votes >= 3) {
-                // Grüner Kranz bei 3 richtigen Meldungen
                 borderStyle = "box-shadow: 0 0 0 4px #2ecc71, 0 0 12px #2ecc71; border: 2px solid #2ecc71;"; 
             } else if (r.status === "new") {
-                // Standardmäßiger blauer Kranz für neue Einträge
                 borderStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;"; 
             }
         } else {
-            // Ansicht für normale User (Bestätigte Orte leuchten grün)
             if (r.status === "confirmed") {
                 borderStyle = "box-shadow: 0 0 15px 5px #2ecc71; border: 2px solid #2ecc71;";
             }
@@ -396,9 +438,12 @@ function drawMarkersOnMap() {
         
         let content = `<div style="font-family:sans-serif; min-width:230px;">`;
         
-        // --- 2. POPUP-STATUS TEXTE (ADMIN) ---
+        // --- 2. POPUP-STATUS TEXTE (ADMIN & KI) ---
         if (isAdminPage) {
-            if (r.status === "needs_review" || r.loeschCheckIns >= 3) {
+            if (r.status === "ai_failed") {
+                content += `<b style="color:#9b59b6;">🤖 KI-WARNUNG: Verdacht auf Fake/Spam</b><br>`;
+                if (r.kiWarnung) content += `<span style="font-size:0.85em; color:#9b59b6; display:block; margin-bottom:5px;">Grund: <i>${r.kiWarnung}</i></span>`;
+            } else if (r.status === "needs_review" || r.loeschCheckIns >= 3) {
                 content += `<b style="color:#e74c3c;">⚠️ PRÜFUNG ERFORDERLICH (3x Falsch gemeldet)</b><br>`;
             } else if (r.status === "confirmed") {
                 content += `<b style="color:#2ecc71;">✅ VOM ADMIN BESTÄTIGT</b><br>`;
@@ -437,12 +482,11 @@ function drawMarkersOnMap() {
         content += `<a href="${googleUrl}" target="_blank" style="display:block; background:#4285F4; color:white; text-align:center; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:10px;">Route in Google Maps starten</a>`;
         content += `<button onclick="addToFavorites('${r.id}', ${r.lat}, ${r.lng})" style="display:block; width:100%; background:#f1c40f; color:#2c3e50; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:10px;">⭐ Auf Merkliste speichern</button>`;
 
-        // --- 3. AKTUALISIERTE ADMIN ACTIONS ---
+        // --- 3. AKTUALISIERTE ADMIN ACTIONS (INKLUSIVE KI-RETTUNGSBUTTON) ---
         if (isAdminPage) {
             content += `<div style="border-top:1px solid #ccc; padding-top:10px; margin-top:5px;">`;
             
-            // Zeigt den Bestätigungsbutton, wenn bereit zur Freigabe ODER bei rotem Warnkranz (zum Wieder-Geraderücken)
-            if ((r.votes >= 3 || r.status === "ready_for_confirm" || r.status === "needs_review") && r.status !== "confirmed") {
+            if ((r.votes >= 3 || r.status === "ready_for_confirm" || r.status === "needs_review" || r.status === "ai_failed") && r.status !== "confirmed") {
                 content += `<button onclick="confirmByAdmin('${r.id}')" style="background:#2ecc71; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">👁️ Eintrag verifizieren / freigeben</button>`;
             }
             
@@ -782,8 +826,15 @@ function openSelectionPopup(latlng) {
   showStep1();
 }
 
-function finalizeMultiReportDirect(gewaehlteTypen, kommentarText, lat, lng, manuellesEnddatum) {
+// --- INTEGRIERTER KI-CHECK VOR DEM ABSPEICHERN ---
+async function finalizeMultiReportDirect(gewaehlteTypen, kommentarText, lat, lng, manuellesEnddatum) {
     if (!gewaehlteTypen || gewaehlteTypen.length === 0) return;
+    
+    updateStatus("KI prüft Meldung... 🤖", "#9B59B6");
+    
+    // 🤖 KI-Check durchführen
+    const kiErgebnis = await pruefeEintragMitKI(gewaehlteTypen, kommentarText, lat, lng);
+    
     const einTag = 24 * 60 * 60 * 1000;
     const siebenTage = 7 * einTag;
     let ablaufZeit = null;
@@ -796,7 +847,12 @@ function finalizeMultiReportDirect(gewaehlteTypen, kommentarText, lat, lng, manu
         ablaufZeit = Date.now() + siebenTage; 
     }
  
-    const initialStatus = isAdminPage ? "active" : "new";
+    // Falls die KI zuschlägt, wird der Status gesondert markiert
+    let initialStatus = isAdminPage ? "active" : "new";
+    if (!kiErgebnis.plausibel) {
+        initialStatus = "ai_failed";
+    }
+
     const neuerPunkt = {
         lat: lat, 
         lng: lng, 
@@ -806,6 +862,7 @@ function finalizeMultiReportDirect(gewaehlteTypen, kommentarText, lat, lng, manu
         id: "id_" + Date.now(), 
         votes: 1, 
         status: initialStatus,
+        kiWarnung: kiErgebnis.plausibel ? null : kiErgebnis.grund, // Speichert die KI-Begründung
         expiresAt: ablaufZeit,
         baustellenEnddatum: manuellesEnddatum || null,
         checkInRequestedBy: null,
@@ -815,7 +872,7 @@ function finalizeMultiReportDirect(gewaehlteTypen, kommentarText, lat, lng, manu
 
     reportsData.push(neuerPunkt);
     drawMarkersOnMap();
-    saveSingleMarkerToCommunity(neuerPunkt);
+    await saveSingleMarkerToCommunity(neuerPunkt);
     map.closePopup();
 }
 
