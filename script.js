@@ -3,27 +3,263 @@ const isAdminPage = window.location.pathname.includes("admin.html");
 // ==========================================
 // 🔐 HELPER: GEMINI-KEY HOLEN ODER PER DIALOG ERFRAGEN
 // ==========================================
-const GLOBAL_GEMINI_KEY = ""; // Aus Sicherheitsgründen leer lassen!
+const GLOBAL_GEMINI_KEY = ""; // Im Code leer lassen für saubere Git-Pushs!
 
 function getValidApiKey() {
-    // 1. Aus localStorage lesen
     let savedKey = localStorage.getItem("gemini_api_key");
 
-    // 2. Falls kein gültiger Key vorhanden ist, per Prompt-Popup abfragen
     if (!savedKey || savedKey.trim() === "" || savedKey.includes("DEIN_")) {
         const eingabeKey = prompt("🔑 Gemini API-Key erforderlich:\n\nBitte gib deinen API-Key ein, um die KI-Prüfung zu nutzen:");
         
         if (eingabeKey && eingabeKey.trim() !== "") {
             savedKey = eingabeKey.trim();
             localStorage.setItem("gemini_api_key", savedKey);
-            alert("✅ API-Key erfolgreich auf deinem Gerät gespeichert!");
+            alert("✅ API-Key erfolgreich gespeichert!");
         } else {
-            return ""; // Benutzer hat abgebrochen
+            return "";
         }
     }
     
     return savedKey;
 }
+
+// ==========================================
+// 🤖 STRIKER GEMINI KI-FILTER (SINGLE-CHECK)
+// ==========================================
+async function pruefeEintragMitKI(typen, kommentar, lat, lng) {
+    const aktuellerKey = getValidApiKey();
+
+    if (!aktuellerKey || aktuellerKey.trim() === "") {
+        return { plausibel: true, grund: "KI-Check übersprungen (Kein Key hinterlegt)" };
+    }
+
+    const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + aktuellerKey;
+
+    const prompt = `
+Du bist ein strenger Sicherheits-Filter für eine Barrierefreiheits-App. 
+Analysiere die Nutzermeldung auf Fake, Spam, Unplausibilität oder Trolling:
+- Typ: ${Array.isArray(typen) ? typen.join(", ") : typen}
+- Kommentar: "${kommentar || 'Kein Kommentar'}"
+- Koord: Lat ${lat}, Lng ${lng}
+
+PRÜFKRITERIEN:
+1. Ort im Wasser (See/Meer/Fluss) oder auf Autobahn? -> FAKE!
+2. Buchstabensalat/Spam ("asdasd", "qwertz", etc.)? -> FAKE!
+3. Beleidigungen oder Trolling? -> FAKE!
+
+Antworte NUR als JSON:
+{"plausibel": false, "grund": "Grund auf Deutsch"} oder {"plausibel": true, "grund": "OK"}
+`;
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { responseMimeType: "application/json", temperature: 0.0 }
+            })
+        });
+
+        const data = await response.json();
+        if (data.error) {
+            return { plausibel: true, grund: `API-Fehler: ${data.error.message}` };
+        }
+
+        let rawText = data.candidates[0].content.parts[0].text;
+        rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+        return JSON.parse(rawText);
+
+    } catch (e) {
+        console.error("KI-Prüfung fehlgeschlagen:", e);
+        return { plausibel: true, grund: `Fehler: ${e.message}` };
+    }
+}
+
+// ==========================================
+// 🔍 ADMIN-SCAN: HARDCORE-KI-SCAN
+// ==========================================
+async function starteAdminKiScan() {
+    if (typeof isAdminPage !== 'undefined' && !isAdminPage) {
+        alert("Diese Funktion ist nur im Admin-Bereich verfügbar.");
+        return;
+    }
+
+    const aktuellerKey = getValidApiKey();
+    if (!aktuellerKey) {
+        alert("Aktion abgebrochen: Kein API-Key vorhanden.");
+        return;
+    }
+
+    // 1. AUTO-ZOOM: Weltweit herauszoomen & Daten neu laden
+    updateStatus("Zoome auf Weltkarte & lade alle Daten...", "#3498db");
+    map.setView([20.0, 0.0], 2);
+    
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    await loadFromCommunity();
+
+    const totalCount = reportsData.length;
+    if (totalCount === 0) {
+        alert("Keine Einträge in der Datenbank gefunden.");
+        return;
+    }
+
+    const bestaetigung = await CustomUI.confirm(
+        "🤖 KI-Hardcore-Scan starten",
+        `Es wurden ${totalCount} Einträge geladen.\n\nAlle nötigen Punkte werden jetzt geprüft.`,
+        "Scan JETZT starten",
+        "Abbrechen"
+    );
+
+    if (!bestaetigung) return;
+
+    // Ladebalken-Modal anzeigen
+    const progressOverlay = document.createElement('div');
+    progressOverlay.id = "ki-progress-modal";
+    progressOverlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15, 23, 42, 0.85); backdrop-filter:blur(6px); z-index:99999; display:flex; align-items:center; justify-content:center; font-family:sans-serif; padding:20px; box-sizing:border-box;";
+    progressOverlay.innerHTML = `
+        <div style="background:white; padding:25px; border-radius:16px; max-width:420px; width:100%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.4); text-align:center;">
+            <div style="font-size:2.5em; margin-bottom:10px;">🕵️‍♂️</div>
+            <h3 style="margin:0 0 8px 0; color:#1e293b; font-size:1.3em;">Deep-KI-Scan läuft...</h3>
+            <p id="ki-scan-status-text" style="font-size:0.85em; color:#64748b; margin-bottom:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Starte System...</p>
+            
+            <div style="width:100%; background:#e2e8f0; height:20px; border-radius:10px; overflow:hidden; margin-bottom:10px;">
+                <div id="ki-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg, #e74c3c, #8e44ad); transition:width 0.1s ease;"></div>
+            </div>
+            
+            <div style="display:flex; justify-content:space-between; font-size:0.9em; color:#475569; font-weight:bold; margin-bottom:15px;">
+                <span id="ki-progress-percent">0%</span>
+                <span id="ki-progress-count">0 / ${totalCount}</span>
+            </div>
+
+            <div style="background:#fff5f5; padding:12px; border-radius:8px; border:1px solid #feb2b2; font-size:0.9em; color:#c53030; text-align:left;">
+                🚨 Erkannte Fakes / Köder: <b id="ki-found-fakes" style="font-size:1.1em;">0</b>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(progressOverlay);
+
+    let geprueftZaehler = 0;
+    let verdachtZaehler = 0;
+
+    const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + aktuellerKey;
+
+    for (let i = 0; i < totalCount; i++) {
+        const item = reportsData[i];
+        geprueftZaehler++;
+
+        const percent = Math.round((geprueftZaehler / totalCount) * 100);
+        document.getElementById("ki-progress-bar").style.width = `${percent}%`;
+        document.getElementById("ki-progress-percent").innerText = `${percent}%`;
+        document.getElementById("ki-progress-count").innerText = `${geprueftZaehler} / ${totalCount}`;
+
+        // ⚡ NUR NÖTIGE PUNKTE 1: Bereites Geflaggte Marker überspringen
+        if (item.status === "ai_failed") {
+            verdachtZaehler++;
+            document.getElementById("ki-found-fakes").innerText = verdachtZaehler;
+            continue;
+        }
+
+        const typenArray = Array.isArray(item.typ) ? item.typ : [item.typ];
+        const kurzTyp = typenArray.join(", ");
+        const kommentarText = (item.kommentar || "").trim();
+        const textLower = kommentarText.toLowerCase();
+
+        document.getElementById("ki-scan-status-text").innerText = `Prüfe #${geprueftZaehler}: "${kurzTyp}"`;
+
+        // Hard-Checks (0ms local)
+        const isBodenseeWasser = (item.lat >= 47.45 && item.lat <= 47.85 && item.lng >= 8.85 && item.lng <= 9.75);
+        const verdaechtigeBegriffe = ["woederspruch", "asdasd", "qwertz", "dfgklj", "fick", "arsch", "hurensohn", "idiot", "test1234"];
+        const hatSpamText = verdaechtigeBegriffe.some(w => textLower.includes(w));
+
+        // ⚡ NUR NÖTIGE PUNKTE 2: Lokale Fakes sofort abfangen
+        if (isBodenseeWasser || hatSpamText) {
+            item.status = "ai_failed";
+            item.kiWarnung = isBodenseeWasser ? "Ort liegt im Bodensee (Wasser-Fake)" : "Köder-/Spam-Text erkannt";
+            verdachtZaehler++;
+            document.getElementById("ki-found-fakes").innerText = verdachtZaehler;
+            await updateSingleMarkerInCommunity(item);
+            continue;
+        }
+
+        // ⚡ NUR NÖTIGE PUNKTE 3: Saubere Kurztexte ohne KI durchwinken
+        const istUnverdaechtig = kommentarText.length === 0 || 
+                                (kommentarText.length < 40 && !/[0-9]{5,}/.test(kommentarText));
+
+        if (istUnverdaechtig) {
+            continue;
+        }
+
+        // 🤖 KI-PRÜFUNG FÜR FREITEXTE
+        const prompt = `Analysiere diesen Eintrag auf Fake/Spam: Typ: ${kurzTyp}, Text: "${kommentarText}", Lat: ${item.lat}, Lng: ${item.lng}. Antworte NUR als JSON: {"plausibel": false, "grund": "Grund"} oder {"plausibel": true, "grund": "OK"}`;
+
+        let erfolg = false;
+        let versuche = 0;
+
+        while (!erfolg && versuche < 2) {
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { responseMimeType: "application/json", temperature: 0.0 }
+                    })
+                });
+
+                if (response.status === 429) {
+                    versuche++;
+                    document.getElementById("ki-scan-status-text").innerText = `⏳ Rate-Limit! Warte 4 Sek...`;
+                    await new Promise(r => setTimeout(r, 6000));
+                    continue;
+                }
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.candidates?.[0]?.content) {
+                        let rawText = data.candidates[0].content.parts[0].text.replace(/```json/g, "").replace(/```/g, "").trim();
+                        const kiErgebnis = JSON.parse(rawText);
+
+                        if (kiErgebnis.plausibel === false || kiErgebnis.plausibel === "false") {
+                            item.status = "ai_failed";
+                            item.kiWarnung = kiErgebnis.grund || "Spam oder verbotener Ort erkannt";
+                            verdachtZaehler++;
+                            document.getElementById("ki-found-fakes").innerText = verdachtZaehler;
+                            await updateSingleMarkerInCommunity(item);
+                        }
+                    }
+                }
+                erfolg = true;
+            } catch (e) {
+                console.error("Fehler beim KI-Check von Item", item.id, e);
+                erfolg = true;
+            }
+        }
+
+        // ⏱️ 4 SEKUNDEN PUFFER ZWISCHEN ECHTEN KI-REQUESTS
+        await new Promise(resolve => setTimeout(resolve, 4000));
+    }
+
+    document.body.removeChild(progressOverlay);
+
+    drawMarkersOnMap();
+    updateStatus("Community Live ✅", "#27AE60");
+
+    await CustomUI.confirm(
+        "🎉 Hardcore-Scan abgeschlossen!",
+        `Es wurden ${geprueftZaehler} Einträge analysiert.\n\n🚨 Gefundene Fakes / Köder: ${verdachtZaehler}`,
+        "OK",
+        ""
+    );
+}
+
+// ==========================================
+// 🌍 GLOBALE EXPORTE (WICHTIG FÜR HTML-BUTTONS)
+// ==========================================
+window.getValidApiKey = getValidApiKey;
+window.pruefeEintragMitKI = pruefeEintragMitKI;
+window.starteAdminKiScan = starteAdminKiScan;
+
 
 // --- MODERN SERVICE WORKER & PUSH REGISTRATION ---
 const PushService = {
