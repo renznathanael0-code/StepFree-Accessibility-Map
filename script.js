@@ -77,7 +77,7 @@ Antworte NUR als JSON:
 }
 
 // ==========================================
-// 🔍 ADMIN-SCAN: HARDCORE-KI-SCAN
+// 🔍 ADMIN-SCAN: HARDCORE-KI-SCAN (TURBO EDITION)
 // ==========================================
 async function starteAdminKiScan() {
     if (typeof isAdminPage !== 'undefined' && !isAdminPage) {
@@ -95,7 +95,7 @@ async function starteAdminKiScan() {
     updateStatus("Zoome auf Weltkarte & lade alle Daten...", "#3498db");
     map.setView([20.0, 0.0], 2);
     
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 800));
     await loadFromCommunity();
 
     const totalCount = reportsData.length;
@@ -105,7 +105,7 @@ async function starteAdminKiScan() {
     }
 
     const bestaetigung = await CustomUI.confirm(
-        "🤖 KI-Hardcore-Scan starten",
+        "⚡ Hardcore-KI-Scan starten",
         `Es wurden ${totalCount} Einträge geladen.\n\nAlle nötigen Punkte werden jetzt geprüft.`,
         "Scan JETZT starten",
         "Abbrechen"
@@ -153,7 +153,7 @@ async function starteAdminKiScan() {
         document.getElementById("ki-progress-percent").innerText = `${percent}%`;
         document.getElementById("ki-progress-count").innerText = `${geprueftZaehler} / ${totalCount}`;
 
-        // ⚡ NUR NÖTIGE PUNKTE 1: Bereits geflaggte Marker überspringen
+        // 1. Bereits geflaggte Marker überspringen
         if (item.status === "ai_failed") {
             verdachtZaehler++;
             document.getElementById("ki-found-fakes").innerText = verdachtZaehler;
@@ -167,28 +167,45 @@ async function starteAdminKiScan() {
 
         document.getElementById("ki-scan-status-text").innerText = `Prüfe #${geprueftZaehler}: "${kurzTyp}"`;
 
-        // Hard-Checks (0ms local)
+        // 2. LOKALE HARD-CHECKS (0ms local)
         const isBodenseeWasser = (item.lat >= 47.45 && item.lat <= 47.85 && item.lng >= 8.85 && item.lng <= 9.75);
-        const verdaechtigeBegriffe = ["woederspruch", "asdasd", "qwertz", "dfgklj", "fick", "arsch", "hurensohn", "idiot", "test1234"];
+        const verdaechtigeBegriffe = [
+            "woederspruch", "asdasd", "qwertz", "dfgklj", "fick", "arsch", "hurensohn", 
+            "idiot", "test1234", "köder", "koeder", "fake", "test"
+        ];
         const hatSpamText = verdaechtigeBegriffe.some(w => textLower.includes(w));
 
-        // ⚡ NUR NÖTIGE PUNKTE 2: Lokale Fakes sofort abfangen
         if (isBodenseeWasser || hatSpamText) {
             item.status = "ai_failed";
-            item.kiWarnung = isBodenseeWasser ? "Ort liegt im Bodensee (Wasser-Fake)" : "Köder-/Spam-Text erkannt";
+            item.kiWarnung = isBodenseeWasser ? "Ort liegt im Wasser (Wasser-Fake)" : "Köder-/Spam-Text erkannt";
             verdachtZaehler++;
             document.getElementById("ki-found-fakes").innerText = verdachtZaehler;
             await updateSingleMarkerInCommunity(item);
             continue;
         }
 
-        // ⚡ NUR NÖTIGE PUNKTE 3: Nur WIRKLICH leere Einträge überspringen!
-        // Sobald Text existiert (egal wie kurz), prüft Gemini knallhart nach.
+        // 3. SCHNELL-CHECK FÜR KURZEN TEXT / BUCHSTABENSALAT (0ms)
         if (kommentarText.length === 0) {
+            continue; // Komplett leere Meldungen ohne Kommentar überspringen
+        }
+
+        // Erkennt kurzen Müll wie "qwt", "dfg", "123", "aaa" SOFORT ohne KI
+        const istKurzerSalat = kommentarText.length < 6 && (
+            !/[aeiouäöüy]/i.test(kommentarText) || // Kein einziger Vokal!
+            /^[0-9]+$/.test(kommentarText) ||       // Nur Zahlen
+            /(.)\1{2,}/.test(kommentarText)         // 3x Buchstabe wiederholt (z.B. zzz)
+        );
+
+        if (istKurzerSalat) {
+            item.status = "ai_failed";
+            item.kiWarnung = "Kurzer Buchstabensalat/Spam lokal erkannt";
+            verdachtZaehler++;
+            document.getElementById("ki-found-fakes").innerText = verdachtZaehler;
+            await updateSingleMarkerInCommunity(item);
             continue;
         }
 
-        // 🤖 KI-PRÜFUNG FÜR FREITEXTE (Mit Auto-Retry bei Status 429)
+        // 4. KI-PRÜFUNG FÜR FREITEXTE & UNKLARHEITEN
         const prompt = `Analysiere diesen Eintrag auf Fake/Spam: Typ: ${kurzTyp}, Text: "${kommentarText}", Lat: ${item.lat}, Lng: ${item.lng}. Antworte NUR als JSON: {"plausibel": false, "grund": "Grund"} oder {"plausibel": true, "grund": "OK"}`;
 
         let erfolg = false;
@@ -205,11 +222,10 @@ async function starteAdminKiScan() {
                     })
                 });
 
-                // 🚨 429 Rate Limit abfangen: Warte 10 Sekunden und versuche es erneut!
                 if (response.status === 429) {
                     versuche++;
-                    document.getElementById("ki-scan-status-text").innerText = `⏳ Rate-Limit (429)! Abkühlen (10s)... [Versuch ${versuche}/3]`;
-                    await new Promise(r => setTimeout(r, 10000));
+                    document.getElementById("ki-scan-status-text").innerText = `⏳ Rate-Limit (429)! Abkühlen (8s)... [Versuch ${versuche}/3]`;
+                    await new Promise(r => setTimeout(r, 8000));
                     continue;
                 }
 
@@ -235,8 +251,8 @@ async function starteAdminKiScan() {
             }
         }
 
-        // ⏱️ Sicherer 5-Sekunden-Puffer vor dem nächsten Eintrag
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        // ⏱️ Schneller 2-Sekunden-Puffer vor dem nächsten KI-Call
+        await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
     document.body.removeChild(progressOverlay);
