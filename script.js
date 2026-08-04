@@ -1,7 +1,7 @@
 const isAdminPage = window.location.pathname.includes("admin.html");
 
 // ==========================================
-// 🤖 NEU: GEMINI KI-FILTER FÜR SPAM & FAKES
+// 🤖 GEMINI KI-FILTER FÜR SPAM & FAKES
 // ==========================================
 async function pruefeEintragMitKI(typen, kommentar, lat, lng) {
     // 🔐 Key-Splitter: Verhindert, dass GitHub den Push blockiert
@@ -16,12 +16,12 @@ async function pruefeEintragMitKI(typen, kommentar, lat, lng) {
         return { plausibel: true, grund: "KI-Check übersprungen (Kein Key hinterlegt)" };
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash:generateContent?key=${aktuellerKey}`;
-
+    // Nutzt das aktuelle Gemini 3.6 Flash Modell
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-3.6-flash:generateContent?key=${aktuellerKey}`;
 
     const prompt = `
     Du bist ein Sicherheits-Filter für eine Barrierefreiheits-App. Ein Nutzer hat folgenden Ort/Hindernis gemeldet:
-    - Typ des Hindernisses: ${typen.join(", ")}
+    - Typ des Hindernisses: ${Array.isArray(typen) ? typen.join(", ") : typen}
     - Zusatzkommentar des Nutzers: "${kommentar || 'Kein Kommentar'}"
     - Koordinaten: Breitengrad ${lat}, Längengrad ${lng}
 
@@ -57,10 +57,71 @@ async function pruefeEintragMitKI(typen, kommentar, lat, lng) {
         return JSON.parse(textAntwort.replace(/```json|```/g, ""));
     } catch (e) {
         console.error("KI-Prüfung fehlgeschlagen:", e);
-        // Zeigt nun den exakten Systemfehler im iPad-Popup an
         return { plausibel: true, grund: `Code-Absturz: ${e.message}` };
     }
 }
+
+// ==========================================
+// 🔍 NEU: ADMIN-BUTTON LOGIK (SCANNT ALLE PUNKTE)
+// ==========================================
+async function starteAdminKiScan() {
+    if (!isAdminPage) {
+        alert("Diese Funktion ist nur im Admin-Bereich verfügbar.");
+        return;
+    }
+
+    const bestaetigung = await CustomUI.confirm(
+        "🤖 KI-Scan starten",
+        `Möchtest du alle ${reportsData.length} aktuell geladenen Punkte in der Datenbank von der KI überprüfen lassen?`,
+        "Scan starten",
+        "Abbrechen"
+    );
+
+    if (!bestaetigung) return;
+
+    updateStatus("🤖 KI-Scan wird gestartet...", "#9b59b6");
+
+    let geprueftZaehler = 0;
+    let verdachtZaehler = 0;
+
+    for (let i = 0; i < reportsData.length; i++) {
+        const item = reportsData[i];
+
+        // Bereits durch Admin freigegebene Punkte überspringen
+        if (item.status === "confirmed") continue;
+
+        updateStatus(`🤖 Prüfe Punkt ${i + 1} von ${reportsData.length}...`, "#3498db");
+
+        const typenArray = Array.isArray(item.typ) ? item.typ : [item.typ];
+        const kiErgebnis = await pruefeEintragMitKI(typenArray, item.kommentar, item.lat, item.lng);
+
+        geprueftZaehler++;
+
+        if (!kiErgebnis.plausibel) {
+            item.status = "ai_failed";
+            item.kiWarnung = kiErgebnis.grund;
+            verdachtZaehler++;
+            await updateSingleMarkerInCommunity(item);
+        } else if (item.status === "ai_failed") {
+            // Falls der Eintrag früher als Fake markiert war, jetzt aber okay ist:
+            item.status = "active";
+            item.kiWarnung = null;
+            await updateSingleMarkerInCommunity(item);
+        }
+    }
+
+    drawMarkersOnMap();
+    updateStatus("Community Live ✅", "#27AE60");
+
+    await CustomUI.confirm(
+        "🎉 Scan abgeschlossen!",
+        `Es wurden ${geprueftZaehler} unbestätigte Punkte überprüft.\n\n⚠️ Verdächtige Punkte gefunden: ${verdachtZaehler}`,
+        "OK",
+        ""
+    );
+}
+window.starteAdminKiScan = starteAdminKiScan;
+
 
 // --- MODERN SERVICE WORKER & PUSH REGISTRATION ---
 const PushService = {
@@ -216,7 +277,7 @@ async function initApp() {
     await loadFromCommunity();
     renderFavoritesList(); 
 
-    // --- NEU: GPS-Wächter starten, sobald alle Daten geladen sind ---
+    // --- GPS-Wächter starten, sobald alle Daten geladen sind ---
     starteHintergrundGpsWaechter();
     
     if (splash) {
@@ -449,7 +510,7 @@ function drawMarkersOnMap() {
         
         let content = `<div style="font-family:sans-serif; min-width:230px;">`;
         
-        // --- 2. POPUP-STATUS TEXTE (KI-TEXT JETZT AUCH FÜR USER) ---
+        // --- 2. POPUP-STATUS TEXTE ---
         if (r.status === "ai_failed") {
             content += `<b style="color:#9b59b6;">🤖 KI-WARNUNG: Verdacht auf Fake/Spam</b><br>`;
             if (r.kiWarnung) content += `<span style="font-size:0.85em; color:#9b59b6; display:block; margin-bottom:5px;">Grund: <i>${r.kiWarnung}</i></span>`;
@@ -835,7 +896,7 @@ function openSelectionPopup(latlng) {
   }
 
   showStep1();
-} // <-- Hier war der Fehler! openSelectionPopup wird nun korrekt geschlossen.
+}
 
 // --- INTEGRIERTER KI-CHECK VOR DEM ABSPEICHERN ---
 async function finalizeMultiReportDirect(gewaehlteTypen, kommentarText, lat, lng, manuellesEnddatum) {
