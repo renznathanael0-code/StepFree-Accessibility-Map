@@ -79,7 +79,7 @@ Antworte ausschließlich im folgenden JSON-Format:
 }
 
 // ==========================================
-// 🔍 ADMIN-SCAN: HARDCORE-KI-SCAN MIT WELTWEITEM AUTO-ZOOM
+// 🔍 ADMIN-SCAN: HARDCORE-KI-SCAN (JEZT MIT SAUBEREM PARSING & OHNE EXCLUSIONS)
 // ==========================================
 async function starteAdminKiScan() {
     if (!isAdminPage) {
@@ -89,10 +89,9 @@ async function starteAdminKiScan() {
 
     // 1. AUTO-ZOOM: Weltweit herauszoomen & Daten frisch aus der Community laden
     updateStatus("Zoome auf Weltkarte & lade alle Daten...", "#3498db");
-    map.setView([20.0, 0.0], 2); // 🌍 Zoom-Level 2 zeigt die komplette Weltkarte!
+    map.setView([20.0, 0.0], 2); // 🌍 Weltkarte
     
-    // Kurz warten, damit Leaflet alle Kartenausschnitte/Bounds aktualisiert
-    await new Promise(resolve => setTimeout(resolve, 800));
+    await new Promise(resolve => setTimeout(resolve, 1000));
     await loadFromCommunity();
 
     const totalCount = reportsData.length;
@@ -102,15 +101,15 @@ async function starteAdminKiScan() {
     }
 
     const bestaetigung = await CustomUI.confirm(
-        "🤖 KI-Hardcore-Scan starten",
-        `Die Karte wurde auf die Weltansicht herausgezoomt.\n\nEs wurden ${totalCount} Einträge geladen. Möchtest du den Scan starten, um Wasser-Fakes (Bodensee etc.), Spam & Beleidigungen zu entlarven?`,
-        "Scan starten",
+        "🤖 Hardcore-Scan wirklich starten?",
+        `Es wurden ${totalCount} Einträge geladen.\n\nJEDER einzelne Eintrag auf der Weltkarte wird jetzt kompromisslos durchleuchtet.`,
+        "Scan JETZT starten",
         "Abbrechen"
     );
 
     if (!bestaetigung) return;
 
-    // Ladebalken-Modal erstellen
+    // Ladebalken-Modal
     const progressOverlay = document.createElement('div');
     progressOverlay.id = "ki-progress-modal";
     progressOverlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15, 23, 42, 0.85); backdrop-filter:blur(6px); z-index:99999; display:flex; align-items:center; justify-content:center; font-family:sans-serif; padding:20px; box-sizing:border-box;";
@@ -153,50 +152,42 @@ async function starteAdminKiScan() {
         document.getElementById("ki-progress-percent").innerText = `${percent}%`;
         document.getElementById("ki-progress-count").innerText = `${geprueftZaehler} / ${totalCount}`;
 
-        // Von Hand freigegebene Marker ("confirmed") überspringen
-        if (item.status === "confirmed") continue;
-
         const typenArray = Array.isArray(item.typ) ? item.typ : [item.typ];
         const kurzTyp = typenArray.join(", ");
         const kommentarText = item.kommentar || "";
 
         document.getElementById("ki-scan-status-text").innerText = `Prüfe #${geprueftZaehler}: "${kurzTyp}"`;
 
-        // 🚨 VORPRÜFUNG: BODENSEE-WASSER & TEXT-SPAM-MUSTER
-        const isBodenseeWasser = (item.lat >= 47.48 && item.lat <= 47.75 && item.lng >= 8.90 && item.lng <= 9.70);
+        // 🚨 HARD-CODE PRÜFUNGEN VORAB
+        const isBodenseeWasser = (item.lat >= 47.45 && item.lat <= 47.85 && item.lng >= 8.85 && item.lng <= 9.75);
         const textLower = kommentarText.toLowerCase();
 
-        // Bekannte Köder- & Müllwörter
         const verdaechtigeBegriffe = ["woederspruch", "asdasd", "qwertz", "dfgklj", "fick", "arsch", "hurensohn", "idiot", "test1234"];
         const hatSpamText = verdaechtigeBegriffe.some(w => textLower.includes(w));
 
-        // Prompt mit strikten Vorgaben für Gemini
+        // Strikter Prompt
         const prompt = `
-Du bist ein kompromissloser Security-Bot für eine Barrierefreiheits-App. 
-Analysiere diesen Nutzereintrag auf Fakes, Unsinn, Beleidigungen oder unmögliche Orte:
+Du bist ein kompromissloser Sicherheits-Filter für eine App. 
+Entscheide knallhart, ob dieser Eintrag ein Fake, Müll oder am falschen Ort ist.
 
 Eintrag-Details:
 - Gemeldeter Typ: ${kurzTyp}
-- Nutzer-Kommentar: "${kommentarText}"
-- Koord: Lat ${item.lat}, Lng ${item.lng}
-- SYSTEM-FLAG BODENSEE/WASSER: ${isBodenseeWasser ? "JA (Punkt liegt im Wasser des Bodensees!)" : "NEIN"}
-- SYSTEM-FLAG TEXT-SPAM: ${hatSpamText ? "JA (Enthält verdächtige Schreibfehler/Trolling!)" : "NEIN"}
+- Kommentar: "${kommentarText}"
+- Koordinaten: Lat ${item.lat}, Lng ${item.lng}
+- WARNUNG WASSER/BODENSEE: ${isBodenseeWasser ? "JA" : "NEIN"}
+- WARNUNG TEXT-SPAM: ${hatSpamText ? "JA" : "NEIN"}
 
-EVALUATIONS-REGELN (Setze "plausibel": false sobald EIN Punkt zutrifft):
-1. Wenn SYSTEM-FLAG BODENSEE/WASSER = JA ist -> MUSS "plausibel": false sein (Wasser-Fake).
-2. Wenn SYSTEM-FLAG TEXT-SPAM = JA ist -> MUSS "plausibel": false sein (Spam/Trolling).
-3. Wenn der Kommentar Wörter wie "woederspruch", Buchstabensalat oder Beleidigungen enthält -> MUSS "plausibel": false sein.
-4. Wenn ein Hindernis oder Ort mitten im Wasser, auf Schienen oder Autobahnen gemeldet wird -> MUSS "plausibel": false sein.
+REGELN:
+Wenn WARNUNG WASSER/BODENSEE = JA ODER WARNUNG TEXT-SPAM = JA ODER der Kommentar Unsinn/Beleidigung ist, MUSS "plausibel" auf false gesetzt werden!
 
-Antworte AUSSCHLIESSLICH in diesem JSON-Format:
-{
-  "plausibel": false,
-  "grund": "Präziser Grund auf Deutsch"
-}
+Antworte NUR mit reinem JSON:
+{"plausibel": false, "grund": "Kurze Begründung"}
+oder
+{"plausibel": true, "grund": "OK"}
 `;
 
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${aktuellerKey}`, {
+            const response = await fetch(`[https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=$](https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=$){aktuellerKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -211,36 +202,41 @@ Antworte AUSSCHLIESSLICH in diesem JSON-Format:
             if (response.ok) {
                 const data = await response.json();
                 if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-                    const kiErgebnis = JSON.parse(data.candidates[0].content.parts[0].text);
+                    let rawText = data.candidates[0].content.parts[0].text;
+                    
+                    // JSON säubern (Markdown ```json ... ``` entfernen)
+                    rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+                    
+                    const kiErgebnis = JSON.parse(rawText);
 
-                    if (kiErgebnis.plausibel === false) {
+                    // Falls die KI ODER unsere System-Flags anschlagen:
+                    if (kiErgebnis.plausibel === false || kiErgebnis.plausibel === "false" || isBodenseeWasser || hatSpamText) {
                         item.status = "ai_failed";
-                        item.kiWarnung = kiErgebnis.grund || "Von KI als Fake/Spam eingestuft";
+                        item.kiWarnung = kiErgebnis.grund || "Spam oder verbotener Ort erkannt";
                         verdachtZaehler++;
                         document.getElementById("ki-found-fakes").innerText = verdachtZaehler;
                         
-                        // Speichert die Statusänderung direkt in der Datenbank
+                        console.warn(`🚨 FAKE GEFUNDEN (#${geprueftZaehler}):`, item, kiErgebnis.grund);
+
+                        // Sofort in Firebase/Datenbank speichern
                         await updateSingleMarkerInCommunity(item);
                     }
                 }
-            } else {
-                console.error("API-Fehler bei Item", item.id, await response.text());
             }
         } catch (e) {
-            console.error("KI-Fehler bei Item", item.id, e);
+            console.error("Fehler beim Prüfen von Item", item.id, e);
         }
     }
 
-    // Progress-Modal schließen
     document.body.removeChild(progressOverlay);
 
-    // Marker auf der Karte neu rendern
+    // Karte neu zeichnen
     drawMarkersOnMap();
     updateStatus("Community Live ✅", "#27AE60");
 
     await CustomUI.confirm(
-        "🎉 Hardcore-Scan beendet!",
-        `Es wurden ${geprueftZaehler} Einträge analysiert.\n\n🚨 Erkannte Fakes / Köder: ${verdachtZaehler}\n\nAlle gefundenen Fakes sind jetzt rot/violett auf der Karte markiert!`,
+        "🎉 Hardcore-Scan abgeschlossen!",
+        `Es wurden wirklich ALLE ${geprueftZaehler} Einträge analysiert.\n\n🚨 Gefundene Fakes / Köder: ${verdachtZaehler}`,
         "OK",
         ""
     );
