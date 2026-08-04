@@ -222,11 +222,16 @@ async function starteAdminKiScan() {
                     })
                 });
 
+                                // 🚨 429 Rate Limit abfangen: Live-Countdown von 8 auf 1 runterzählen!
                 if (response.status === 429) {
                     versuche++;
-                    document.getElementById("ki-scan-status-text").innerText = `⏳ Rate-Limit (429)! Abkühlen (8s)... [Versuch ${versuche}/3]`;
-                    await new Promise(r => setTimeout(r, 8000));
-                    continue;
+                    
+                    for (let sec = 8; sec > 0; sec--) {
+                        document.getElementById("ki-scan-status-text").innerText = `⏳ Rate-Limit (429)! Abkühlen in ${sec}s... [Versuch ${versuche}/3]`;
+                        await new Promise(r => setTimeout(r, 1000)); // 1 Sekunde warten
+                    }
+                    
+                    continue; // Danach erneut versuchen
                 }
 
                 if (response.ok) {
