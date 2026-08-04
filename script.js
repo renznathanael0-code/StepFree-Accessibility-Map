@@ -37,17 +37,18 @@ async function pruefeEintragMitKI(typen, kommentar, lat, lng) {
 
     const prompt = `
 Du bist ein strenger Sicherheits-Filter für eine Barrierefreiheits-App. 
-Analysiere die Nutzermeldung auf Fake, Spam, Unplausibilität oder Trolling:
+Analysiere die Nutzermeldung auf Fake, Spam, Unplausibilität, Beleidigungen oder Trolling:
 - Typ: ${Array.isArray(typen) ? typen.join(", ") : typen}
 - Kommentar: "${kommentar || 'Kein Kommentar'}"
 - Koord: Lat ${lat}, Lng ${lng}
 
-PRÜFKRITERIEN:
-1. Ort im Wasser (See/Meer/Fluss) oder auf Autobahn? -> FAKE!
-2. Buchstabensalat/Spam ("asdasd", "qwertz", etc.)? -> FAKE!
-3. Beleidigungen oder Trolling? -> FAKE!
+STRIKTE PRÜFKRITERIEN (Sofort FAKE):
+1. Beleidigungen, Trolling, Hohn oder Spott (z.B. "Opfer", "Haha", "Fick", "Trottel") -> FAKE!
+2. Aussagen wie "hier gibt es gar keinen...", die zugeben, dass die Meldung ein Scherz ist -> FAKE!
+3. Ort im Wasser (See/Meer/Fluss) oder auf Autobahn -> FAKE!
+4. Buchstabensalat/Sinnlos-Text -> FAKE!
 
-Antworte NUR als JSON:
+Antworte EXAKT im JSON-Format:
 {"plausibel": false, "grund": "Grund auf Deutsch"} oder {"plausibel": true, "grund": "OK"}
 `;
 
@@ -77,7 +78,7 @@ Antworte NUR als JSON:
 }
 
 // ==========================================
-// 🔍 ADMIN-SCAN: HARDCORE-KI-SCAN (TURBO EDITION)
+// 🔍 ADMIN-SCAN: FLEXIBLER KI-SCAN (WELTWEIT ODER AUSSCHNITT)
 // ==========================================
 async function starteAdminKiScan() {
     if (typeof isAdminPage !== 'undefined' && !isAdminPage) {
@@ -91,27 +92,50 @@ async function starteAdminKiScan() {
         return;
     }
 
-    // 1. AUTO-ZOOM: Weltweit herauszoomen & Daten neu laden
-    updateStatus("Zoome auf Weltkarte & lade alle Daten...", "#3498db");
-    map.setView([20.0, 0.0], 2);
-    
-    await new Promise(resolve => setTimeout(resolve, 800));
-    await loadFromCommunity();
+    // 1. DIALOG: Weltweit oder nur aktueller Ausschnitt?
+    const modusAuswahl = await CustomUI.confirm(
+        "🎯 KI-Scan Bereich wählen",
+        "Möchtest du die GESAMTE Datenbank prüfen oder NUR den aktuell sichtbaren Kartenausschnitt?\n\n",
+        "🌍 Alle Einträge (Weltweit)",
+        "📍 Nur aktuellen Ausschnitt"
+    );
 
-    const totalCount = reportsData.length;
+    updateStatus("Lade Daten für KI-Check...", "#3498db");
+
+    let zielEintraege = [];
+
+    if (modusAuswahl) {
+        // Weltweit: Herauszoomen & Alle laden
+        map.setView([20.0, 0.0], 2);
+        await new Promise(resolve => setTimeout(resolve, 800));
+        await loadFromCommunity();
+        zielEintraege = reportsData;
+    } else {
+        // Aktueller Ausschnitt: Karten-Grenzen abfragen
+        await loadFromCommunity(); // Sicherstellen, dass Daten frisch sind
+        const bounds = map.getBounds();
+        
+        zielEintraege = reportsData.filter(item => {
+            return bounds.contains([item.lat, item.lng]);
+        });
+    }
+
+    const totalCount = zielEintraege.length;
+
     if (totalCount === 0) {
-        alert("Keine Einträge in der Datenbank gefunden.");
+        alert("Keine Einträge im gewählten Bereich gefunden.");
         return;
     }
 
-    const bestaetigung = await CustomUI.confirm(
-        "⚡ Hardcore-KI-Scan starten",
-        `Es wurden ${totalCount} Einträge geladen.\n\nAlle nötigen Punkte werden jetzt geprüft.`,
+    // Bestätigung vor dem echten Start
+    const startBestaetigung = await CustomUI.confirm(
+        "⚡ KI-Scan starten",
+        `Es wurden ${totalCount} Einträge im Bereich gefunden.\n\nSollen diese jetzt auf Fakes/Spam geprüft werden?`,
         "Scan JETZT starten",
         "Abbrechen"
     );
 
-    if (!bestaetigung) return;
+    if (!startBestaetigung) return;
 
     // Ladebalken-Modal anzeigen
     const progressOverlay = document.createElement('div');
@@ -120,7 +144,7 @@ async function starteAdminKiScan() {
     progressOverlay.innerHTML = `
         <div style="background:white; padding:25px; border-radius:16px; max-width:420px; width:100%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.4); text-align:center;">
             <div style="font-size:2.5em; margin-bottom:10px;">🕵️‍♂️</div>
-            <h3 style="margin:0 0 8px 0; color:#1e293b; font-size:1.3em;">Deep-KI-Scan läuft...</h3>
+            <h3 style="margin:0 0 8px 0; color:#1e293b; font-size:1.3em;">KI-Scan läuft...</h3>
             <p id="ki-scan-status-text" style="font-size:0.85em; color:#64748b; margin-bottom:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Starte System...</p>
             
             <div style="width:100%; background:#e2e8f0; height:20px; border-radius:10px; overflow:hidden; margin-bottom:10px;">
@@ -141,11 +165,10 @@ async function starteAdminKiScan() {
 
     let geprueftZaehler = 0;
     let verdachtZaehler = 0;
-
     const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + aktuellerKey;
 
     for (let i = 0; i < totalCount; i++) {
-        const item = reportsData[i];
+        const item = zielEintraege[i];
         geprueftZaehler++;
 
         const percent = Math.round((geprueftZaehler / totalCount) * 100);
@@ -171,13 +194,16 @@ async function starteAdminKiScan() {
         const isBodenseeWasser = (item.lat >= 47.45 && item.lat <= 47.85 && item.lng >= 8.85 && item.lng <= 9.75);
         const verdaechtigeBegriffe = [
             "woederspruch", "asdasd", "qwertz", "dfgklj", "fick", "arsch", "hurensohn", 
-            "idiot", "test1234", "köder", "koeder", "fake", "test"
+            "idiot", "test1234", "köder", "koeder", "fake", "opfer", "gar keinen", "hahaha"
         ];
         const hatSpamText = verdaechtigeBegriffe.some(w => textLower.includes(w));
 
-        if (isBodenseeWasser || hatSpamText) {
+        // Erkennt Tastatur-Gefimmel wie "Abcdercdfhbrgbfrg" (6+ Konsonanten am Stück)
+        const istKonsonantenSalat = /[bcdfghjklmnpqrstvwxyz]{6,}/i.test(kommentarText);
+
+        if (isBodenseeWasser || hatSpamText || istKonsonantenSalat) {
             item.status = "ai_failed";
-            item.kiWarnung = isBodenseeWasser ? "Ort liegt im Wasser (Wasser-Fake)" : "Köder-/Spam-Text erkannt";
+            item.kiWarnung = isBodenseeWasser ? "Ort im Wasser" : "Spam/Trolling/Salat lokal erkannt";
             verdachtZaehler++;
             document.getElementById("ki-found-fakes").innerText = verdachtZaehler;
             await updateSingleMarkerInCommunity(item);
@@ -189,7 +215,6 @@ async function starteAdminKiScan() {
             continue; // Komplett leere Meldungen ohne Kommentar überspringen
         }
 
-        // Erkennt kurzen Müll wie "qwt", "dfg", "123", "aaa" SOFORT ohne KI
         const istKurzerSalat = kommentarText.length < 6 && (
             !/[aeiouäöüy]/i.test(kommentarText) || // Kein einziger Vokal!
             /^[0-9]+$/.test(kommentarText) ||       // Nur Zahlen
@@ -205,8 +230,8 @@ async function starteAdminKiScan() {
             continue;
         }
 
-        // 4. KI-PRÜFUNG FÜR FREITEXTE & UNKLARHEITEN
-        const prompt = `Analysiere diesen Eintrag auf Fake/Spam: Typ: ${kurzTyp}, Text: "${kommentarText}", Lat: ${item.lat}, Lng: ${item.lng}. Antworte NUR als JSON: {"plausibel": false, "grund": "Grund"} oder {"plausibel": true, "grund": "OK"}`;
+        // 4. KI-PRÜFUNG FÜR FREITEXTE
+        const prompt = `Analysiere diesen Eintrag auf Fake/Spam/Trolling: Typ: ${kurzTyp}, Text: "${kommentarText}", Lat: ${item.lat}, Lng: ${item.lng}. Antworte NUR als JSON: {"plausibel": false, "grund": "Grund"} oder {"plausibel": true, "grund": "OK"}`;
 
         let erfolg = false;
         let versuche = 0;
@@ -222,16 +247,14 @@ async function starteAdminKiScan() {
                     })
                 });
 
-                                // 🚨 429 Rate Limit abfangen: Live-Countdown von 8 auf 1 runterzählen!
+                // 🚨 Live-Countdown bei Rate-Limit (429)
                 if (response.status === 429) {
                     versuche++;
-                    
                     for (let sec = 8; sec > 0; sec--) {
                         document.getElementById("ki-scan-status-text").innerText = `⏳ Rate-Limit (429)! Abkühlen in ${sec}s... [Versuch ${versuche}/3]`;
-                        await new Promise(r => setTimeout(r, 1000)); // 1 Sekunde warten
+                        await new Promise(r => setTimeout(r, 1000));
                     }
-                    
-                    continue; // Danach erneut versuchen
+                    continue;
                 }
 
                 if (response.ok) {
@@ -242,7 +265,7 @@ async function starteAdminKiScan() {
 
                         if (kiErgebnis.plausibel === false || kiErgebnis.plausibel === "false") {
                             item.status = "ai_failed";
-                            item.kiWarnung = kiErgebnis.grund || "Spam oder verbotener Ort erkannt";
+                            item.kiWarnung = kiErgebnis.grund || "Spam oder Trolling erkannt";
                             verdachtZaehler++;
                             document.getElementById("ki-found-fakes").innerText = verdachtZaehler;
                             await updateSingleMarkerInCommunity(item);
@@ -256,7 +279,7 @@ async function starteAdminKiScan() {
             }
         }
 
-        // ⏱️ Schneller 2-Sekunden-Puffer vor dem nächsten KI-Call
+        // ⏱️ 2 Sekunden Puffer für Gemini API
         await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
@@ -266,19 +289,13 @@ async function starteAdminKiScan() {
     updateStatus("Community Live ✅", "#27AE60");
 
     await CustomUI.confirm(
-        "🎉 Hardcore-Scan abgeschlossen!",
-        `Es wurden ${geprueftZaehler} Einträge analysiert.\n\n🚨 Gefundene Fakes / Köder: ${verdachtZaehler}`,
+        "🎉 Bereichs-Scan abgeschlossen!",
+        `Es wurden ${geprueftZaehler} Einträge im Bereich analysiert.\n\n🚨 Gefundene Fakes / Köder: ${verdachtZaehler}`,
         "OK",
         ""
     );
 }
 
-// ==========================================
-// 🌍 GLOBALE EXPORTE (WICHTIG FÜR HTML-BUTTONS)
-// ==========================================
-window.getValidApiKey = getValidApiKey;
-window.pruefeEintragMitKI = pruefeEintragMitKI;
-window.starteAdminKiScan = starteAdminKiScan;
 
 // --- MODERN SERVICE WORKER & PUSH REGISTRATION ---
 const PushService = {
