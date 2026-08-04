@@ -1,241 +1,29 @@
 const isAdminPage = window.location.pathname.includes("admin.html");
 
 // ==========================================
-// 🤖 STRIKER GEMINI KI-FILTER (FÜR WATER, SPAM & FAKES)
+// 🔐 HELPER: GEMINI-KEY HOLEN ODER PER DIALOG ERFRAGEN
 // ==========================================
-async function pruefeEintragMitKI(typen, kommentar, lat, lng) {
-    // 🔐 Key-Splitter
-    const p1 = "AQ.Ab8RN6JviMIITJLMZXIfGm";
-    const p2 = "ITJLMZXIfGmxGeudRWKgZ";
-    const p3 = "DnkjlZNEWPBJWfBWag";
+const GLOBAL_GEMINI_KEY = ""; // Aus Sicherheitsgründen leer lassen!
 
-    const zentralerKey = p1 + p2 + p3;
-    const aktuellerKey = localStorage.getItem("gemini_api_key") || zentralerKey;
+function getValidApiKey() {
+    // 1. Aus localStorage lesen
+    let savedKey = localStorage.getItem("gemini_api_key");
 
-    if (!aktuellerKey || aktuellerKey.includes("DEIN_") || aktuellerKey.trim() === "") {
-        return { plausibel: true, grund: "KI-Check übersprungen (Kein Key hinterlegt)" };
-    }
-
-    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-3.6-flash:generateContent?key=${aktuellerKey}`;
-
-    const prompt = `
-Du bist ein extrem strenger und kompromissloser Sicherheits-Filter für eine Barrierefreiheits-App. 
-Analysiere die folgende Nutzermeldung akribisch auf Fake, Spam, Unplausibilität oder Trolling:
-
-- Typ(en) des Eintrags: ${Array.isArray(typen) ? typen.join(", ") : typen}
-- Kommentar des Nutzers: "${kommentar || 'Kein Kommentar'}"
-- Exakte Koordinaten: Breitengrad ${lat}, Längengrad ${lng}
-
-STRIKTE PRÜFKRITERIEN (Sobald AUCH NUR EIN Punkt zutrifft, setze "plausibel": false):
-
-1. UNMÖGLICHER / FALSCHER ORT (GEOGRAFIESCHECK):
-   Prüfe die Koordinaten (Lat: ${lat}, Lng: ${lng}) geografisch ganz genau.
-   - Liegt der Punkt mitten in einem Gewässer (z.B. Bodensee, Ostsee, Nordsee, Rhein, Neckar, Fluss, See, Teich, Meer)?
-   - Liegt der Punkt auf einer Autobahn, einer freien Landstraße, Gleisanlagen, mitten in einem tiefen Wald oder auf freiem Feld, wo es keinen Sinn ergibt, ein Hindernis oder einen barrierefreien Ort zu melden?
-   Ein E-Scooter, Aufzug, WC oder Hindernis im Wasser oder auf Autobahnen ist IMMER EIN FAKE!
-
-2. BUCHSTABENSALAT, SPAM & SINNLOSER TEXT:
-   Enthält der Kommentar sinnlose Zeichenfolgen, Buchstabensalat (z.B. "asdasd", "woederspruch", "qwertz", "fgjk"), wahllose Tastatur-Anschläge oder unverständliches Kauderwelsch?
-
-3. BELEIDIGUNGEN, VULGARITÄT & TOXIZITÄT:
-   Enthält der Kommentar Schimpfwörter, Beleidigungen, Provokationen, Fäkalsprache, Herabwürdigungen oder Trolling?
-
-4. LOGISCHE WIDERSPRÜCHE:
-   Widerspricht der Kommentar dem gewählten Typ völlig (z. B. Typ "Aufzug defekt", Kommentar "Hier gibt es gar keinen Aufzug" oder "Kein Aufzug da")?
-
-Antworte ausschließlich im folgenden JSON-Format:
-{
-  "plausibel": true oder false,
-  "grund": "Kurze, präzise Begründung auf Deutsch, warum der Eintrag abgelehnt wurde (oder 'OK' wenn plausibel)"
-}
-`;
-
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    temperature: 0.1 // Extrem niedriger Wert für knallharte, konsequente Regelauslegung
-                }
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.error) {
-            return { plausibel: true, grund: `Google-API-Fehler: ${data.error.message}` };
+    // 2. Falls kein gültiger Key vorhanden ist, per Prompt-Popup abfragen
+    if (!savedKey || savedKey.trim() === "" || savedKey.includes("DEIN_")) {
+        const eingabeKey = prompt("🔑 Gemini API-Key erforderlich:\n\nBitte gib deinen API-Key ein, um die KI-Prüfung zu nutzen:");
+        
+        if (eingabeKey && eingabeKey.trim() !== "") {
+            savedKey = eingabeKey.trim();
+            localStorage.setItem("gemini_api_key", savedKey);
+            alert("✅ API-Key erfolgreich auf deinem Gerät gespeichert!");
+        } else {
+            return ""; // Benutzer hat abgebrochen
         }
-
-        const rawText = data.candidates[0].content.parts[0].text;
-        return JSON.parse(rawText);
-
-    } catch (e) {
-        console.error("KI-Prüfung fehlgeschlagen:", e);
-        return { plausibel: true, grund: `Fehler bei der Prüfung: ${e.message}` };
     }
-}
-
-// ==========================================
-// 🔍 ADMIN-SCAN: HARDCORE-KI-SCAN (GEMINI 3.6 FLASH)
-// ==========================================
-async function starteAdminKiScan() {
-    if (!isAdminPage) {
-        alert("Diese Funktion ist nur im Admin-Bereich verfügbar.");
-        return;
-    }
-
-    // 1. AUTO-ZOOM: Weltweit herauszoomen & Daten neu aus Firebase/Community laden
-    updateStatus("Zoome auf Weltkarte & lade alle Daten...", "#3498db");
-    map.setView([20.0, 0.0], 2); // 🌍 Weltansicht
     
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    await loadFromCommunity();
-
-    const totalCount = reportsData.length;
-    if (totalCount === 0) {
-        alert("Keine Einträge in der Datenbank gefunden.");
-        return;
-    }
-
-    const bestaetigung = await CustomUI.confirm(
-        "🤖 KI-Hardcore-Scan (v3.6) starten",
-        `Es wurden ${totalCount} Einträge geladen.\n\nAlle Punkte werden jetzt mit Gemini 3.6 Flash auf Wasser-Fakes, Spam & Trolling geprüft.`,
-        "Scan JETZT starten",
-        "Abbrechen"
-    );
-
-    if (!bestaetigung) return;
-
-    // Ladebalken-Modal anzeigen
-    const progressOverlay = document.createElement('div');
-    progressOverlay.id = "ki-progress-modal";
-    progressOverlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15, 23, 42, 0.85); backdrop-filter:blur(6px); z-index:99999; display:flex; align-items:center; justify-content:center; font-family:sans-serif; padding:20px; box-sizing:border-box;";
-    progressOverlay.innerHTML = `
-        <div style="background:white; padding:25px; border-radius:16px; max-width:420px; width:100%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.4); text-align:center;">
-            <div style="font-size:2.5em; margin-bottom:10px;">🕵️‍♂️</div>
-            <h3 style="margin:0 0 8px 0; color:#1e293b; font-size:1.3em;">Deep-KI-Scan (v3.6) läuft...</h3>
-            <p id="ki-scan-status-text" style="font-size:0.85em; color:#64748b; margin-bottom:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Starte System...</p>
-            
-            <div style="width:100%; background:#e2e8f0; height:20px; border-radius:10px; overflow:hidden; margin-bottom:10px;">
-                <div id="ki-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg, #e74c3c, #8e44ad); transition:width 0.2s ease;"></div>
-            </div>
-            
-            <div style="display:flex; justify-content:space-between; font-size:0.9em; color:#475569; font-weight:bold; margin-bottom:15px;">
-                <span id="ki-progress-percent">0%</span>
-                <span id="ki-progress-count">0 / ${totalCount}</span>
-            </div>
-
-            <div style="background:#fff5f5; padding:12px; border-radius:8px; border:1px solid #feb2b2; font-size:0.9em; color:#c53030; text-align:left;">
-                🚨 Erkannte Fakes / Köder: <b id="ki-found-fakes" style="font-size:1.1em;">0</b>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(progressOverlay);
-
-    let geprueftZaehler = 0;
-    let verdachtZaehler = 0;
-
-    const p1 = "AQ.Ab8RN6JviMIITJLMZXIfGm";
-    const p2 = "ITJLMZXIfGmxGeudRWKgZ";
-    const p3 = "DnkjlZNEWPBJWfBWag";
-    const aktuellerKey = localStorage.getItem("gemini_api_key") || (p1 + p2 + p3);
-
-    // 🚨 EXPLICIT URL MIT GEMINI 3.6 FLASH & OHNE TEMPLATE-STRING-FEHLER
-    const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=" + aktuellerKey;
-
-    for (let i = 0; i < totalCount; i++) {
-        const item = reportsData[i];
-        geprueftZaehler++;
-
-        const percent = Math.round((geprueftZaehler / totalCount) * 100);
-        document.getElementById("ki-progress-bar").style.width = `${percent}%`;
-        document.getElementById("ki-progress-percent").innerText = `${percent}%`;
-        document.getElementById("ki-progress-count").innerText = `${geprueftZaehler} / ${totalCount}`;
-
-        const typenArray = Array.isArray(item.typ) ? item.typ : [item.typ];
-        const kurzTyp = typenArray.join(", ");
-        const kommentarText = item.kommentar || "";
-
-        document.getElementById("ki-scan-status-text").innerText = `Prüfe #${geprueftZaehler}: "${kurzTyp}"`;
-
-        // Hard-Check-Flags
-        const isBodenseeWasser = (item.lat >= 47.45 && item.lat <= 47.85 && item.lng >= 8.85 && item.lng <= 9.75);
-        const textLower = kommentarText.toLowerCase();
-
-        const verdaechtigeBegriffe = ["woederspruch", "asdasd", "qwertz", "dfgklj", "fick", "arsch", "hurensohn", "idiot", "test1234"];
-        const hatSpamText = verdaechtigeBegriffe.some(w => textLower.includes(w));
-
-        const prompt = `
-Du bist ein Sicherheits-Filter. Analysiere diesen Eintrag:
-- Gemeldeter Typ: ${kurzTyp}
-- Kommentar: "${kommentarText}"
-- Koord: Lat ${item.lat}, Lng ${item.lng}
-- SYSTEM-WARNUNG WASSERWASSERFALL: ${isBodenseeWasser ? "JA (Bodensee!)" : "NEIN"}
-- SYSTEM-WARNUNG TEXT-SPAM: ${hatSpamText ? "JA (Verdächtig/Fehler!)" : "NEIN"}
-
-EVALUATIONS-REGELN:
-Wenn SYSTEM-WARNUNG WASSERWASSERFALL = JA oder SYSTEM-WARNUNG TEXT-SPAM = JA oder der Kommentar Quatsch/Beleidigung ist -> MUSS "plausibel": false sein.
-
-Antworte NUR mit JSON:
-{"plausibel": false, "grund": "Grund auf Deutsch"}
-`;
-
-        try {
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        responseMimeType: "application/json",
-                        temperature: 0.0
-                    }
-                })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-                    let rawText = data.candidates[0].content.parts[0].text;
-                    
-                    // JSON säubern
-                    rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
-                    const kiErgebnis = JSON.parse(rawText);
-
-                    if (kiErgebnis.plausibel === false || kiErgebnis.plausibel === "false" || isBodenseeWasser || hatSpamText) {
-                        item.status = "ai_failed";
-                        item.kiWarnung = kiErgebnis.grund || "Spam oder verbotener Ort erkannt";
-                        verdachtZaehler++;
-                        document.getElementById("ki-found-fakes").innerText = verdachtZaehler;
-                        
-                        await updateSingleMarkerInCommunity(item);
-                    }
-                }
-            } else {
-                console.error("API-Fehler bei Item", item.id, await response.text());
-            }
-        } catch (e) {
-            console.error("Fehler beim Prüfen von Item", item.id, e);
-        }
-    }
-
-    document.body.removeChild(progressOverlay);
-
-    // Marker neu rendern
-    drawMarkersOnMap();
-    updateStatus("Community Live ✅", "#27AE60");
-
-    await CustomUI.confirm(
-        "🎉 Hardcore-Scan abgeschlossen!",
-        `Es wurden ${geprueftZaehler} Einträge analysiert.\n\n🚨 Gefundene Fakes / Köder: ${verdachtZaehler}`,
-        "OK",
-        ""
-    );
+    return savedKey;
 }
-window.starteAdminKiScan = starteAdminKiScan;
 
 // --- MODERN SERVICE WORKER & PUSH REGISTRATION ---
 const PushService = {
