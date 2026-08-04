@@ -153,7 +153,7 @@ async function starteAdminKiScan() {
         document.getElementById("ki-progress-percent").innerText = `${percent}%`;
         document.getElementById("ki-progress-count").innerText = `${geprueftZaehler} / ${totalCount}`;
 
-        // ⚡ NUR NÖTIGE PUNKTE 1: Bereites Geflaggte Marker überspringen
+        // ⚡ NUR NÖTIGE PUNKTE 1: Bereits geflaggte Marker überspringen
         if (item.status === "ai_failed") {
             verdachtZaehler++;
             document.getElementById("ki-found-fakes").innerText = verdachtZaehler;
@@ -182,21 +182,19 @@ async function starteAdminKiScan() {
             continue;
         }
 
-        // ⚡ NUR NÖTIGE PUNKTE 3: Saubere Kurztexte ohne KI durchwinken
-        const istUnverdaechtig = kommentarText.length === 0 || 
-                                (kommentarText.length < 40 && !/[0-9]{5,}/.test(kommentarText));
-
-        if (istUnverdaechtig) {
+        // ⚡ NUR NÖTIGE PUNKTE 3: Nur WIRKLICH leere Einträge überspringen!
+        // Sobald Text existiert (egal wie kurz), prüft Gemini knallhart nach.
+        if (kommentarText.length === 0) {
             continue;
         }
 
-        // 🤖 KI-PRÜFUNG FÜR FREITEXTE
+        // 🤖 KI-PRÜFUNG FÜR FREITEXTE (Mit Auto-Retry bei Status 429)
         const prompt = `Analysiere diesen Eintrag auf Fake/Spam: Typ: ${kurzTyp}, Text: "${kommentarText}", Lat: ${item.lat}, Lng: ${item.lng}. Antworte NUR als JSON: {"plausibel": false, "grund": "Grund"} oder {"plausibel": true, "grund": "OK"}`;
 
         let erfolg = false;
         let versuche = 0;
 
-        while (!erfolg && versuche < 2) {
+        while (!erfolg && versuche < 3) {
             try {
                 const response = await fetch(apiUrl, {
                     method: 'POST',
@@ -207,10 +205,11 @@ async function starteAdminKiScan() {
                     })
                 });
 
+                // 🚨 429 Rate Limit abfangen: Warte 10 Sekunden und versuche es erneut!
                 if (response.status === 429) {
                     versuche++;
-                    document.getElementById("ki-scan-status-text").innerText = `⏳ Rate-Limit! Warte 4 Sek...`;
-                    await new Promise(r => setTimeout(r, 6000));
+                    document.getElementById("ki-scan-status-text").innerText = `⏳ Rate-Limit (429)! Abkühlen (10s)... [Versuch ${versuche}/3]`;
+                    await new Promise(r => setTimeout(r, 10000));
                     continue;
                 }
 
@@ -236,8 +235,8 @@ async function starteAdminKiScan() {
             }
         }
 
-        // ⏱️ 4 SEKUNDEN PUFFER ZWISCHEN ECHTEN KI-REQUESTS
-        await new Promise(resolve => setTimeout(resolve, 4000));
+        // ⏱️ Sicherer 5-Sekunden-Puffer vor dem nächsten Eintrag
+        await new Promise(resolve => setTimeout(resolve, 5000));
     }
 
     document.body.removeChild(progressOverlay);
@@ -259,7 +258,6 @@ async function starteAdminKiScan() {
 window.getValidApiKey = getValidApiKey;
 window.pruefeEintragMitKI = pruefeEintragMitKI;
 window.starteAdminKiScan = starteAdminKiScan;
-
 
 // --- MODERN SERVICE WORKER & PUSH REGISTRATION ---
 const PushService = {
