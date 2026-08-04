@@ -78,7 +78,7 @@ Antworte EXAKT im JSON-Format:
 }
 
 // ==========================================
-// 🔍 ADMIN-SCAN: FLEXIBLER KI-SCAN (WELTWEIT ODER AUSSCHNITT)
+// 🔍 ADMIN-SCAN: INTELLIGENTER KI-SCAN (MIT PASS-STATUS)
 // ==========================================
 async function starteAdminKiScan() {
     if (typeof isAdminPage !== 'undefined' && !isAdminPage) {
@@ -92,10 +92,10 @@ async function starteAdminKiScan() {
         return;
     }
 
-    // 1. DIALOG: Weltweit oder nur aktueller Ausschnitt?
+    // 1. DIALOG: Bereich wählen
     const modusAuswahl = await CustomUI.confirm(
         "🎯 KI-Scan Bereich wählen",
-        "Möchtest du die GESAMTE Datenbank prüfen oder NUR den aktuell sichtbaren Kartenausschnitt?\n\n",
+        "Möchtest du die GESAMTE Datenbank prüfen oder NUR den aktuell sichtbaren Kartenausschnitt?\n\n(Bereits geprüfte Punkte werden automatisch übersprungen!)",
         "🌍 Alle Einträge (Weltweit)",
         "📍 Nur aktuellen Ausschnitt"
     );
@@ -105,14 +105,12 @@ async function starteAdminKiScan() {
     let zielEintraege = [];
 
     if (modusAuswahl) {
-        // Weltweit: Herauszoomen & Alle laden
         map.setView([20.0, 0.0], 2);
         await new Promise(resolve => setTimeout(resolve, 800));
         await loadFromCommunity();
         zielEintraege = reportsData;
     } else {
-        // Aktueller Ausschnitt: Karten-Grenzen abfragen
-        await loadFromCommunity(); // Sicherstellen, dass Daten frisch sind
+        await loadFromCommunity();
         const bounds = map.getBounds();
         
         zielEintraege = reportsData.filter(item => {
@@ -120,24 +118,39 @@ async function starteAdminKiScan() {
         });
     }
 
-    const totalCount = zielEintraege.length;
+    // 2. FILTERN: Wie viele Punkte sind WIRKLICH neu/ungeprüft?
+    const ungelosteEintraege = zielEintraege.filter(item => item.status !== "ai_failed" && item.status !== "ai_passed");
+    const bereitsGeprueftZahl = zielEintraege.length - ungelosteEintraege.length;
 
-    if (totalCount === 0) {
+    if (zielEintraege.length === 0) {
         alert("Keine Einträge im gewählten Bereich gefunden.");
         return;
     }
 
-    // Bestätigung vor dem echten Start
+    if (ungelosteEintraege.length === 0) {
+        await CustomUI.confirm(
+            "✅ Alles bereits sauber!",
+            `Alle ${zielEintraege.length} Einträge in diesem Bereich wurden bereits früher geprüft und sind in Ordnung!`,
+            "OK",
+            ""
+        );
+        return;
+    }
+
+    // Bestätigung mit Information über bereits geprüfte Punkte
     const startBestaetigung = await CustomUI.confirm(
         "⚡ KI-Scan starten",
-        `Es wurden ${totalCount} Einträge im Bereich gefunden.\n\nSollen diese jetzt auf Fakes/Spam geprüft werden?`,
+        `Gesamt im Bereich: ${zielEintraege.length}\n` +
+        `✅ Bereits geprüft (wird übersprungen): ${bereitsGeprueftZahl}\n` +
+        `🔍 Noch zu prüfen: ${ungelosteEintraege.length}\n\n` +
+        `Soll der Scan für die verbleibenden ${ungelosteEintraege.length} Punkte gestartet werden?`,
         "Scan JETZT starten",
         "Abbrechen"
     );
 
     if (!startBestaetigung) return;
 
-    // Ladebalken-Modal anzeigen
+    // Modal UI
     const progressOverlay = document.createElement('div');
     progressOverlay.id = "ki-progress-modal";
     progressOverlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15, 23, 42, 0.85); backdrop-filter:blur(6px); z-index:99999; display:flex; align-items:center; justify-content:center; font-family:sans-serif; padding:20px; box-sizing:border-box;";
@@ -148,12 +161,12 @@ async function starteAdminKiScan() {
             <p id="ki-scan-status-text" style="font-size:0.85em; color:#64748b; margin-bottom:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Starte System...</p>
             
             <div style="width:100%; background:#e2e8f0; height:20px; border-radius:10px; overflow:hidden; margin-bottom:10px;">
-                <div id="ki-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg, #e74c3c, #8e44ad); transition:width 0.1s ease;"></div>
+                <div id="ki-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg, #38ef7d, #11998e); transition:width 0.1s ease;"></div>
             </div>
             
             <div style="display:flex; justify-content:space-between; font-size:0.9em; color:#475569; font-weight:bold; margin-bottom:15px;">
                 <span id="ki-progress-percent">0%</span>
-                <span id="ki-progress-count">0 / ${totalCount}</span>
+                <span id="ki-progress-count">0 / ${zielEintraege.length}</span>
             </div>
 
             <div style="background:#fff5f5; padding:12px; border-radius:8px; border:1px solid #feb2b2; font-size:0.9em; color:#c53030; text-align:left;">
@@ -165,6 +178,7 @@ async function starteAdminKiScan() {
 
     let geprueftZaehler = 0;
     let verdachtZaehler = 0;
+    const totalCount = zielEintraege.length;
     const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + aktuellerKey;
 
     for (let i = 0; i < totalCount; i++) {
@@ -176,11 +190,14 @@ async function starteAdminKiScan() {
         document.getElementById("ki-progress-percent").innerText = `${percent}%`;
         document.getElementById("ki-progress-count").innerText = `${geprueftZaehler} / ${totalCount}`;
 
-        // 1. Bereits geflaggte Marker überspringen
+        // 🛑 ULTRA-SCHNELL: Bereits geflaggte oder als OK bestätigte Punkte sofort überspringen!
         if (item.status === "ai_failed") {
             verdachtZaehler++;
             document.getElementById("ki-found-fakes").innerText = verdachtZaehler;
             continue;
+        }
+        if (item.status === "ai_passed") {
+            continue; // Bereits früher geprüft & für gut befunden!
         }
 
         const typenArray = Array.isArray(item.typ) ? item.typ : [item.typ];
@@ -190,15 +207,13 @@ async function starteAdminKiScan() {
 
         document.getElementById("ki-scan-status-text").innerText = `Prüfe #${geprueftZaehler}: "${kurzTyp}"`;
 
-        // 2. LOKALE HARD-CHECKS (0ms local)
+        // 3. LOKALE HARD-CHECKS (0ms local)
         const isBodenseeWasser = (item.lat >= 47.45 && item.lat <= 47.85 && item.lng >= 8.85 && item.lng <= 9.75);
         const verdaechtigeBegriffe = [
             "woederspruch", "asdasd", "qwertz", "dfgklj", "fick", "arsch", "hurensohn", 
             "idiot", "test1234", "köder", "koeder", "fake", "opfer", "gar keinen", "hahaha"
         ];
         const hatSpamText = verdaechtigeBegriffe.some(w => textLower.includes(w));
-
-        // Erkennt Tastatur-Gefimmel wie "Abcdercdfhbrgbfrg" (6+ Konsonanten am Stück)
         const istKonsonantenSalat = /[bcdfghjklmnpqrstvwxyz]{6,}/i.test(kommentarText);
 
         if (isBodenseeWasser || hatSpamText || istKonsonantenSalat) {
@@ -210,15 +225,17 @@ async function starteAdminKiScan() {
             continue;
         }
 
-        // 3. SCHNELL-CHECK FÜR KURZEN TEXT / BUCHSTABENSALAT (0ms)
         if (kommentarText.length === 0) {
-            continue; // Komplett leere Meldungen ohne Kommentar überspringen
+            // Leere Kommentare automatisch als OK/Passed markieren
+            item.status = "ai_passed";
+            await updateSingleMarkerInCommunity(item);
+            continue;
         }
 
         const istKurzerSalat = kommentarText.length < 6 && (
-            !/[aeiouäöüy]/i.test(kommentarText) || // Kein einziger Vokal!
-            /^[0-9]+$/.test(kommentarText) ||       // Nur Zahlen
-            /(.)\1{2,}/.test(kommentarText)         // 3x Buchstabe wiederholt (z.B. zzz)
+            !/[aeiouäöüy]/i.test(kommentarText) ||
+            /^[0-9]+$/.test(kommentarText) ||
+            /(.)\1{2,}/.test(kommentarText)
         );
 
         if (istKurzerSalat) {
@@ -247,7 +264,6 @@ async function starteAdminKiScan() {
                     })
                 });
 
-                // 🚨 Live-Countdown bei Rate-Limit (429)
                 if (response.status === 429) {
                     versuche++;
                     for (let sec = 8; sec > 0; sec--) {
@@ -268,8 +284,12 @@ async function starteAdminKiScan() {
                             item.kiWarnung = kiErgebnis.grund || "Spam oder Trolling erkannt";
                             verdachtZaehler++;
                             document.getElementById("ki-found-fakes").innerText = verdachtZaehler;
-                            await updateSingleMarkerInCommunity(item);
+                        } else {
+                            // ✅ ERFOLGREICH GEPRÜFT: Auf "ai_passed" setzen!
+                            item.status = "ai_passed";
                         }
+                        // Status dauerhaft in der Datenbank speichern
+                        await updateSingleMarkerInCommunity(item);
                     }
                 }
                 erfolg = true;
@@ -279,7 +299,6 @@ async function starteAdminKiScan() {
             }
         }
 
-        // ⏱️ 2 Sekunden Puffer für Gemini API
         await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
@@ -289,13 +308,12 @@ async function starteAdminKiScan() {
     updateStatus("Community Live ✅", "#27AE60");
 
     await CustomUI.confirm(
-        "🎉 Bereichs-Scan abgeschlossen!",
-        `Es wurden ${geprueftZaehler} Einträge im Bereich analysiert.\n\n🚨 Gefundene Fakes / Köder: ${verdachtZaehler}`,
+        "🎉 KI-Scan abgeschlossen!",
+        `Es wurden ${geprueftZaehler} Einträge analysiert.\n\n🚨 Gefundene Fakes / Köder: ${verdachtZaehler}\n✅ Alle sauberen Punkte wurden als 'Geprüft' markiert.`,
         "OK",
         ""
     );
 }
-
 
 // --- MODERN SERVICE WORKER & PUSH REGISTRATION ---
 const PushService = {
