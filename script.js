@@ -16,7 +16,7 @@ async function pruefeEintragMitKI(typen, kommentar, lat, lng) {
         return { plausibel: true, grund: "KI-Check übersprungen (Kein Key hinterlegt)" };
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${aktuellerKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-3.6-flash:generateContent?key=${aktuellerKey}`;
 
     const prompt = `
 Du bist ein extrem strenger und kompromissloser Sicherheits-Filter für eine Barrierefreiheits-App. 
@@ -79,7 +79,7 @@ Antworte ausschließlich im folgenden JSON-Format:
 }
 
 // ==========================================
-// 🔍 ADMIN-SCAN: HARDCORE-KI-SCAN (JEZT MIT SAUBEREM PARSING & OHNE EXCLUSIONS)
+// 🔍 ADMIN-SCAN: HARDCORE-KI-SCAN (GEMINI 3.6 FLASH)
 // ==========================================
 async function starteAdminKiScan() {
     if (!isAdminPage) {
@@ -87,9 +87,9 @@ async function starteAdminKiScan() {
         return;
     }
 
-    // 1. AUTO-ZOOM: Weltweit herauszoomen & Daten frisch aus der Community laden
+    // 1. AUTO-ZOOM: Weltweit herauszoomen & Daten neu aus Firebase/Community laden
     updateStatus("Zoome auf Weltkarte & lade alle Daten...", "#3498db");
-    map.setView([20.0, 0.0], 2); // 🌍 Weltkarte
+    map.setView([20.0, 0.0], 2); // 🌍 Weltansicht
     
     await new Promise(resolve => setTimeout(resolve, 1000));
     await loadFromCommunity();
@@ -101,22 +101,22 @@ async function starteAdminKiScan() {
     }
 
     const bestaetigung = await CustomUI.confirm(
-        "🤖 Hardcore-Scan wirklich starten?",
-        `Es wurden ${totalCount} Einträge geladen.\n\nJEDER einzelne Eintrag auf der Weltkarte wird jetzt kompromisslos durchleuchtet.`,
+        "🤖 KI-Hardcore-Scan (v3.6) starten",
+        `Es wurden ${totalCount} Einträge geladen.\n\nAlle Punkte werden jetzt mit Gemini 3.6 Flash auf Wasser-Fakes, Spam & Trolling geprüft.`,
         "Scan JETZT starten",
         "Abbrechen"
     );
 
     if (!bestaetigung) return;
 
-    // Ladebalken-Modal
+    // Ladebalken-Modal anzeigen
     const progressOverlay = document.createElement('div');
     progressOverlay.id = "ki-progress-modal";
     progressOverlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15, 23, 42, 0.85); backdrop-filter:blur(6px); z-index:99999; display:flex; align-items:center; justify-content:center; font-family:sans-serif; padding:20px; box-sizing:border-box;";
     progressOverlay.innerHTML = `
         <div style="background:white; padding:25px; border-radius:16px; max-width:420px; width:100%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.4); text-align:center;">
             <div style="font-size:2.5em; margin-bottom:10px;">🕵️‍♂️</div>
-            <h3 style="margin:0 0 8px 0; color:#1e293b; font-size:1.3em;">Deep-KI-Scan läuft...</h3>
+            <h3 style="margin:0 0 8px 0; color:#1e293b; font-size:1.3em;">Deep-KI-Scan (v3.6) läuft...</h3>
             <p id="ki-scan-status-text" style="font-size:0.85em; color:#64748b; margin-bottom:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Starte System...</p>
             
             <div style="width:100%; background:#e2e8f0; height:20px; border-radius:10px; overflow:hidden; margin-bottom:10px;">
@@ -143,6 +143,9 @@ async function starteAdminKiScan() {
     const p3 = "DnkjlZNEWPBJWfBWag";
     const aktuellerKey = localStorage.getItem("gemini_api_key") || (p1 + p2 + p3);
 
+    // 🚨 EXPLICIT URL MIT GEMINI 3.6 FLASH & OHNE TEMPLATE-STRING-FEHLER
+    const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=" + aktuellerKey;
+
     for (let i = 0; i < totalCount; i++) {
         const item = reportsData[i];
         geprueftZaehler++;
@@ -158,36 +161,30 @@ async function starteAdminKiScan() {
 
         document.getElementById("ki-scan-status-text").innerText = `Prüfe #${geprueftZaehler}: "${kurzTyp}"`;
 
-        // 🚨 HARD-CODE PRÜFUNGEN VORAB
+        // Hard-Check-Flags
         const isBodenseeWasser = (item.lat >= 47.45 && item.lat <= 47.85 && item.lng >= 8.85 && item.lng <= 9.75);
         const textLower = kommentarText.toLowerCase();
 
         const verdaechtigeBegriffe = ["woederspruch", "asdasd", "qwertz", "dfgklj", "fick", "arsch", "hurensohn", "idiot", "test1234"];
         const hatSpamText = verdaechtigeBegriffe.some(w => textLower.includes(w));
 
-        // Strikter Prompt
         const prompt = `
-Du bist ein kompromissloser Sicherheits-Filter für eine App. 
-Entscheide knallhart, ob dieser Eintrag ein Fake, Müll oder am falschen Ort ist.
-
-Eintrag-Details:
+Du bist ein Sicherheits-Filter. Analysiere diesen Eintrag:
 - Gemeldeter Typ: ${kurzTyp}
 - Kommentar: "${kommentarText}"
-- Koordinaten: Lat ${item.lat}, Lng ${item.lng}
-- WARNUNG WASSER/BODENSEE: ${isBodenseeWasser ? "JA" : "NEIN"}
-- WARNUNG TEXT-SPAM: ${hatSpamText ? "JA" : "NEIN"}
+- Koord: Lat ${item.lat}, Lng ${item.lng}
+- SYSTEM-WARNUNG WASSERWASSERFALL: ${isBodenseeWasser ? "JA (Bodensee!)" : "NEIN"}
+- SYSTEM-WARNUNG TEXT-SPAM: ${hatSpamText ? "JA (Verdächtig/Fehler!)" : "NEIN"}
 
-REGELN:
-Wenn WARNUNG WASSER/BODENSEE = JA ODER WARNUNG TEXT-SPAM = JA ODER der Kommentar Unsinn/Beleidigung ist, MUSS "plausibel" auf false gesetzt werden!
+EVALUATIONS-REGELN:
+Wenn SYSTEM-WARNUNG WASSERWASSERFALL = JA oder SYSTEM-WARNUNG TEXT-SPAM = JA oder der Kommentar Quatsch/Beleidigung ist -> MUSS "plausibel": false sein.
 
-Antworte NUR mit reinem JSON:
-{"plausibel": false, "grund": "Kurze Begründung"}
-oder
-{"plausibel": true, "grund": "OK"}
+Antworte NUR mit JSON:
+{"plausibel": false, "grund": "Grund auf Deutsch"}
 `;
 
         try {
-            const response = await fetch(`[https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=$](https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=$){aktuellerKey}`, {
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -204,24 +201,21 @@ oder
                 if (data.candidates && data.candidates[0] && data.candidates[0].content) {
                     let rawText = data.candidates[0].content.parts[0].text;
                     
-                    // JSON säubern (Markdown ```json ... ``` entfernen)
+                    // JSON säubern
                     rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
-                    
                     const kiErgebnis = JSON.parse(rawText);
 
-                    // Falls die KI ODER unsere System-Flags anschlagen:
                     if (kiErgebnis.plausibel === false || kiErgebnis.plausibel === "false" || isBodenseeWasser || hatSpamText) {
                         item.status = "ai_failed";
                         item.kiWarnung = kiErgebnis.grund || "Spam oder verbotener Ort erkannt";
                         verdachtZaehler++;
                         document.getElementById("ki-found-fakes").innerText = verdachtZaehler;
                         
-                        console.warn(`🚨 FAKE GEFUNDEN (#${geprueftZaehler}):`, item, kiErgebnis.grund);
-
-                        // Sofort in Firebase/Datenbank speichern
                         await updateSingleMarkerInCommunity(item);
                     }
                 }
+            } else {
+                console.error("API-Fehler bei Item", item.id, await response.text());
             }
         } catch (e) {
             console.error("Fehler beim Prüfen von Item", item.id, e);
@@ -230,21 +224,18 @@ oder
 
     document.body.removeChild(progressOverlay);
 
-    // Karte neu zeichnen
+    // Marker neu rendern
     drawMarkersOnMap();
     updateStatus("Community Live ✅", "#27AE60");
 
     await CustomUI.confirm(
         "🎉 Hardcore-Scan abgeschlossen!",
-        `Es wurden wirklich ALLE ${geprueftZaehler} Einträge analysiert.\n\n🚨 Gefundene Fakes / Köder: ${verdachtZaehler}`,
+        `Es wurden ${geprueftZaehler} Einträge analysiert.\n\n🚨 Gefundene Fakes / Köder: ${verdachtZaehler}`,
         "OK",
         ""
     );
 }
 window.starteAdminKiScan = starteAdminKiScan;
-
-
-
 
 // --- MODERN SERVICE WORKER & PUSH REGISTRATION ---
 const PushService = {
