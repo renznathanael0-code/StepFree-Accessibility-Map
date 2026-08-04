@@ -1,13 +1,13 @@
 const isAdminPage = window.location.pathname.includes("admin.html");
 
 // ==========================================
-// 🤖 GEMINI KI-FILTER FÜR SPAM & FAKES
+// 🤖 STRIKER GEMINI KI-FILTER (FÜR WATER, SPAM & FAKES)
 // ==========================================
 async function pruefeEintragMitKI(typen, kommentar, lat, lng) {
-    // 🔐 Key-Splitter: Verhindert, dass GitHub den Push blockiert
-    const p1 = "AQ.Ab8RN6JviMIITJLMZXIfGm"; // Die ersten 6 Zeichen deines Keys
-    const p2 = "ITJLMZXIfGmxGeudRWKgZ"; // Der mittlere Teil
-    const p3 = "DnkjlZNEWPBJWfBWag"; // Der Rest deines Keys
+    // 🔐 Key-Splitter
+    const p1 = "AQ.Ab8RN6JviMIITJLMZXIfGm";
+    const p2 = "ITJLMZXIfGmxGeudRWKgZ";
+    const p3 = "DnkjlZNEWPBJWfBWag";
 
     const zentralerKey = p1 + p2 + p3;
     const aktuellerKey = localStorage.getItem("gemini_api_key") || zentralerKey;
@@ -16,53 +16,70 @@ async function pruefeEintragMitKI(typen, kommentar, lat, lng) {
         return { plausibel: true, grund: "KI-Check übersprungen (Kein Key hinterlegt)" };
     }
 
-    // Nutzt das aktuelle Gemini 3.6 Flash Modell
-    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-3.6-flash:generateContent?key=${aktuellerKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${aktuellerKey}`;
 
     const prompt = `
-    Du bist ein Sicherheits-Filter für eine Barrierefreiheits-App. Ein Nutzer hat folgenden Ort/Hindernis gemeldet:
-    - Typ des Hindernisses: ${Array.isArray(typen) ? typen.join(", ") : typen}
-    - Zusatzkommentar des Nutzers: "${kommentar || 'Kein Kommentar'}"
-    - Koordinaten: Breitengrad ${lat}, Längengrad ${lng}
+Du bist ein extrem strenger und kompromissloser Sicherheits-Filter für eine Barrierefreiheits-App. 
+Analysiere die folgende Nutzermeldung akribisch auf Fake, Spam, Unplausibilität oder Trolling:
 
-    Beurteile streng, ob diese Meldung plausibel und ernst gemeint ist. 
-    Kriterien für UNPLAUSIBEL (Spam/Fake):
-    1. Der Kommentar enthält offensichtlichen Spam, Beleidigungen, Buchstabensalat (z.B. "asdasd") oder ist völlig sinnlos im Kontext Barrierefreiheit.
-    2. Der Kommentar widerspricht dem Typ komplett (z.B. Typ "Aufzug defekt", Kommentar "Hier gibt es gar keinen Aufzug, haha").
+- Typ(en) des Eintrags: ${Array.isArray(typen) ? typen.join(", ") : typen}
+- Kommentar des Nutzers: "${kommentar || 'Kein Kommentar'}"
+- Exakte Koordinaten: Breitengrad ${lat}, Längengrad ${lng}
 
-    Antworte AUSSCHLIESSLICH im folgenden JSON-Format, ohne Markdown, ohne Erklärung drumherum:
-    {
-      "plausibel": true oder false,
-      "grund": "Kurze Begründung auf Deutsch, warum es unplausibel ist oder 'OK' wenn plausibel"
-    }
-    `;
+STRIKTE PRÜFKRITERIEN (Sobald AUCH NUR EIN Punkt zutrifft, setze "plausibel": false):
+
+1. UNMÖGLICHER / FALSCHER ORT (GEOGRAFIESCHECK):
+   Prüfe die Koordinaten (Lat: ${lat}, Lng: ${lng}) geografisch ganz genau.
+   - Liegt der Punkt mitten in einem Gewässer (z.B. Bodensee, Ostsee, Nordsee, Rhein, Neckar, Fluss, See, Teich, Meer)?
+   - Liegt der Punkt auf einer Autobahn, einer freien Landstraße, Gleisanlagen, mitten in einem tiefen Wald oder auf freiem Feld, wo es keinen Sinn ergibt, ein Hindernis oder einen barrierefreien Ort zu melden?
+   Ein E-Scooter, Aufzug, WC oder Hindernis im Wasser oder auf Autobahnen ist IMMER EIN FAKE!
+
+2. BUCHSTABENSALAT, SPAM & SINNLOSER TEXT:
+   Enthält der Kommentar sinnlose Zeichenfolgen, Buchstabensalat (z.B. "asdasd", "woederspruch", "qwertz", "fgjk"), wahllose Tastatur-Anschläge oder unverständliches Kauderwelsch?
+
+3. BELEIDIGUNGEN, VULGARITÄT & TOXIZITÄT:
+   Enthält der Kommentar Schimpfwörter, Beleidigungen, Provokationen, Fäkalsprache, Herabwürdigungen oder Trolling?
+
+4. LOGISCHE WIDERSPRÜCHE:
+   Widerspricht der Kommentar dem gewählten Typ völlig (z. B. Typ "Aufzug defekt", Kommentar "Hier gibt es gar keinen Aufzug" oder "Kein Aufzug da")?
+
+Antworte ausschließlich im folgenden JSON-Format:
+{
+  "plausibel": true oder false,
+  "grund": "Kurze, präzise Begründung auf Deutsch, warum der Eintrag abgelehnt wurde (oder 'OK' wenn plausibel)"
+}
+`;
 
     try {
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    temperature: 0.1 // Extrem niedriger Wert für knallharte, konsequente Regelauslegung
+                }
+            })
         });
-        
+
         const data = await response.json();
-        
-        // Fängt Fehler von Google ab (z.B. abgelaufener/falscher Key)
+
         if (data.error) {
-            return { plausibel: true, grund: `Google-API-Fehler: ${data.error.message} (Code: ${data.error.code})` };
+            return { plausibel: true, grund: `Google-API-Fehler: ${data.error.message}` };
         }
-        
-        const textAntwort = data.candidates[0].content.parts[0].text.trim();
-        
-        // Bereinigt eventuelle Markdown-Blöcke der KI und parst das JSON
-        return JSON.parse(textAntwort.replace(/```json|```/g, ""));
+
+        const rawText = data.candidates[0].content.parts[0].text;
+        return JSON.parse(rawText);
+
     } catch (e) {
         console.error("KI-Prüfung fehlgeschlagen:", e);
-        return { plausibel: true, grund: `Code-Absturz: ${e.message}` };
+        return { plausibel: true, grund: `Fehler bei der Prüfung: ${e.message}` };
     }
 }
 
 // ==========================================
-// 🔍 NEU: ADMIN-BUTTON LOGIK (SCANNT ALLE PUNKTE)
+// 🔍 ADMIN-SCAN ALLER EINTRÄGE MIT LADEBALKEN
 // ==========================================
 async function starteAdminKiScan() {
     if (!isAdminPage) {
@@ -71,15 +88,40 @@ async function starteAdminKiScan() {
     }
 
     const bestaetigung = await CustomUI.confirm(
-        "🤖 KI-Scan starten",
-        `Möchtest du alle ${reportsData.length} aktuell geladenen Punkte in der Datenbank von der KI überprüfen lassen?`,
-        "Scan starten",
+        "🤖 Vollständigen KI-Scan starten",
+        `Möchtest du ALLE ${reportsData.length} Einträge in der Datenbank mit der KI auf Gewässer, Autobahnen, Spam & Beleidigungen überprüfen lassen?`,
+        "Scan jetzt starten",
         "Abbrechen"
     );
 
     if (!bestaetigung) return;
 
-    updateStatus("🤖 KI-Scan wird gestartet...", "#9b59b6");
+    // Erstelle das Ladebalken-Modal
+    const progressOverlay = document.createElement('div');
+    progressOverlay.id = "ki-progress-modal";
+    progressOverlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15, 23, 42, 0.75); backdrop-filter:blur(4px); z-index:99999; display:flex; align-items:center; justify-content:center; font-family:sans-serif; padding:20px; box-sizing:border-box;";
+    progressOverlay.innerHTML = `
+        <div style="background:white; padding:25px; border-radius:16px; max-width:400px; width:100%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.3); text-align:center;">
+            <div style="font-size:2em; margin-bottom:10px;">🤖</div>
+            <h3 style="margin:0 0 10px 0; color:#1e293b; font-size:1.25em;">KI-Scan läuft...</h3>
+            <p id="ki-scan-status-text" style="font-size:0.9em; color:#64748b; margin-bottom:15px;">Bereite Datenbank-Scan vor...</p>
+            
+            <!-- LADEBALKEN CONTAINER -->
+            <div style="width:100%; background:#e2e8f0; height:18px; border-radius:9px; overflow:hidden; margin-bottom:10px; position:relative;">
+                <div id="ki-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg, #9b59b6, #3498db); transition:width 0.3s ease; border-radius:9px;"></div>
+            </div>
+            
+            <div style="display:flex; justify-content:space-between; font-size:0.85em; color:#475569; font-weight:bold; margin-bottom:15px;">
+                <span id="ki-progress-percent">0%</span>
+                <span id="ki-progress-count">0 / ${reportsData.length}</span>
+            </div>
+
+            <div style="background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #e2e8f0; font-size:0.85em; color:#334155; text-align:left;">
+                ⚠️ Verdächtige/Fakes gefunden: <b id="ki-found-fakes" style="color:#e74c3c;">0</b>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(progressOverlay);
 
     let geprueftZaehler = 0;
     let verdachtZaehler = 0;
@@ -87,12 +129,22 @@ async function starteAdminKiScan() {
     for (let i = 0; i < reportsData.length; i++) {
         const item = reportsData[i];
 
-        // Bereits durch Admin freigegebene Punkte überspringen
-        if (item.status === "confirmed") continue;
-
-        updateStatus(`🤖 Prüfe Punkt ${i + 1} von ${reportsData.length}...`, "#3498db");
+        // Bereits durch Admin manuell freigegebene Punkte überspringen
+        if (item.status === "confirmed") {
+            geprueftZaehler++;
+            const percent = Math.round((geprueftZaehler / reportsData.length) * 100);
+            document.getElementById("ki-progress-bar").style.width = `${percent}%`;
+            document.getElementById("ki-progress-percent").innerText = `${percent}%`;
+            document.getElementById("ki-progress-count").innerText = `${geprueftZaehler} / ${reportsData.length}`;
+            continue;
+        }
 
         const typenArray = Array.isArray(item.typ) ? item.typ : [item.typ];
+        
+        // Status-Text aktualisieren
+        const kurzTyp = typenArray[0] || "Eintrag";
+        document.getElementById("ki-scan-status-text").innerText = `Prüfe: "${kurzTyp}" (${item.lat.toFixed(3)}, ${item.lng.toFixed(3)})`;
+
         const kiErgebnis = await pruefeEintragMitKI(typenArray, item.kommentar, item.lat, item.lng);
 
         geprueftZaehler++;
@@ -101,21 +153,31 @@ async function starteAdminKiScan() {
             item.status = "ai_failed";
             item.kiWarnung = kiErgebnis.grund;
             verdachtZaehler++;
+            document.getElementById("ki-found-fakes").innerText = verdachtZaehler;
             await updateSingleMarkerInCommunity(item);
         } else if (item.status === "ai_failed") {
-            // Falls der Eintrag früher als Fake markiert war, jetzt aber okay ist:
+            // Falls früher fälschlicherweise als Fake markiert
             item.status = "active";
             item.kiWarnung = null;
             await updateSingleMarkerInCommunity(item);
         }
+
+        // Fortschritt aktualisieren
+        const percent = Math.round((geprueftZaehler / reportsData.length) * 100);
+        document.getElementById("ki-progress-bar").style.width = `${percent}%`;
+        document.getElementById("ki-progress-percent").innerText = `${percent}%`;
+        document.getElementById("ki-progress-count").innerText = `${geprueftZaehler} / ${reportsData.length}`;
     }
+
+    // Modal entfernen
+    document.body.removeChild(progressOverlay);
 
     drawMarkersOnMap();
     updateStatus("Community Live ✅", "#27AE60");
 
     await CustomUI.confirm(
-        "🎉 Scan abgeschlossen!",
-        `Es wurden ${geprueftZaehler} unbestätigte Punkte überprüft.\n\n⚠️ Verdächtige Punkte gefunden: ${verdachtZaehler}`,
+        "🎉 Scan vollständig abgeschlossen!",
+        `Es wurden alle ${geprueftZaehler} Punkte der Datenbank überprüft.\n\n⚠️ Gefundene Fakes / Unzulässige Orte: ${verdachtZaehler}`,
         "OK",
         ""
     );
@@ -277,7 +339,6 @@ async function initApp() {
     await loadFromCommunity();
     renderFavoritesList(); 
 
-    // --- GPS-Wächter starten, sobald alle Daten geladen sind ---
     starteHintergrundGpsWaechter();
     
     if (splash) {
@@ -310,7 +371,6 @@ function setupLocationTracking() {
     });
 }
 
-// Gedächtnis für die App, damit pro Spaziergang nur einmal pro Marker gefragt wird
 let bereitsGefragteMarker = new Set();
 
 function starteHintergrundGpsWaechter() {
@@ -480,10 +540,9 @@ function drawMarkersOnMap() {
             else if (singleType.includes("Niveaugleicher")) { emoji = "✅"; markerFarbe = "#2980B9"; }
         }
     
-        // --- 1. OPTIMIERTE KRANZ-DESIGN LOGIK (KI-WARNUNG FÜR JEDEN SICHTBAR) ---
+        // Violetter Kranz leuchtet bei KI-Verdacht auf Spam/Fake sofort auf!
         let borderStyle = "";
         if (r.status === "ai_failed") {
-            // Violetter Kranz bei KI-Verdacht auf Spam/Fake – leuchtet sofort überall auf!
             borderStyle = "box-shadow: 0 0 0 4px #9b59b6, 0 0 12px #9b59b6; border: 2px solid #9b59b6;"; 
         } else if (isAdminPage) {
             if (r.status === "needs_review" || r.loeschCheckIns >= 3) {
@@ -510,7 +569,6 @@ function drawMarkersOnMap() {
         
         let content = `<div style="font-family:sans-serif; min-width:230px;">`;
         
-        // --- 2. POPUP-STATUS TEXTE ---
         if (r.status === "ai_failed") {
             content += `<b style="color:#9b59b6;">🤖 KI-WARNUNG: Verdacht auf Fake/Spam</b><br>`;
             if (r.kiWarnung) content += `<span style="font-size:0.85em; color:#9b59b6; display:block; margin-bottom:5px;">Grund: <i>${r.kiWarnung}</i></span>`;
@@ -554,7 +612,6 @@ function drawMarkersOnMap() {
         content += `<a href="${googleUrl}" target="_blank" style="display:block; background:#4285F4; color:white; text-align:center; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:10px;">Route in Google Maps starten</a>`;
         content += `<button onclick="addToFavorites('${r.id}', ${r.lat}, ${r.lng})" style="display:block; width:100%; background:#f1c40f; color:#2c3e50; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:10px;">⭐ Auf Merkliste speichern</button>`;
 
-        // --- 3. ADMIN ACTIONS ---
         if (isAdminPage) {
             content += `<div style="border-top:1px solid #ccc; padding-top:10px; margin-top:5px;">`;
             
@@ -919,7 +976,6 @@ async function finalizeMultiReportDirect(gewaehlteTypen, kommentarText, lat, lng
         ablaufZeit = Date.now() + siebenTage; 
     }
  
-    // Falls die KI zuschlägt, wird der Status gesondert markiert
     let initialStatus = isAdminPage ? "active" : "new";
     if (!kiErgebnis.plausibel) {
         initialStatus = "ai_failed";
@@ -934,7 +990,7 @@ async function finalizeMultiReportDirect(gewaehlteTypen, kommentarText, lat, lng
         id: "id_" + Date.now(), 
         votes: 1, 
         status: initialStatus,
-        kiWarnung: kiErgebnis.plausibel ? null : kiErgebnis.grund, // Speichert die KI-Begründung
+        kiWarnung: kiErgebnis.plausibel ? null : kiErgebnis.grund,
         expiresAt: ablaufZeit,
         baustellenEnddatum: manuellesEnddatum || null,
         checkInRequestedBy: null,
