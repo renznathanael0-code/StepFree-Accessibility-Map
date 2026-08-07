@@ -309,6 +309,101 @@ Daten: ` + JSON.stringify(blockPromptData);
     );
 }
 
+// ==========================================
+// 🤖 KI CHATBOT LOGIK (STADT- & LIVE-RECHERCHE)
+// ==========================================
+
+function toggleKiChat() {
+    const chatWin = document.getElementById("ki-chat-window");
+    if (chatWin.style.display === "none" || chatWin.style.display === "") {
+        chatWin.style.display = "flex";
+    } else {
+        chatWin.style.display = "none";
+    }
+}
+
+async function sendKiChatMessage() {
+    const inputEl = document.getElementById("ki-chat-input");
+    const msgContainer = document.getElementById("ki-chat-messages");
+    const userText = inputEl.value.trim();
+
+    if (!userText) return;
+
+    // 1. Nutzer-Nachricht anzeigen
+    const userMsgDiv = document.createElement("div");
+    userMsgDiv.style.cssText = "background: #3498db; color: white; padding: 10px 14px; border-radius: 12px; max-width: 85%; font-size: 13.5px; align-self: flex-end; word-wrap: break-word;";
+    userMsgDiv.innerText = userText;
+    msgContainer.appendChild(userMsgDiv);
+    
+    inputEl.value = "";
+    msgContainer.scrollTop = msgContainer.scrollHeight;
+
+    // 2. Lade-Anzeige für Bot
+    const botMsgDiv = document.createElement("div");
+    botMsgDiv.style.cssText = "background: #e2e8f0; color: #2c3e50; padding: 10px 14px; border-radius: 12px; max-width: 85%; font-size: 13.5px; align-self: flex-start;";
+    botMsgDiv.innerText = "🔍 Analyse läuft...";
+    msgContainer.appendChild(botMsgDiv);
+    msgContainer.scrollTop = msgContainer.scrollHeight;
+
+    // 3. Standort & Nahe Marker aus der App
+    let userLat = (typeof userLocation !== 'undefined' && userLocation) ? userLocation[0] : (typeof map !== 'undefined' ? map.getCenter().lat : 48.7758);
+    let userLng = (typeof userLocation !== 'undefined' && userLocation) ? userLocation[1] : (typeof map !== 'undefined' ? map.getCenter().lng : 9.1829);
+
+    let naheEintraege = [];
+    if (typeof reportsData !== 'undefined' && reportsData) {
+        naheEintraege = reportsData.filter(item => {
+            let dist = Math.sqrt(Math.pow(item.lat - userLat, 2) + Math.pow(item.lng - userLng, 2));
+            return dist < 0.05;
+        }).map(item => `${Array.isArray(item.typ) ? item.typ.join('/') : item.typ}: "${item.kommentar || 'Kein Text'}"`);
+    }
+
+    const apiKey = getValidApiKey();
+    if (!apiKey) {
+        botMsgDiv.innerText = "⚠️ Bitte hinterlege zuerst einen API-Key in den Admin-Einstellungen.";
+        return;
+    }
+
+    // 4. Prompt ohne sperrige Tools (superschnell & stabil!)
+    const fullPrompt = `Du bist der barrierefreie Schritt-für-Schritt-Assistent der App "StepFree".
+Aktueller Standort des Nutzers: Stuttgart (Koordinaten: Lat ${userLat.toFixed(4)}, Lng ${userLng.toFixed(4)}).
+Community-Meldungen in der App nahe diesem Ort: ${JSON.stringify(naheEintraege)}.
+
+Frage des Nutzers: "${userText}"
+
+AUFGABE:
+- Beantworte die Frage direkt, hilfsbereit und präzise auf Deutsch.
+- Gib praktische Tipps für das Umsteigen bzw. die Barrierefreiheit vor Ort.
+- Falls dir konkrete Live-Echtzeitdaten fehlen, antworte anhand deiner Allgemeinbildung zu diesem Bahnhof/U-Bahn-Knotenpunkt und weise kurz darauf hin.`;
+
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: fullPrompt }] }]
+            })
+        });
+
+        if (!response.ok) {
+            const errData = await response.json();
+            console.error("API Fehler Details:", errData);
+            throw new Error("HTTP Status " + response.status);
+        }
+
+        const data = await response.json();
+        const botResponseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Entschuldige, ich konnte dazu gerade keine Antwort generieren.";
+
+        botMsgDiv.innerText = botResponseText;
+
+    } catch (e) {
+        console.error("Chat-Fehler:", e);
+        botMsgDiv.innerText = "❌ Fehler bei der Anfrage: " + e.message;
+    }
+
+    msgContainer.scrollTop = msgContainer.scrollHeight;
+}
 
 
 // --- MODERN SERVICE WORKER & PUSH REGISTRATION ---
