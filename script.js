@@ -309,102 +309,6 @@ Daten: ` + JSON.stringify(blockPromptData);
     );
 }
 
-// ==========================================
-// 🤖 KI CHATBOT LOGIK (STADT- & LIVE-RECHERCHE)
-// ==========================================
-
-function toggleKiChat() {
-    const chatWin = document.getElementById("ki-chat-window");
-    if (chatWin.style.display === "none" || chatWin.style.display === "") {
-        chatWin.style.display = "flex";
-    } else {
-        chatWin.style.display = "none";
-    }
-}
-
-async function sendKiChatMessage() {
-    const inputEl = document.getElementById("ki-chat-input");
-    const msgContainer = document.getElementById("ki-chat-messages");
-    const userText = inputEl.value.trim();
-
-    if (!userText) return;
-
-    // 1. Nutzer-Nachricht anzeigen
-    const userMsgDiv = document.createElement("div");
-    userMsgDiv.style.cssText = "background: #3498db; color: white; padding: 10px 14px; border-radius: 12px; max-width: 85%; font-size: 13.5px; align-self: flex-end; word-wrap: break-word;";
-    userMsgDiv.innerText = userText;
-    msgContainer.appendChild(userMsgDiv);
-    
-    inputEl.value = "";
-    msgContainer.scrollTop = msgContainer.scrollHeight;
-
-    // 2. Lade-Anzeige für Bot
-    const botMsgDiv = document.createElement("div");
-    botMsgDiv.style.cssText = "background: #e2e8f0; color: #2c3e50; padding: 10px 14px; border-radius: 12px; max-width: 85%; font-size: 13.5px; align-self: flex-start;";
-    botMsgDiv.innerText = "🔍 Analyse läuft...";
-    msgContainer.appendChild(botMsgDiv);
-    msgContainer.scrollTop = msgContainer.scrollHeight;
-
-    // 3. Standort & Nahe Marker aus der App
-    let userLat = (typeof userLocation !== 'undefined' && userLocation) ? userLocation[0] : (typeof map !== 'undefined' ? map.getCenter().lat : 48.7758);
-    let userLng = (typeof userLocation !== 'undefined' && userLocation) ? userLocation[1] : (typeof map !== 'undefined' ? map.getCenter().lng : 9.1829);
-
-    let naheEintraege = [];
-    if (typeof reportsData !== 'undefined' && reportsData) {
-        naheEintraege = reportsData.filter(item => {
-            let dist = Math.sqrt(Math.pow(item.lat - userLat, 2) + Math.pow(item.lng - userLng, 2));
-            return dist < 0.05;
-        }).map(item => `${Array.isArray(item.typ) ? item.typ.join('/') : item.typ}: "${item.kommentar || 'Kein Text'}"`);
-    }
-
-    const apiKey = getValidApiKey();
-    if (!apiKey) {
-        botMsgDiv.innerText = "⚠️ Bitte hinterlege zuerst einen API-Key in den Admin-Einstellungen.";
-        return;
-    }
-
-    // 4. Prompt ohne sperrige Tools (superschnell & stabil!)
-    const fullPrompt = `Du bist der barrierefreie Schritt-für-Schritt-Assistent der App "StepFree".
-Aktueller Standort des Nutzers: Stuttgart (Koordinaten: Lat ${userLat.toFixed(4)}, Lng ${userLng.toFixed(4)}).
-Community-Meldungen in der App nahe diesem Ort: ${JSON.stringify(naheEintraege)}.
-
-Frage des Nutzers: "${userText}"
-
-AUFGABE:
-- Beantworte die Frage direkt, hilfsbereit und präzise auf Deutsch.
-- Gib praktische Tipps für das Umsteigen bzw. die Barrierefreiheit vor Ort.
-- Falls dir konkrete Live-Echtzeitdaten fehlen, antworte anhand deiner Allgemeinbildung zu diesem Bahnhof/U-Bahn-Knotenpunkt und weise kurz darauf hin.`;
-
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-
-    try {
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: fullPrompt }] }]
-            })
-        });
-
-        if (!response.ok) {
-            const errData = await response.json();
-            console.error("API Fehler Details:", errData);
-            throw new Error("HTTP Status " + response.status);
-        }
-
-        const data = await response.json();
-        const botResponseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Entschuldige, ich konnte dazu gerade keine Antwort generieren.";
-
-        botMsgDiv.innerText = botResponseText;
-
-    } catch (e) {
-        console.error("Chat-Fehler:", e);
-        botMsgDiv.innerText = "❌ Fehler bei der Anfrage: " + e.message;
-    }
-
-    msgContainer.scrollTop = msgContainer.scrollHeight;
-}
-
 
 // --- MODERN SERVICE WORKER & PUSH REGISTRATION ---
 const PushService = {
@@ -732,8 +636,10 @@ function drawMarkersOnMap() {
                 if (filter === "status_bestaetigt") return r.status === "confirmed";
                 if (filter === "status_check_aktiv") return (r.needsCheck === true || r.checkInRequestedBy !== null);
                 if (filter === "admin_neu") return r.status === "new";
-                if (filter === "admin_zu_bestaetigen") return (r.status === "ready_for_confirm" || r.votes >= 3) && r.status !== "confirmed";
-                if (filter === "admin_kritisch") return r.status === "needs_review" || r.loeschCheckIns >= 3;
+                // 🎯 FIX: Nur positive Votes (votes >= 3) triggern "zu bestätigen", NICHT Lösch-Votes!
+                if (filter === "admin_zu_bestaetigen") return (r.status === "ready_for_confirm" || (r.votes >= 3 && r.loeschCheckIns < 3)) && r.status !== "confirmed";
+                // 🎯 FIX: Kritisch ist alles mit 3+ Lösch-CheckIns oder Status needs_review
+                if (filter === "admin_kritisch") return r.status === "needs_review" || (r.loeschCheckIns && r.loeschCheckIns >= 3);
                 return markerTypes.some(t => t.includes(filter) || filter.includes(t));
             });
             if (!passtZuFiltern) return; 
@@ -761,15 +667,15 @@ function drawMarkersOnMap() {
             else if (singleType.includes("Niveaugleicher")) { emoji = "✅"; markerFarbe = "#2980B9"; }
         }
     
-        // Violetter Kranz leuchtet bei KI-Verdacht auf Spam/Fake sofort auf!
+        // 🎯 FIX: Logik für Rahmen-Hervorhebung korrigiert (Lösch-Votes = Rot, Positive Votes = Grün)
         let borderStyle = "";
         if (r.status === "ai_failed") {
             borderStyle = "box-shadow: 0 0 0 4px #9b59b6, 0 0 12px #9b59b6; border: 2px solid #9b59b6;"; 
         } else if (isAdminPage) {
-            if (r.status === "needs_review" || r.loeschCheckIns >= 3) {
-                borderStyle = "box-shadow: 0 0 0 4px #e74c3c, 0 0 12px #e74c3c; border: 2px solid #e74c3c;"; 
-            } else if (r.status === "ready_for_confirm" || r.votes >= 3) {
-                borderStyle = "box-shadow: 0 0 0 4px #2ecc71, 0 0 12px #2ecc71; border: 2px solid #2ecc71;"; 
+            if (r.status === "needs_review" || (r.loeschCheckIns && r.loeschCheckIns >= 3)) {
+                borderStyle = "box-shadow: 0 0 0 4px #e74c3c, 0 0 12px #e74c3c; border: 2px solid #e74c3c;"; // ROT
+            } else if ((r.status === "ready_for_confirm" || r.votes >= 3) && (!r.loeschCheckIns || r.loeschCheckIns < 3)) {
+                borderStyle = "box-shadow: 0 0 0 4px #2ecc71, 0 0 12px #2ecc71; border: 2px solid #2ecc71;"; // GRÜN
             } else if (r.status === "new") {
                 borderStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;"; 
             }
@@ -794,12 +700,13 @@ function drawMarkersOnMap() {
             content += `<b style="color:#9b59b6;">🤖 KI-WARNUNG: Verdacht auf Fake/Spam</b><br>`;
             if (r.kiWarnung) content += `<span style="font-size:0.85em; color:#9b59b6; display:block; margin-bottom:5px;">Grund: <i>${r.kiWarnung}</i></span>`;
         } else if (isAdminPage) {
-            if (r.status === "needs_review" || r.loeschCheckIns >= 3) {
-                content += `<b style="color:#e74c3c;">⚠️ PRÜFUNG ERFORDERLICH (3x Falsch gemeldet)</b><br>`;
+            // 🎯 FIX: Anzeige im Admin-Popup korrigiert
+            if (r.status === "needs_review" || (r.loeschCheckIns && r.loeschCheckIns >= 3)) {
+                content += `<b style="color:#e74c3c;">⚠️ PRÜFUNG ERFORDERLICH (${r.loeschCheckIns || 3}x Falsch/Negativ gemeldet)</b><br>`;
             } else if (r.status === "confirmed") {
                 content += `<b style="color:#2ecc71;">✅ VOM ADMIN BESTÄTIGT</b><br>`;
             } else if (r.status === "ready_for_confirm" || r.votes >= 3) {
-                content += `<b style="color:#2ecc71;">🔥 FREIGABE BEREIT (3x Richtig gemeldet)</b><br>`;
+                content += `<b style="color:#2ecc71;">🔥 FREIGABE BEREIT (${r.votes}x Positiv gemeldet)</b><br>`;
             } else if (r.status === "new") {
                 content += `<b style="color:#3498db;">🆕 NEUER EINTRAG</b><br>`;
             }
@@ -831,14 +738,12 @@ function drawMarkersOnMap() {
   
         const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}&travelmode=walking`;
         content += `<a href="${googleUrl}" target="_blank" style="display:block; background:#4285F4; color:white; text-align:center; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:10px;">Route in Google Maps starten</a>`;
-        content += `<button onclick="addToFavorites('${r.id}', ${r.lat}, ${r.lng})" style="display:block; width:100%; background:#f1c40f; color:#2c3e50; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:10px;">⭐ Auf Merkliste speichern</button>`;
+        content += `<button onclick="addToFavorites('${r.id}', ${r.lat}, ${r.lng})" style="display:block; width:100%; background:#f1f5f9; color:#2c3e50; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:10px;">⭐ Auf Merkliste speichern</button>`;
 
         if (isAdminPage) {
             content += `<div style="border-top:1px solid #ccc; padding-top:10px; margin-top:5px;">`;
             
-            if ((r.votes >= 3 || r.status === "ready_for_confirm" || r.status === "needs_review" || r.status === "ai_failed") && r.status !== "confirmed") {
-                content += `<button onclick="confirmByAdmin('${r.id}')" style="background:#2ecc71; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">👁️ Eintrag verifizieren / freigeben</button>`;
-            }
+            content += `<button onclick="confirmByAdmin('${r.id}')" style="background:#2ecc71; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">👁️ Eintrag verifizieren / grün schalten</button>`;
             
             content += `
                     <button onclick="directDelete('${r.id}')" style="background:#e74c3c; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">🗑️ Löschen</button>

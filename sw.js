@@ -42,15 +42,23 @@ self.addEventListener('message', function(event) {
 
 self.addEventListener('notificationclick', function(event) {
     const notification = event.notification;
-    const action = event.action;
-    const markerId = notification.data.markerId;
-    const markerTyp = notification.data.typ;
+    const action = event.action; // Welcher Button wurde genau geklickt?
+    const markerId = notification.data ? notification.data.markerId : null;
+    let markerTyp = notification.data ? notification.data.typ : "";
     
     notification.close();
 
-    if (!action) {
+    // 1. Wenn kein Marker zugeordnet werden kann, einfach App öffnen
+    if (!markerId || markerId === "unknown") {
         event.waitUntil(clients.openWindow("index.html"));
         return;
+    }
+
+    // 2. Typ-Datentyp absichern (falls Array übergeben wurde)
+    if (Array.isArray(markerTyp)) {
+        markerTyp = markerTyp.join(" ");
+    } else if (typeof markerTyp !== 'string') {
+        markerTyp = "";
     }
 
     event.waitUntil(
@@ -63,21 +71,21 @@ self.addEventListener('notificationclick', function(event) {
             const siebenTage = 7 * einTag;
             const basisZeit = report.expiresAt && report.expiresAt > Date.now() ? report.expiresAt : Date.now();
             
-            // Counter initialisieren, falls noch nicht vorhanden
-            report.loeschCheckIns = report.loeschCheckIns || 0;
-            report.votes = report.votes || 0;
+            // Counter sicher initialisieren
+            report.loeschCheckIns = Number(report.loeschCheckIns) || 0;
+            report.votes = Number(report.votes) || 0;
 
-            if (action === 'still_there') {
-                // Positives Feedback (Richtig / Existiert noch)
+            // 🎯 LOGIK-FIX:
+            // Falls direkt auf die Benachrichtigung geklickt wird (ohne Button), werten wir es auch als "still_there" (Richtig)
+            if (action === 'still_there' || action === '') {
+                // Positives Feedback
                 report.votes += 1;
                 
-                // Falls flüchtiges Hindernis, Zeit verlängern
                 const istFluechtig = markerTyp.includes("Scooter") || markerTyp.includes("Müll");
                 if (report.expiresAt) {
                     report.expiresAt = basisZeit + (istFluechtig ? einTag : siebenTage);
                 }
                 
-                // Bei 3 richtigen Klicks -> Bereit für Admin-Bestätigung (Grüner Kranz)
                 if (report.votes >= 3 && report.status !== "confirmed") {
                     report.status = "ready_for_confirm";
                 }
@@ -85,10 +93,9 @@ self.addEventListener('notificationclick', function(event) {
                 report.verifiedAt = new Date().toLocaleString('de-DE') + " (via Push: Richtig)";
 
             } else if (action === 'resolved') {
-                // Negatives Feedback (Falsch / Behoben)
+                // Negatives Feedback
                 report.loeschCheckIns += 1;
                 
-                // Bei 3 falschen Klicks -> Kritisch zur Admin-Prüfung (Roter Kranz)
                 if (report.loeschCheckIns >= 3) {
                     report.status = "needs_review";
                 }
