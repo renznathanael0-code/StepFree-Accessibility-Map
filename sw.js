@@ -34,7 +34,7 @@ function checkAndSetVoted(markerId) {
     });
 }
 
-// 1. PUSH-EVENT: Empfang von Benachrichtigungen (SOS oder Orts-Check)
+// 1. PUSH-EVENT: Empfang von Server-Benachrichtigungen
 self.addEventListener('push', function(event) {
     let data = { titel: "Orts-Check", nachricht: "Stimmen die Angaben zu diesem Ort?", markerId: "unknown", typ: "Ort" };
     
@@ -46,9 +46,8 @@ self.addEventListener('push', function(event) {
         }
     }
 
-    const isSos = data.typ === "SOS" || data.titel.includes("SOS") || data.titel.includes("Verstärkung");
+    const isSos = data.typ === "SOS" || (data.titel && (data.titel.includes("SOS") || data.titel.includes("Hilfe")));
 
-    // Dynamische Buttons je nachdem, ob es ein SOS oder ein Orts-Check ist
     const actions = isSos ? [
         { action: 'i_will_help', title: '🏃‍♂️ Ich helfe!' }
     ] : [
@@ -70,12 +69,15 @@ self.addEventListener('push', function(event) {
         requireInteraction: true
     };
 
-    event.waitUntil(self.registration.showNotification(data.titel, options));
+    event.waitUntil(self.registration.showNotification(data.titel || "🚨 Jemand braucht Hilfe!", options));
 });
 
-// 2. MESSAGE-EVENT: Lokaler Auslöser für Orts-Check
+// 2. MESSAGE-EVENT: Lokale Auslöser aus der App (Orts-Check oder SOS)
 self.addEventListener('message', function(event) {
-    if (event.data && event.data.type === 'TRIGGER_PROMPT') {
+    if (!event.data) return;
+
+    // A) Auslöser für normalen Orts-Check
+    if (event.data.type === 'TRIGGER_PROMPT') {
         const data = event.data.payload;
         const options = {
             body: `Du bist bei: ${data.typ}. Stimmt diese Meldung vor Ort?`,
@@ -92,6 +94,29 @@ self.addEventListener('message', function(event) {
 
         self.registration.showNotification("Orts-Check!", options);
     }
+
+    // B) Auslöser für gezielten SOS-Hilferuf
+    if (event.data.type === 'TRIGGER_SOS_PUSH') {
+        const data = event.data.payload;
+        const options = {
+            body: data.nachricht ? `Hilfe benötigt: "${data.nachricht}"` : "Jemand in deiner Nähe benötigt Unterstützung!",
+            icon: 'favicon.ico',
+            badge: 'favicon.ico',
+            tag: data.markerId,
+            data: { 
+                markerId: data.markerId, 
+                typ: "SOS",
+                lat: data.lat,
+                lng: data.lng
+            },
+            actions: [
+                { action: 'i_will_help', title: '🏃‍♂️ Ich helfe!' }
+            ],
+            requireInteraction: true
+        };
+
+        self.registration.showNotification(data.titel || "🚨 Jemand braucht Hilfe!", options);
+    }
 });
 
 // 3. NOTIFICATION CLICK: Interaktions-Logik
@@ -104,7 +129,7 @@ self.addEventListener('notificationclick', function(event) {
     
     notification.close();
 
-    // Klick auf den Nachrichtentext (ohne Aktion-Button) -> Karte öffnen
+    // Klick auf die Benachrichtigung selbst -> App öffnen & Marker ansteuern
     if (!action) {
         event.waitUntil(
             clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
@@ -128,17 +153,18 @@ self.addEventListener('notificationclick', function(event) {
         event.waitUntil(
             (async () => {
                 try {
-                    // Status auf 'helfer_unterwegs' setzen (blockiert weitere automatische SOS-Pushes)
+                    // Marker in Firebase aktualisieren
                     await fetch(`${DATA_URL_BASE}/${markerId}.json`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
+                            helperStatus: "coming",
                             status: "helfer_unterwegs",
                             helperAssignedAt: new Date().toISOString()
                         })
                     });
 
-                    // Optionale Benachrichtigung an den Hilfesuchenden auslösen (sofern ein Token vorhanden ist)
+                    // Falls ein Requester-Token da ist, Push an Ersteller schicken
                     if (requesterToken) {
                         await fetch("https://DEINE_BACKEND_URL/sendNotification", {
                             method: 'POST',
@@ -146,12 +172,12 @@ self.addEventListener('notificationclick', function(event) {
                             body: JSON.stringify({
                                 targetToken: requesterToken,
                                 title: "🟢 Hilfe ist unterwegs!",
-                                body: "Ein Helfer hat auf deinen SOS-Ruf reagiert und ist auf dem Weg zu dir!"
+                                body: "Ein Helfer hat auf deinen SOS-Ruf reagiert und ist unterwegs!"
                             })
-                        }).catch(e => console.log("Push an Betroffenen konnte nicht gesendet werden:", e));
+                        }).catch(e => console.log("Push-Benachrichtigung an Betroffenen gescheitert:", e));
                     }
 
-                    // App öffnen und direkt zum Marker zentrieren
+                    // App im Vordergrund öffnen und zum Ort springen
                     const clientList = await clients.matchAll({ type: 'window', includeUncontrolled: true });
                     for (const client of clientList) {
                         if (client.url.includes('index.html') && 'focus' in client) {
@@ -173,7 +199,7 @@ self.addEventListener('notificationclick', function(event) {
     event.waitUntil(
         checkAndSetVoted(markerId).then(async (alreadyVoted) => {
             if (alreadyVoted) {
-                console.log(`[Push] Marker ${markerId} wurde von diesem Gerät bereits verifiziert.`);
+                console.log(`[Push] Marker ${markerId} wurde bereits verifiziert.`);
                 return;
             }
 

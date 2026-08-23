@@ -565,15 +565,16 @@ async function triggerSosSignal() {
     drawMarkersOnMap();
     await saveSingleMarkerToCommunity(sosMarker);
     
-    // Service-Worker-Push lokal triggern
+    // Service-Worker-Push für SOS mit "Ich helfe"-Button triggern
     if (navigator.serviceWorker && navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({
-            type: 'TRIGGER_PROMPT',
+            type: 'TRIGGER_SOS_PUSH',
             payload: {
                 markerId: sosId,
-                typ: "SOS",
-                titel: "🆘 SOS Hilferuf!",
-                nachricht: problemText
+                titel: "🚨 Jemand braucht Hilfe!",
+                nachricht: problemText,
+                lat: currentUserPosition.lat,
+                lng: currentUserPosition.lng
             }
         });
     }
