@@ -3,7 +3,7 @@ const isAdminPage = window.location.pathname.includes("admin.html");
 // ==========================================
 // 🔐 HELPER: GEMINI-KEY HOLEN ODER PER DIALOG ERFRAGEN
 // ==========================================
-const GLOBAL_GEMINI_KEY = ""; // Im Code leer lassen für saubere Git-Pushs!
+const GLOBAL_GEMINI_KEY = ""; 
 
 function getValidApiKey() {
     let savedKey = localStorage.getItem("gemini_api_key");
@@ -78,7 +78,7 @@ Antworte EXAKT im JSON-Format:
 }
 
 // ==========================================
-// 🚀 ADMIN-SCAN: REINER TEXT- & TOXICITY-SCAN (SUPER SCHNELL)
+// 🚀 ADMIN-SCAN: REINER TEXT- & TOXICITY-SCAN
 // ==========================================
 async function starteAdminKiScan() {
     if (typeof isAdminPage !== 'undefined' && !isAdminPage) {
@@ -86,7 +86,6 @@ async function starteAdminKiScan() {
         return;
     }
 
-    // 1. API-KEYS SICHERN
     const key1 = getValidApiKey();
     if (!key1) {
         alert("Aktion abgebrochen: Kein API-Key (Key 1) vorhanden.");
@@ -102,7 +101,6 @@ async function starteAdminKiScan() {
         }
     }
 
-    // 2. DIALOG: Bereich wählen
     const modusAuswahl = await CustomUI.confirm(
         "🎯 Text- & Spam-Scan starten",
         "Möchtest du die GESAMTE Datenbank prüfen oder NUR den aktuellen Kartenausschnitt?\n\n(Scannt gezielt nach Beleidigungen, Trolling & Spam)",
@@ -125,7 +123,6 @@ async function starteAdminKiScan() {
         zielEintraege = reportsData.filter(item => bounds.contains([item.lat, item.lng]));
     }
 
-    // Nur ungelöste filtern
     const ungelosteEintraege = zielEintraege.filter(item => item.status !== "ai_failed" && item.status !== "ai_passed");
 
     if (zielEintraege.length === 0) {
@@ -140,15 +137,13 @@ async function starteAdminKiScan() {
 
     const startBestaetigung = await CustomUI.confirm(
         "⚡ Text-Scan starten",
-        `Gefundene ungeprüfte Texte: ${ungelosteEintraege.length}\n` +
-        `Prüfung auf: Beleidigungen, Trolling, Unfug & Spam.`,
+        `Gefundene ungeprüfte Texte: ${ungelosteEintraege.length}\nPrüfung auf: Beleidigungen, Trolling, Unfug & Spam.`,
         "Starten",
         "Abbrechen"
     );
 
     if (!startBestaetigung) return;
 
-    // Modal UI
     const progressOverlay = document.createElement('div');
     progressOverlay.id = "ki-progress-modal";
     progressOverlay.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15, 23, 42, 0.85); backdrop-filter:blur(6px); z-index:99999; display:flex; align-items:center; justify-content:center; font-family:sans-serif; padding:20px; box-sizing:border-box;";
@@ -174,22 +169,18 @@ async function starteAdminKiScan() {
     `;
     document.body.appendChild(progressOverlay);
 
-    // 3. SCHNELL-CHECK (Leere Kommentare & Tastatur-Salat direkt durchwinken/blocken)
     let echteUntersuchungListe = [];
     let verdachtZaehler = 0;
 
     for (const item of ungelosteEintraege) {
         const kommentarText = (item.kommentar || "").trim();
-        const textLower = kommentarText.toLowerCase();
 
-        // Leere Kommentare brauchen keinen KI-Call
         if (kommentarText.length === 0) {
             item.status = "ai_passed";
             await updateSingleMarkerInCommunity(item);
             continue;
         }
 
-        // Hardcore Konsonanten-Salat direkt local abfangen
         const istKonsonantenSalat = /[bcdfghjklmnpqrstvwxyz]{6,}/i.test(kommentarText);
         if (istKonsonantenSalat) {
             item.status = "ai_failed";
@@ -203,7 +194,6 @@ async function starteAdminKiScan() {
         echteUntersuchungListe.push(item);
     }
 
-    // 4. KI-TEXTSCAN IN 5ER-BLÖCKEN
     const blockSize = 5;
     let activeKeyIndex = 0;
     let totalProcessed = 0;
@@ -222,7 +212,6 @@ async function starteAdminKiScan() {
 
             let blockPromptData = block.map((item, idx) => ({ index: idx, id: item.id, text: item.kommentar }));
 
-            // 🎯 FOKUSSIERTER PROMPT NUR FÜR TEXT & TOXICITY
             const prompt = `Analysiere diese ${block.length} Nutzer-Kommentare einer Barrierefreiheits-App ausschließlich auf:
 1. Beleidigungen, Schimpfwörter oder Hassrede (z.B. "Opfer", "Trottel", etc.)
 2. Trolling, Sarkasmus oder Spott (z.B. "Haha, gibt keinen Aufzug", "ihr Vollidioten")
@@ -308,7 +297,6 @@ Daten: ` + JSON.stringify(blockPromptData);
         ""
     );
 }
-
 
 // --- MODERN SERVICE WORKER & PUSH REGISTRATION ---
 const PushService = {
@@ -433,12 +421,26 @@ function updateStatus(text, color) {
     }
 }
 
+// CSS FÜR ANIMIERTEN SOS-MARKER
+const sosStyle = document.createElement('style');
+sosStyle.innerHTML = `
+@keyframes pulseSOS {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.8); }
+    70% { transform: scale(1.15); box-shadow: 0 0 0 20px rgba(231, 76, 60, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
+}
+.sos-pulsing-icon {
+    border-radius: 50%;
+    animation: pulseSOS 1.5s infinite;
+}
+`;
+document.head.appendChild(sosStyle);
+
 async function initApp() {
     const splash = document.getElementById('splash-screen');
     map = L.map('map').setView([48.775, 9.182], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     
-    // SW Registrieren & Rechte einholen
     await PushService.registerServiceWorker();
     await PushService.requestPermission();
     
@@ -525,6 +527,77 @@ function starteHintergrundGpsWaechter() {
         });
     }, 15000);
 }
+
+// ==========================================
+// 🚨 SOS FUNKTIONALITÄT & NOTRUF-SYSTEM
+// ==========================================
+async function triggerSosSignal() {
+    if (!currentUserPosition) {
+        alert("🚨 Dein Standort konnte noch nicht ermittelt werden. Bitte aktiviere dein GPS.");
+        return;
+    }
+
+    const problemText = await CustomUI.prompt(
+        "🆘 SOS Hilferuf senden", 
+        "Beschreibe kurz, wobei du Hilfe brauchst (z.B. 'Stufe zur Apotheke', 'Reifen neu aufpumpen'):", 
+        "Brauche Hilfe bei..."
+    );
+
+    if (!problemText) return;
+
+    updateStatus("Sende SOS... 🚨", "#e74c3c");
+
+    const sosMarker = {
+        id: "sos_" + Date.now(),
+        lat: currentUserPosition.lat,
+        lng: currentUserPosition.lng,
+        typ: ["SOS Hilferuf"],
+        kommentar: problemText,
+        farbe: "#e74c3c",
+        createdAt: Date.now(),
+        status: "active",
+        helperStatus: "searching", // searching, coming, resolved
+        expiresAt: Date.now() + (2 * 60 * 60 * 1000) // 2 Std. Gültigkeit
+    };
+
+    reportsData.push(sosMarker);
+    drawMarkersOnMap();
+    await saveSingleMarkerToCommunity(sosMarker);
+    
+    map.setView([currentUserPosition.lat, currentUserPosition.lng], 17);
+    
+    await CustomUI.confirm(
+        "🚨 SOS gesendet!", 
+        "Dein Hilferuf wurde auf der Karte markiert und ist für helfende Personen sichtbar.", 
+        "Verstanden", 
+        ""
+    );
+}
+window.triggerSosSignal = triggerSosSignal;
+
+async function setSosHelperStatus(sosId, newStatus) {
+    const report = reportsData.find(r => r.id === sosId);
+    if (!report) return;
+
+    report.helperStatus = newStatus;
+
+    if (newStatus === "resolved") {
+        const confirmDelete = await CustomUI.confirm("✅ Hilfe geleistet", "Möchtest du den SOS-Eintrag als erledigt entfernen?", "Ja, entfernen", "Nein");
+        if (confirmDelete) {
+            reportsData = reportsData.filter(r => r.id !== sosId);
+            try {
+                await fetch(`${DATA_URL_BASE}/${sosId}.json`, { method: 'DELETE' });
+            } catch(e) {}
+            drawMarkersOnMap();
+            updateStatus("SOS gelöst! 🎉", "#27AE60");
+            return;
+        }
+    }
+
+    drawMarkersOnMap();
+    await updateSingleMarkerInCommunity(report);
+}
+window.setSosHelperStatus = setSosHelperStatus;
 
 async function loadFromCommunity() {
     if (!map) return;
@@ -629,16 +702,16 @@ function drawMarkersOnMap() {
         let markerTypes = Array.isArray(r.typ) ? r.typ : [r.typ];
         markerTypes = markerTypes.map(t => t === "WC barrierefrei" ? "WC" : t);
 
-        if (activeSelectedFilters.length > 0) {
+        const istSosMarker = markerTypes.includes("SOS Hilferuf");
+
+        if (activeSelectedFilters.length > 0 && !istSosMarker) {
             const zweiTageInMs = 2 * 24 * 60 * 60 * 1000;
             const passtZuFiltern = activeSelectedFilters.some(filter => {
                 if (filter === "status_neu") return (Date.now() - (r.createdAt || 0)) <= zweiTageInMs;
                 if (filter === "status_bestaetigt") return r.status === "confirmed";
                 if (filter === "status_check_aktiv") return (r.needsCheck === true || r.checkInRequestedBy !== null);
                 if (filter === "admin_neu") return r.status === "new";
-                // 🎯 FIX: Nur positive Votes (votes >= 3) triggern "zu bestätigen", NICHT Lösch-Votes!
                 if (filter === "admin_zu_bestaetigen") return (r.status === "ready_for_confirm" || (r.votes >= 3 && r.loeschCheckIns < 3)) && r.status !== "confirmed";
-                // 🎯 FIX: Kritisch ist alles mit 3+ Lösch-CheckIns oder Status needs_review
                 if (filter === "admin_kritisch") return r.status === "needs_review" || (r.loeschCheckIns && r.loeschCheckIns >= 3);
                 return markerTypes.some(t => t.includes(filter) || filter.includes(t));
             });
@@ -648,8 +721,13 @@ function drawMarkersOnMap() {
         let emoji = "📍";
         let markerFarbe = r.farbe || "#9B59B6"; 
 
-        if (markerTypes.length > 1) { emoji = "🏢"; markerFarbe = "#2c3e50"; } 
-        else if (markerTypes.length === 1) {
+        if (istSosMarker) {
+            emoji = "🆘";
+            markerFarbe = "#e74c3c";
+        } else if (markerTypes.length > 1) { 
+            emoji = "🏢"; 
+            markerFarbe = "#2c3e50"; 
+        } else if (markerTypes.length === 1) {
             const singleType = markerTypes[0];
             if (singleType.includes("Kein barrierefreier")) { emoji = "🚫"; markerFarbe = "#34495E"; }
             else if (singleType.includes("Treppe")) { emoji = "🪜"; markerFarbe = "#E74C3C"; }
@@ -667,15 +745,19 @@ function drawMarkersOnMap() {
             else if (singleType.includes("Niveaugleicher")) { emoji = "✅"; markerFarbe = "#2980B9"; }
         }
     
-        // 🎯 FIX: Logik für Rahmen-Hervorhebung korrigiert (Lösch-Votes = Rot, Positive Votes = Grün)
         let borderStyle = "";
-        if (r.status === "ai_failed") {
+        let customClass = "";
+
+        if (istSosMarker) {
+            borderStyle = "box-shadow: 0 0 15px #e74c3c; border: 3px solid white; font-size: 1.3em;";
+            customClass = "sos-pulsing-icon";
+        } else if (r.status === "ai_failed") {
             borderStyle = "box-shadow: 0 0 0 4px #9b59b6, 0 0 12px #9b59b6; border: 2px solid #9b59b6;"; 
         } else if (isAdminPage) {
             if (r.status === "needs_review" || (r.loeschCheckIns && r.loeschCheckIns >= 3)) {
-                borderStyle = "box-shadow: 0 0 0 4px #e74c3c, 0 0 12px #e74c3c; border: 2px solid #e74c3c;"; // ROT
+                borderStyle = "box-shadow: 0 0 0 4px #e74c3c, 0 0 12px #e74c3c; border: 2px solid #e74c3c;"; 
             } else if ((r.status === "ready_for_confirm" || r.votes >= 3) && (!r.loeschCheckIns || r.loeschCheckIns < 3)) {
-                borderStyle = "box-shadow: 0 0 0 4px #2ecc71, 0 0 12px #2ecc71; border: 2px solid #2ecc71;"; // GRÜN
+                borderStyle = "box-shadow: 0 0 0 4px #2ecc71, 0 0 12px #2ecc71; border: 2px solid #2ecc71;"; 
             } else if (r.status === "new") {
                 borderStyle = "box-shadow: 0 0 15px 5px #3498db; border: 2px solid #3498db;"; 
             }
@@ -685,10 +767,11 @@ function drawMarkersOnMap() {
             }
         }
         
+        const size = istSosMarker ? 42 : 30;
         const icon = L.divIcon({
-            html: `<div style="background:${markerFarbe}; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:2px solid white; color:white; ${borderStyle}">${emoji}</div>`,
+            html: `<div class="${customClass}" style="background:${markerFarbe}; width:${size}px; height:${size}px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:2px solid white; color:white; ${borderStyle}">${emoji}</div>`,
             className: '',
-            iconSize: [30, 30]
+            iconSize: [size, size]
         });
         
         const m = L.marker([r.lat, r.lng], { icon }).addTo(map);
@@ -696,11 +779,15 @@ function drawMarkersOnMap() {
         
         let content = `<div style="font-family:sans-serif; min-width:230px;">`;
         
-        if (r.status === "ai_failed") {
+        if (istSosMarker) {
+            content += `<b style="color:#e74c3c; font-size:1.1em;">🆘 SOS HILFERUF GENERIERT!</b><br>`;
+            if (r.helperStatus === "coming") {
+                content += `<span style="background:#f39c12; color:white; font-size:0.8em; padding:2px 6px; border-radius:4px; font-weight:bold; display:inline-block; margin-top:4px;">🏃 Hilfe ist unterwegs!</span><br>`;
+            }
+        } else if (r.status === "ai_failed") {
             content += `<b style="color:#9b59b6;">🤖 KI-WARNUNG: Verdacht auf Fake/Spam</b><br>`;
             if (r.kiWarnung) content += `<span style="font-size:0.85em; color:#9b59b6; display:block; margin-bottom:5px;">Grund: <i>${r.kiWarnung}</i></span>`;
         } else if (isAdminPage) {
-            // 🎯 FIX: Anzeige im Admin-Popup korrigiert
             if (r.status === "needs_review" || (r.loeschCheckIns && r.loeschCheckIns >= 3)) {
                 content += `<b style="color:#e74c3c;">⚠️ PRÜFUNG ERFORDERLICH (${r.loeschCheckIns || 3}x Falsch/Negativ gemeldet)</b><br>`;
             } else if (r.status === "confirmed") {
@@ -717,9 +804,6 @@ function drawMarkersOnMap() {
         if (r.createdAt) {
             content += `<span style="font-size:0.85em; color:#7f8c8d; display:block; margin-top:2px; margin-bottom:5px;">📅 Gemeldet am: <b>${formatierenDatum(r.createdAt)}</b></span>`;
         }
-        if (r.verifiedAt) {
-            content += `<span style="font-size:0.85em; color:#555; display:block; margin-top:2px;">📍 Letztes Feedback: <b>${r.verifiedAt}</b></span>`;
-        }
         
         content += `<div style="margin-top:5px; margin-bottom:5px;">`;
         markerTypes.forEach(t => {
@@ -727,28 +811,25 @@ function drawMarkersOnMap() {
         });
         content += `</div>`;
 
-        if (r.baustellenEnddatum) {
-            content += `<p style="margin: 2px 0; font-size: 0.85em; color: #d35400;">📅 Geplantes Ende: <b>${new Date(r.baustellenEnddatum).toLocaleDateString('de-DE')}</b></p>`;
-        } else if (r.expiresAt) {
-            const restStunden = Math.round((r.expiresAt - jetzt) / (1000 * 60 * 60));
-            content += `<p style="margin: 2px 0; font-size: 0.85em; color: #e67e22;">⏱️ Automatisch weg in ca. <b>${restStunden} Std.</b></p>`;
-        }
-
-        content += `<p style="margin: 8px 0; color:#555; font-style:italic;">"${r.kommentar || 'Keine Zusatzinfos'}"</p>`;
+        content += `<p style="margin: 8px 0; color:#555; font-style:italic; font-size:1em;">"${r.kommentar || 'Keine Zusatzinfos'}"</p>`;
   
         const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}&travelmode=walking`;
-        content += `<a href="${googleUrl}" target="_blank" style="display:block; background:#4285F4; color:white; text-align:center; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:10px;">Route in Google Maps starten</a>`;
-        content += `<button onclick="addToFavorites('${r.id}', ${r.lat}, ${r.lng})" style="display:block; width:100%; background:#f1f5f9; color:#2c3e50; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:10px;">⭐ Auf Merkliste speichern</button>`;
+        content += `<a href="${googleUrl}" target="_blank" style="display:block; background:#4285F4; color:white; text-align:center; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:8px;">🗺️ Route in Google Maps starten</a>`;
+
+        if (istSosMarker) {
+            content += `
+                <button onclick="setSosHelperStatus('${r.id}', 'coming')" style="display:block; width:100%; background:#27ae60; color:white; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:6px;">🤝 Ich helfe!</button>
+                <button onclick="setSosHelperStatus('${r.id}', 'resolved')" style="display:block; width:100%; background:#2c3e50; color:white; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer;">✅ Einsatz abgeschlossen</button>
+            `;
+        } else {
+            content += `<button onclick="addToFavorites('${r.id}', ${r.lat}, ${r.lng})" style="display:block; width:100%; background:#f1f5f9; color:#2c3e50; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:10px;">⭐ Auf Merkliste speichern</button>`;
+        }
 
         if (isAdminPage) {
-            content += `<div style="border-top:1px solid #ccc; padding-top:10px; margin-top:5px;">`;
-            
-            content += `<button onclick="confirmByAdmin('${r.id}')" style="background:#2ecc71; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">👁️ Eintrag verifizieren / grün schalten</button>`;
-            
-            content += `
-                    <button onclick="directDelete('${r.id}')" style="background:#e74c3c; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">🗑️ Löschen</button>
-                    <button onclick="askForCheck('${r.id}')" style="background:#4285F4; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold;">📍 Admin-Check fordern</button>
-                </div>`;
+            content += `<div style="border-top:1px solid #ccc; padding-top:10px; margin-top:5px;">
+                <button onclick="confirmByAdmin('${r.id}')" style="background:#2ecc71; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">👁️ Eintrag verifizieren / grün schalten</button>
+                <button onclick="directDelete('${r.id}')" style="background:#e74c3c; color:white; border:none; padding:8px; width:100%; border-radius:5px; cursor:pointer; font-weight:bold; margin-bottom:5px;">🗑️ Löschen</button>
+            </div>`;
         }
         
         content += `</div>`;
@@ -1081,13 +1162,11 @@ function openSelectionPopup(latlng) {
   showStep1();
 }
 
-// --- INTEGRIERTER KI-CHECK VOR DEM ABSPEICHERN ---
 async function finalizeMultiReportDirect(gewaehlteTypen, kommentarText, lat, lng, manuellesEnddatum) {
     if (!gewaehlteTypen || gewaehlteTypen.length === 0) return;
     
     updateStatus("KI prüft Meldung... 🤖", "#9B59B6");
     
-    // 🤖 KI-Check durchführen
     const kiErgebnis = await pruefeEintragMitKI(gewaehlteTypen, kommentarText, lat, lng);
     
     const einTag = 24 * 60 * 60 * 1000;

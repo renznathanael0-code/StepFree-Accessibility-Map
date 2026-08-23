@@ -94,8 +94,14 @@
 
 <div id="map"></div>
 
+<!-- Fixiertes Overlay für den SOS-Button über der Karte -->
+<div id="sos-button-wrapper" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
+    <button onclick="triggerSosSignal()" style="background:#e74c3c; color:white; font-weight:bold; border:none; padding:12px 20px; border-radius:30px; box-shadow:0 4px 10px rgba(0,0,0,0.3); cursor:pointer;">
+        🆘 SOS Hilfe anfordern
+    </button>
+</div>
+
 <div id="map-legend" class="collapsed">
-    
     <div class="legend-header" onclick="toggleLegend()">
         <strong>🗺️ Legende</strong>
         <span class="legend-toggle-icon">▲</span>
@@ -122,20 +128,13 @@
         
         <span style="color: #2ecc71; font-weight: bold;">🌟 Grün leuchtend = Bestätigt</span><br>
         <span style="color: #ffcc00; font-weight: bold;">🟡 Gelb leuchtend = Vor-Ort-Check aktiv</span>
-
     </div>
-
 </div>
 
-</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+<script src="script.js"></script>
 
+</body>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
-    
-    <script src="script.js"></script>
-
-    </body>
-    
-    </html>
+</html>
