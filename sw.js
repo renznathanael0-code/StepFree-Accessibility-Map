@@ -1,4 +1,4 @@
-// --- SERVICE WORKER FOR INTERACTIVE PUSH NOTIFICATIONS ---
+// --- SERVICE WORKER FOR INTERACTIVE PUSH NOTIFICATIONS & SOS ---
 const DATA_URL_BASE = "https://stepfree-7c252-default-rtdb.europe-west1.firebasedatabase.app/mapdata/markers";
 
 // Hilfsfunktion: Prüft und speichert bereits gevotete Marker-IDs in IndexedDB
@@ -34,6 +34,7 @@ function checkAndSetVoted(markerId) {
     });
 }
 
+// 1. PUSH-EVENT: Empfang von Benachrichtigungen (SOS oder Orts-Check)
 self.addEventListener('push', function(event) {
     let data = { titel: "Orts-Check", nachricht: "Stimmen die Angaben zu diesem Ort?", markerId: "unknown", typ: "Ort" };
     
@@ -45,22 +46,34 @@ self.addEventListener('push', function(event) {
         }
     }
 
+    const isSos = data.typ === "SOS" || data.titel.includes("SOS") || data.titel.includes("Verstärkung");
+
+    // Dynamische Buttons je nachdem, ob es ein SOS oder ein Orts-Check ist
+    const actions = isSos ? [
+        { action: 'i_will_help', title: '🏃‍♂️ Ich helfe!' }
+    ] : [
+        { action: 'still_there', title: '🔄 Richtig / Existiert noch' },
+        { action: 'resolved', title: '🗑️ Falsch / Ist behoben' }
+    ];
+
     const options = {
         body: data.nachricht,
         icon: 'favicon.ico',
         badge: 'favicon.ico',
         tag: data.markerId,
-        data: { markerId: data.markerId, typ: data.typ },
-        actions: [
-            { action: 'still_there', title: '🔄 Richtig / Existiert noch' },
-            { action: 'resolved', title: '🗑️ Falsch / Ist behoben' }
-        ],
+        data: { 
+            markerId: data.markerId, 
+            typ: data.typ, 
+            requesterToken: data.requesterToken || null 
+        },
+        actions: actions,
         requireInteraction: true
     };
 
     event.waitUntil(self.registration.showNotification(data.titel, options));
 });
 
+// 2. MESSAGE-EVENT: Lokaler Auslöser für Orts-Check
 self.addEventListener('message', function(event) {
     if (event.data && event.data.type === 'TRIGGER_PROMPT') {
         const data = event.data.payload;
@@ -81,15 +94,17 @@ self.addEventListener('message', function(event) {
     }
 });
 
+// 3. NOTIFICATION CLICK: Interaktions-Logik
 self.addEventListener('notificationclick', function(event) {
     const notification = event.notification;
     const action = event.action; 
     const markerId = notification.data ? notification.data.markerId : null;
     let markerTyp = notification.data ? notification.data.typ : "";
+    const requesterToken = notification.data ? notification.data.requesterToken : null;
     
     notification.close();
 
-    // 1. Klick auf Notification-Body (ohne Button-Action) -> App / Marker öffnen
+    // Klick auf den Nachrichtentext (ohne Aktion-Button) -> Karte öffnen
     if (!action) {
         event.waitUntil(
             clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
@@ -106,10 +121,55 @@ self.addEventListener('notificationclick', function(event) {
         return;
     }
 
-    // 2. Ohne gültige ID Logik abbrechen
     if (!markerId || markerId === "unknown") return;
 
-    // 3. Stimmabgabe verarbeiten (Interaktive Buttons)
+    // AKTION: "Ich helfe!" (SOS-Funktion)
+    if (action === 'i_will_help') {
+        event.waitUntil(
+            (async () => {
+                try {
+                    // Status auf 'helfer_unterwegs' setzen (blockiert weitere automatische SOS-Pushes)
+                    await fetch(`${DATA_URL_BASE}/${markerId}.json`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            status: "helfer_unterwegs",
+                            helperAssignedAt: new Date().toISOString()
+                        })
+                    });
+
+                    // Optionale Benachrichtigung an den Hilfesuchenden auslösen (sofern ein Token vorhanden ist)
+                    if (requesterToken) {
+                        await fetch("https://DEINE_BACKEND_URL/sendNotification", {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                targetToken: requesterToken,
+                                title: "🟢 Hilfe ist unterwegs!",
+                                body: "Ein Helfer hat auf deinen SOS-Ruf reagiert und ist auf dem Weg zu dir!"
+                            })
+                        }).catch(e => console.log("Push an Betroffenen konnte nicht gesendet werden:", e));
+                    }
+
+                    // App öffnen und direkt zum Marker zentrieren
+                    const clientList = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+                    for (const client of clientList) {
+                        if (client.url.includes('index.html') && 'focus' in client) {
+                            return client.focus();
+                        }
+                    }
+                    if (clients.openWindow) {
+                        return clients.openWindow(`index.html?marker=${markerId}`);
+                    }
+                } catch (err) {
+                    console.error("Fehler beim SOS-Helfer-Status-Update:", err);
+                }
+            })()
+        );
+        return;
+    }
+
+    // AKTIONEN: Standard-Ortscheck ('still_there' / 'resolved')
     event.waitUntil(
         checkAndSetVoted(markerId).then(async (alreadyVoted) => {
             if (alreadyVoted) {
@@ -160,7 +220,6 @@ self.addEventListener('notificationclick', function(event) {
                     report.verifiedAt = new Date().toISOString() + " (via Push: Falsch)";
                 }
 
-                // Patch statt PUT, um versehentliches Überschreiben von Datenfeldern zu verhindern
                 await fetch(`${DATA_URL_BASE}/${markerId}.json`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
