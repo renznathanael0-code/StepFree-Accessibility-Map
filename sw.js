@@ -1,6 +1,15 @@
 // --- SERVICE WORKER FOR INTERACTIVE PUSH NOTIFICATIONS & SOS ---
 const DATA_URL_BASE = "https://stepfree-7c252-default-rtdb.europe-west1.firebasedatabase.app/mapdata/markers";
 
+self.addEventListener('install', (event) => {
+    self.skipWaiting(); // Erzwingt das sofortige Aktivieren der neuen SW-Version
+});
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(clients.claim()); // Übernimmt sofort alle geöffneten Tabs
+});
+
+
 // Hilfsfunktion: Prüft und speichert bereits gevotete Marker-IDs in IndexedDB
 function checkAndSetVoted(markerId) {
     return new Promise((resolve) => {
