@@ -529,7 +529,7 @@ function starteHintergrundGpsWaechter() {
 }
 
 // ==========================================
-// 🚨 SOS FUNKTIONALITÄT & NOTRUF-SYSTEM
+// 🚨 SOS FUNKTIONALITÄT & NOTRUF-SYSTEM (SAUBERE EINZEL-LOGIK)
 // ==========================================
 async function triggerSosSignal() {
     if (!currentUserPosition) {
@@ -547,11 +547,12 @@ async function triggerSosSignal() {
 
     updateStatus("Sende SOS... 🚨", "#e74c3c");
 
+    const sosId = "sos_" + Date.now();
     const sosMarker = {
-        id: "sos_" + Date.now(),
+        id: sosId,
         lat: currentUserPosition.lat,
         lng: currentUserPosition.lng,
-        typ: ["SOS Hilferuf"],
+        typ: ["SOS"],
         kommentar: problemText,
         farbe: "#e74c3c",
         createdAt: Date.now(),
@@ -564,6 +565,19 @@ async function triggerSosSignal() {
     drawMarkersOnMap();
     await saveSingleMarkerToCommunity(sosMarker);
     
+    // Service-Worker-Push lokal triggern
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+            type: 'TRIGGER_PROMPT',
+            payload: {
+                markerId: sosId,
+                typ: "SOS",
+                titel: "🆘 SOS Hilferuf!",
+                nachricht: problemText
+            }
+        });
+    }
+
     map.setView([currentUserPosition.lat, currentUserPosition.lng], 17);
     
     await CustomUI.confirm(
@@ -598,6 +612,27 @@ async function setSosHelperStatus(sosId, newStatus) {
     await updateSingleMarkerInCommunity(report);
 }
 window.setSosHelperStatus = setSosHelperStatus;
+
+async function requestBackup(markerId) {
+    await fetch(`${DATA_URL_BASE}/${markerId}.json`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: "verstaerkung_gesucht" })
+    });
+
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+            type: 'TRIGGER_PROMPT',
+            payload: {
+                markerId: markerId,
+                typ: "SOS",
+                titel: "💪 Verstärkung benötigt!",
+                nachricht: "Ein schwerer Rollstuhl muss gehoben werden!"
+            }
+        });
+    }
+    alert("Verstärkungssignal gesendet!");
+}
 
 async function loadFromCommunity() {
     if (!map) return;
@@ -702,7 +737,8 @@ function drawMarkersOnMap() {
         let markerTypes = Array.isArray(r.typ) ? r.typ : [r.typ];
         markerTypes = markerTypes.map(t => t === "WC barrierefrei" ? "WC" : t);
 
-        const istSosMarker = markerTypes.includes("SOS Hilferuf");
+        // Prüfen ob SOS Typ vorliegt
+        const istSosMarker = markerTypes.some(t => t.includes("SOS"));
 
         if (activeSelectedFilters.length > 0 && !istSosMarker) {
             const zweiTageInMs = 2 * 24 * 60 * 60 * 1000;
@@ -819,6 +855,7 @@ function drawMarkersOnMap() {
         if (istSosMarker) {
             content += `
                 <button onclick="setSosHelperStatus('${r.id}', 'coming')" style="display:block; width:100%; background:#27ae60; color:white; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:6px;">🤝 Ich helfe!</button>
+                <button onclick="requestBackup('${r.id}')" style="display:block; width:100%; background:#e67e22; color:white; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:6px;">💪 Brauche Verstärkung</button>
                 <button onclick="setSosHelperStatus('${r.id}', 'resolved')" style="display:block; width:100%; background:#2c3e50; color:white; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer;">✅ Einsatz abgeschlossen</button>
             `;
         } else {
@@ -837,78 +874,6 @@ function drawMarkersOnMap() {
         activeMarkers[r.id] = m; 
     });
 }
-
-// 1. SOS Signal auslösen
-async function triggerSosSignal() {
-    if (!navigator.geolocation) return alert("Geolokalisation wird nicht unterstützt.");
-
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-        const sosData = {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            typ: "SOS",
-            status: "hilfe_gesucht", // blockiert weitere Pushes sobald "helfer_unterwegs"
-            timestamp: Date.now(),
-            requesterToken: localStorage.getItem("pushToken") || "guest"
-        };
-
-        // SOS Punkt in DB speichern
-        const res = await fetch(`${DATA_URL_BASE}.json`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(sosData)
-        });
-        
-        const data = await res.json();
-        alert("🆘 SOS-Ruf gesendet! Helfer in der Nähe werden benachrichtigt.");
-        
-        // PUSH an alle Helfer senden (Wird via Firebase Trigger/Server versendet)
-        sendGlobalPushNotification("🆘 SOS Hilfe gebraucht!", "Jemand benötigt dringend Unterstützung!", data.name);
-    });
-}
-
-// 2. SOS Marker auf der Karte anzeigen & Interaktion
-function createSosPopup(markerData, markerId) {
-    const gmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${markerData.lat},${markerData.lng}`;
-    
-    let html = `
-        <div style="text-align:center;">
-            <h3>🆘 SOS Hilferuf</h3>
-            <p>Status: <b>${markerData.status === 'helfer_unterwegs' ? '🟢 Helfer unterwegs' : '🔴 Hilfe benötigt'}</b></p>
-            <a href="${gmapsUrl}" target="_blank" style="display:inline-block; margin:5px; padding:8px; background:#3498db; color:white; border-radius:5px; text-decoration:none;">🗺️ Route in Google Maps</a><br>
-            
-            <button onclick="requestBackup('${markerId}')" style="margin:5px; padding:8px; background:#e67e22; color:white; border:none; border-radius:5px; cursor:pointer;">
-                💪 Brauche Verstärkung (Schwerer Stuhl)
-            </button><br>
-            
-            <button onclick="resolveSos('${markerId}')" style="margin:5px; padding:8px; background:#2ecc71; color:white; border:none; border-radius:5px; cursor:pointer;">
-                ✅ Einsatz Beendet
-            </button>
-        </div>
-    `;
-    return html;
-}
-
-// 3. Verstärkung anfordern (Erneuter Push trotz laufendem Einsatz)
-async function requestBackup(markerId) {
-    await fetch(`${DATA_URL_BASE}/${markerId}.json`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: "verstaerkung_gesucht" })
-    });
-
-    // Sendet erneut Push-Benachrichtigung an alle Helfer
-    sendGlobalPushNotification("💪 Verstärkung benötigt!", "Ein schwerer Rollstuhl muss gehoben werden. Unterstützung vor Ort gebraucht!", markerId);
-    alert("Verstärkungssignal wurde gesendet!");
-}
-
-// 4. Einsatz beenden
-async function resolveSos(markerId) {
-    await fetch(`${DATA_URL_BASE}/${markerId}.json`, { method: 'DELETE' });
-    alert("SOS-Einsatz erfolgreich beendet.");
-    location.reload();
-}
-
 
 // --- MERKLISTE ---
 async function addToFavorites(id, lat, lng) {
