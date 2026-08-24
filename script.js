@@ -622,24 +622,40 @@ async function setSosHelperStatus(sosId, newStatus) {
 window.setSosHelperStatus = setSosHelperStatus;
 
 async function requestBackup(markerId) {
-    await fetch(`${DATA_URL_BASE}/${markerId}.json`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: "verstaerkung_gesucht" })
-    });
+    updateStatus("Sende Verstärkungssignal... 💪", "#e67e22");
 
-    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-            type: 'TRIGGER_PROMPT',
-            payload: {
-                markerId: markerId,
-                typ: "SOS",
-                titel: "💪 Verstärkung benötigt!",
-                nachricht: "Ein schwerer Rollstuhl muss gehoben werden!"
-            }
+    try {
+        await fetch(`${DATA_URL_BASE}/${markerId}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: "verstaerkung_gesucht" })
         });
+
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+                type: 'TRIGGER_SOS_PUSH',
+                payload: {
+                    markerId: markerId,
+                    titel: "💪 Verstärkung benötigt!",
+                    nachricht: "Ein weiterer Helfer wird vor Ort benötigt!"
+                }
+            });
+        }
+
+        updateStatus("Verstärkung angefordert! 🚨", "#e67e22");
+
+        // Schickes Dialog-Modal statt alert()
+        await CustomUI.confirm(
+            "💪 Verstärkung angefordert!",
+            "Ein Signal wurde gesendet. Weitere Personen in der Nähe werden benachrichtigt.",
+            "Verstanden",
+            ""
+        );
+
+    } catch (e) {
+        console.error("Fehler beim Senden des Verstärkungssignals:", e);
+        updateStatus("Fehler beim Senden ❌", "#e74c3c");
     }
-    alert("Verstärkungssignal gesendet!");
 }
 
 async function loadFromCommunity() {
