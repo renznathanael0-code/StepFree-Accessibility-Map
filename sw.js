@@ -9,7 +9,6 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(clients.claim()); // Übernimmt sofort alle geöffneten Tabs
 });
 
-
 // Hilfsfunktion: Prüft und speichert bereits gevotete Marker-IDs in IndexedDB
 function checkAndSetVoted(markerId) {
     return new Promise((resolve) => {
@@ -68,14 +67,17 @@ self.addEventListener('push', function(event) {
         body: data.nachricht,
         icon: 'favicon.ico',
         badge: 'favicon.ico',
-        tag: data.markerId,
+        tag: isSos ? 'sos-emergency' : data.markerId,
         data: { 
             markerId: data.markerId, 
             typ: data.typ, 
             requesterToken: data.requesterToken || null 
         },
         actions: actions,
-        requireInteraction: true
+        requireInteraction: true,
+        // 🚨 SOS Vibrationsmuster für Lautlos-Modus
+        vibrate: isSos ? [500, 110, 500, 110, 450, 110, 200, 110, 170, 40, 450, 110, 200, 110, 170, 40, 500] : [200, 100, 200],
+        renotify: isSos
     };
 
     event.waitUntil(self.registration.showNotification(data.titel || "🚨 Jemand braucht Hilfe!", options));
@@ -104,14 +106,15 @@ self.addEventListener('message', function(event) {
         self.registration.showNotification("Orts-Check!", options);
     }
 
-    // B) Auslöser für gezielten SOS-Hilferuf
+    // B) Auslöser für gezielten SOS-Hilferuf (Kurzer Klick & Akuter Long-Press)
     if (event.data.type === 'TRIGGER_SOS_PUSH') {
         const data = event.data.payload;
+        
         const options = {
             body: data.nachricht ? `Hilfe benötigt: "${data.nachricht}"` : "Jemand in deiner Nähe benötigt Unterstützung!",
             icon: 'favicon.ico',
             badge: 'favicon.ico',
-            tag: data.markerId,
+            tag: 'sos-alert-' + data.markerId,
             data: { 
                 markerId: data.markerId, 
                 typ: "SOS",
@@ -121,7 +124,10 @@ self.addEventListener('message', function(event) {
             actions: [
                 { action: 'i_will_help', title: '🏃‍♂️ Ich helfe!' }
             ],
-            requireInteraction: true
+            requireInteraction: true,
+            // 🚨 SOS Vibrationsmuster (SOS-Rhythmus)
+            vibrate: [500, 100, 500, 100, 500, 300, 1000, 300, 500, 100, 500, 100, 500],
+            renotify: true
         };
 
         self.registration.showNotification(data.titel || "🚨 Jemand braucht Hilfe!", options);

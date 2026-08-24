@@ -704,6 +704,37 @@ async function setSosHelperStatus(sosId, newStatus) {
     drawMarkersOnMap();
     await updateSingleMarkerInCommunity(report);
 }
+
+// Funktion zum Abspielen eines SOS-Signaltons
+function spieleSosSignalTon() {
+    // Kurzer Piep-Ton über die Web Audio API (funktioniert ohne externe MP3)
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function piep(freq, dauer, startZeit) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime + startZeit);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(audioCtx.currentTime + startZeit);
+        osc.stop(audioCtx.currentTime + startZeit + dauer);
+    }
+
+    // 3x Kurzer Notfall-Piepton
+    piep(880, 0.15, 0);
+    piep(880, 0.15, 0.25);
+    piep(880, 0.15, 0.50);
+}
+
+// In deinem Service-Worker Empfänger (script.js) aufrufen:
+navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data && event.data.type === 'TRIGGER_SOS_PUSH') {
+        spieleSosSignalTon(); // Löst Ton beim Empfang aus
+    }
+});
+
 window.setSosHelperStatus = setSosHelperStatus;
 
 async function requestBackup(markerId) {
