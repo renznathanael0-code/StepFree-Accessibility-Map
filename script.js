@@ -860,13 +860,13 @@ function drawMarkersOnMap() {
         const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}&travelmode=walking`;
         content += `<a href="${googleUrl}" target="_blank" style="display:block; background:#4285F4; color:white; text-align:center; padding:10px; border-radius:5px; text-decoration:none; font-weight:bold; margin-bottom:8px;">🗺️ Route in Google Maps starten</a>`;
 
-        if (istSosMarker) {
-            content += `
-                <button onclick="setSosHelperStatus('${r.id}', 'coming')" style="display:block; width:100%; background:#27ae60; color:white; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:6px;">🤝 Ich helfe!</button>
-                <button onclick="requestBackup('${r.id}')" style="display:block; width:100%; background:#e67e22; color:white; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:6px;">💪 Brauche Verstärkung</button>
-                <button onclick="setSosHelperStatus('${r.id}', 'resolved')" style="display:block; width:100%; background:#2c3e50; color:white; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer;">✅ Einsatz abgeschlossen</button>
-            `;
-        } else {
+        // --- NEU (bereinigt): ---
+if (istSosMarker) {
+    content += `
+        <button onclick="requestBackup('${r.id}')" style="display:block; width:100%; background:#e67e22; color:white; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:6px;">💪 Brauche Verstärkung</button>
+        <button onclick="setSosHelperStatus('${r.id}', 'resolved')" style="display:block; width:100%; background:#2c3e50; color:white; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer;">✅ Einsatz abgeschlossen</button>
+    `;
+} else {
             content += `<button onclick="addToFavorites('${r.id}', ${r.lat}, ${r.lng})" style="display:block; width:100%; background:#f1f5f9; color:#2c3e50; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:10px;">⭐ Auf Merkliste speichern</button>`;
         }
 
