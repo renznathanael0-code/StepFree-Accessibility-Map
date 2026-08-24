@@ -536,11 +536,13 @@ function starteHintergrundGpsWaechter() {
 }
 
 // ==========================================
-// 🚨 SOS FUNKTIONALITÄT & NOTRUF-SYSTEM (SAUBERE EINZEL-LOGIK)
+// 🚨 SOS FUNKTIONALITÄT & LONG-PRESS NOTRUF-SYSTEM
 // ==========================================
+
+// A) Standard-SOS (Kurzer Klick)
 async function triggerSosSignal() {
     if (!currentUserPosition) {
-        alert("🚨 Dein Standort konnte noch nicht ermittelt werden. Bitte aktiviere dein GPS.");
+        await CustomUI.confirm("🚨 Kein GPS", "Dein Standort konnte noch nicht ermittelt werden. Bitte aktiviere dein GPS.", "OK", "");
         return;
     }
 
@@ -552,41 +554,70 @@ async function triggerSosSignal() {
 
     if (!problemText) return;
 
-    updateStatus("Sende SOS... 🚨", "#e74c3c");
+    await sendSosToDatabase(problemText, ["SOS"], "🚨 Jemand braucht Hilfe!", "#e74c3c");
+}
+window.triggerSosSignal = triggerSosSignal;
+
+// B) Akutes SOS (800ms Gedrückthalten)
+async function triggerAcuteSosSignal() {
+    if (!currentUserPosition) {
+        await CustomUI.confirm("🚨 Kein GPS", "Dein Standort konnte noch nicht ermittelt werden. Bitte aktiviere dein GPS.", "OK", "");
+        return;
+    }
+
+    const auswahl = await CustomUI.confirm(
+        "🚨 AKUTES PROBLEM SIGNALISIEREN",
+        "Möchtest du sofort ein hochpriorisiertes Notfallsignal (Sturz, Panik, akute Gefahr) senden?",
+        "🚨 Dringende Hilfe!",
+        "Abbrechen"
+    );
+
+    if (!auswahl) return;
+
+    await sendSosToDatabase(
+        "🚨 AKUTER NOTFALL! Sofortige Unterstützung vor Ort benötigt!", 
+        ["SOS", "Akuter Notfall"], 
+        "🚨 AKUTER SOS NOTRUF!", 
+        "#c0392b"
+    );
+}
+
+// C) Hilfsfunktion zum Erstellen & Senden des SOS
+async function sendSosToDatabase(kommentar, typen, pushTitel, farbe) {
+    updateStatus("Sende SOS... 🚨", farbe);
 
     const sosId = "sos_" + Date.now();
     const sosMarker = {
         id: sosId,
         lat: currentUserPosition.lat,
         lng: currentUserPosition.lng,
-        typ: ["SOS"],
-        kommentar: problemText,
-        farbe: "#e74c3c",
+        typ: typen,
+        kommentar: kommentar,
+        farbe: farbe,
         createdAt: Date.now(),
         status: "active",
-        helperStatus: "searching", // searching, coming, resolved
-        expiresAt: Date.now() + (2 * 60 * 60 * 1000) // 2 Std. Gültigkeit
+        helperStatus: "searching",
+        expiresAt: Date.now() + (2 * 60 * 60 * 1000)
     };
 
     reportsData.push(sosMarker);
     drawMarkersOnMap();
     await saveSingleMarkerToCommunity(sosMarker);
     
-    // Service-Worker-Push für SOS mit "Ich helfe"-Button triggern
     if (navigator.serviceWorker && navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({
             type: 'TRIGGER_SOS_PUSH',
             payload: {
                 markerId: sosId,
-                titel: "🚨 Jemand braucht Hilfe!",
-                nachricht: problemText,
+                titel: pushTitel,
+                nachricht: kommentar,
                 lat: currentUserPosition.lat,
                 lng: currentUserPosition.lng
             }
         });
     }
 
-    map.setView([currentUserPosition.lat, currentUserPosition.lng], 17);
+    map.setView([currentUserPosition.lat, currentUserPosition.lng], 18);
     
     await CustomUI.confirm(
         "🚨 SOS gesendet!", 
@@ -595,7 +626,61 @@ async function triggerSosSignal() {
         ""
     );
 }
-window.triggerSosSignal = triggerSosSignal;
+
+// D) Event-Listener für Klick & Long-Press auf dem SOS-Button
+let sosPressTimer = null;
+let isLongPress = false;
+
+function initSosButtonEvents() {
+    const btn = document.getElementById('sos-button');
+    if (!btn) return;
+
+    const startPress = () => {
+        isLongPress = false;
+        btn.classList.add('holding');
+
+        sosPressTimer = setTimeout(() => {
+            isLongPress = true;
+            btn.classList.remove('holding');
+            
+            // Haptisches Feedback (Smartphone-Vibration)
+            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+            
+            triggerAcuteSosSignal();
+        }, 800); // 800ms Schwelle
+    };
+
+    const cancelPress = () => {
+        btn.classList.remove('holding');
+        if (sosPressTimer) {
+            clearTimeout(sosPressTimer);
+            sosPressTimer = null;
+        }
+    };
+
+    const handleClick = (e) => {
+        if (isLongPress) {
+            e.preventDefault();
+            e.stopPropagation();
+            isLongPress = false;
+            return;
+        }
+        triggerSosSignal();
+    };
+
+    // Mobile- & Desktop-Events
+    btn.addEventListener('touchstart', startPress, { passive: true });
+    btn.addEventListener('touchend', cancelPress);
+    btn.addEventListener('touchcancel', cancelPress);
+
+    btn.addEventListener('mousedown', startPress);
+    btn.addEventListener('mouseup', cancelPress);
+    btn.addEventListener('mouseleave', cancelPress);
+
+    btn.addEventListener('click', handleClick);
+}
+
+document.addEventListener('DOMContentLoaded', initSosButtonEvents);
 
 async function setSosHelperStatus(sosId, newStatus) {
     const report = reportsData.find(r => r.id === sosId);
