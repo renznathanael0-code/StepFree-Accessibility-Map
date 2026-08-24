@@ -507,6 +507,13 @@ function starteHintergrundGpsWaechter() {
         reportsData.forEach(marker => {
             if (bereitsGefragteMarker.has(marker.id)) return;
 
+            // 🛑 NEU: SOS-Marker IMMER vom automatischen Orts-Check ausschließen!
+            const isSos = Array.isArray(marker.typ) 
+                ? marker.typ.some(t => t.includes("SOS")) 
+                : (marker.typ && marker.typ.includes("SOS"));
+
+            if (isSos) return;
+
             const userLatLng = L.latLng(currentUserPosition.lat, currentUserPosition.lng);
             const markerLatLng = L.latLng(marker.lat, marker.lng);
             const distanz = userLatLng.distanceTo(markerLatLng);
@@ -514,7 +521,7 @@ function starteHintergrundGpsWaechter() {
             if (distanz <= 50) {
                 bereitsGefragteMarker.add(marker.id);
 
-                if (navigator.serviceWorker.controller) {
+                if (navigator.serviceWorker && navigator.serviceWorker.controller) {
                     navigator.serviceWorker.controller.postMessage({
                         type: 'TRIGGER_PROMPT',
                         payload: {
