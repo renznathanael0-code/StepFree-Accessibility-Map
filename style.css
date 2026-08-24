@@ -362,3 +362,41 @@ hr {
         max-width: 170px !important; 
     }
 }
+
+/* Styling für den runden SOS-Button */
+.sos-circle-btn {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff4d4d, #cc0000);
+    color: white;
+    border: 3px solid white;
+    font-weight: 900;
+    font-size: 1.1em;
+    font-family: sans-serif;
+    letter-spacing: 1px;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(204, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    animation: sosPulse 2s infinite;
+}
+
+.sos-circle-btn:active {
+    transform: scale(0.92);
+}
+
+/* Subtiles Pulsieren */
+@keyframes sosPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(204, 0, 0, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 12px rgba(204, 0, 0, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(204, 0, 0, 0);
+    }
+}
