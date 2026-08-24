@@ -627,61 +627,7 @@ async function sendSosToDatabase(kommentar, typen, pushTitel, farbe) {
     );
 }
 
-// D) Event-Listener für Klick & Long-Press auf dem SOS-Button
-let sosPressTimer = null;
-let isLongPress = false;
-
-function initSosButtonEvents() {
-    const btn = document.getElementById('sos-button');
-    if (!btn) return;
-
-    const startPress = () => {
-        isLongPress = false;
-        btn.classList.add('holding');
-
-        sosPressTimer = setTimeout(() => {
-            isLongPress = true;
-            btn.classList.remove('holding');
-            
-            // Haptisches Feedback (Smartphone-Vibration)
-            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-            
-            triggerAcuteSosSignal();
-        }, 800); // 800ms Schwelle
-    };
-
-    const cancelPress = () => {
-        btn.classList.remove('holding');
-        if (sosPressTimer) {
-            clearTimeout(sosPressTimer);
-            sosPressTimer = null;
-        }
-    };
-
-    const handleClick = (e) => {
-        if (isLongPress) {
-            e.preventDefault();
-            e.stopPropagation();
-            isLongPress = false;
-            return;
-        }
-        triggerSosSignal();
-    };
-
-    // Mobile- & Desktop-Events
-    btn.addEventListener('touchstart', startPress, { passive: true });
-    btn.addEventListener('touchend', cancelPress);
-    btn.addEventListener('touchcancel', cancelPress);
-
-    btn.addEventListener('mousedown', startPress);
-    btn.addEventListener('mouseup', cancelPress);
-    btn.addEventListener('mouseleave', cancelPress);
-
-    btn.addEventListener('click', handleClick);
-}
-
-document.addEventListener('DOMContentLoaded', initSosButtonEvents);
-
+// D) Statusänderung durch Helfer / Beenden des SOS
 async function setSosHelperStatus(sosId, newStatus) {
     const report = reportsData.find(r => r.id === sosId);
     if (!report) return;
@@ -704,38 +650,105 @@ async function setSosHelperStatus(sosId, newStatus) {
     drawMarkersOnMap();
     await updateSingleMarkerInCommunity(report);
 }
+window.setSosHelperStatus = setSosHelperStatus;
 
-// Funktion zum Abspielen eines SOS-Signaltons
-function spieleSosSignalTon() {
-    // Kurzer Piep-Ton über die Web Audio API (funktioniert ohne externe MP3)
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    
-    function piep(freq, dauer, startZeit) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.3, audioCtx.currentTime + startZeit);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start(audioCtx.currentTime + startZeit);
-        osc.stop(audioCtx.currentTime + startZeit + dauer);
-    }
+// E) Event-Listener für Klick & Long-Press auf dem SOS-Button
+let sosPressTimer = null;
+let isLongPress = false;
 
-    // 3x Kurzer Notfall-Piepton
-    piep(880, 0.15, 0);
-    piep(880, 0.15, 0.25);
-    piep(880, 0.15, 0.50);
+function initSosButtonEvents() {
+    const btn = document.getElementById('sos-button');
+    if (!btn) return;
+
+    const startPress = () => {
+        isLongPress = false;
+        btn.classList.add('holding');
+
+        sosPressTimer = setTimeout(() => {
+            isLongPress = true;
+            btn.classList.remove('holding');
+            
+            // Haptisches Feedback (Smartphone-Vibration beim Triggern)
+            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+            
+            triggerAcuteSosSignal();
+        }, 800); // 800ms Gedrückthalten = Akuter Notfall
+    };
+
+    const cancelPress = () => {
+        btn.classList.remove('holding');
+        if (sosPressTimer) {
+            clearTimeout(sosPressTimer);
+            sosPressTimer = null;
+        }
+    };
+
+    const handleClick = (e) => {
+        if (isLongPress) {
+            e.preventDefault();
+            e.stopPropagation();
+            isLongPress = false;
+            return;
+        }
+        triggerSosSignal();
+    };
+
+    // Mobile (Touch)
+    btn.addEventListener('touchstart', startPress, { passive: true });
+    btn.addEventListener('touchend', cancelPress);
+    btn.addEventListener('touchcancel', cancelPress);
+
+    // Desktop (Maus)
+    btn.addEventListener('mousedown', startPress);
+    btn.addEventListener('mouseup', cancelPress);
+    btn.addEventListener('mouseleave', cancelPress);
+
+    // Klick-Auswertung
+    btn.addEventListener('click', handleClick);
 }
 
-// In deinem Service-Worker Empfänger (script.js) aufrufen:
-navigator.serviceWorker.addEventListener('message', event => {
-    if (event.data && event.data.type === 'TRIGGER_SOS_PUSH') {
-        spieleSosSignalTon(); // Löst Ton beim Empfang aus
-    }
-});
+// F) Dringender SOS-Alarmton über Web Audio API
+function spieleSosAlarm() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function piep(frequenz, dauer, startZeit) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth'; // Dringender Klang
+            osc.frequency.value = frequenz;
+            
+            gain.gain.setValueAtTime(0.4, audioCtx.currentTime + startZeit);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + startZeit + dauer);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.start(audioCtx.currentTime + startZeit);
+            osc.stop(audioCtx.currentTime + startZeit + dauer);
+        }
 
-window.setSosHelperStatus = setSosHelperStatus;
+        // Dringende SOS-Meldungs-Tonfolge
+        piep(880, 0.15, 0);
+        piep(880, 0.15, 0.25);
+        piep(880, 0.15, 0.50);
+        piep(1200, 0.35, 0.75);
+    } catch (e) {
+        console.log("Audio-Playback blockiert oder nicht unterstützt:", e);
+    }
+}
+
+// Service Worker Messages empfangen
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', event => {
+        if (event.data && (event.data.type === 'TRIGGER_SOS_PUSH' || event.data.type === 'PLAY_SOS_SOUND')) {
+            spieleSosAlarm();
+        }
+    });
+}
+
+// Initialisierung bei App-Start
+document.addEventListener('DOMContentLoaded', initSosButtonEvents);
 
 async function requestBackup(markerId) {
     updateStatus("Sende Verstärkungssignal... 💪", "#e67e22");
