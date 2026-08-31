@@ -1,6 +1,5 @@
 const BACKEND_URL = "https://sichtassist-backend.onrender.com/api/analyze";
 
-
 const video = document.getElementById('cameraFeed');
 const statusBox = document.getElementById('appStatus');
 let isAnalyzing = false;
@@ -51,14 +50,22 @@ function handleCommand(command) {
     else speak("Nicht verstanden. Bitte sage Ampel, Hindernis, Farbe oder Text.", () => startListening());
 }
 
-// 4. BILD CAPTUREN
+// 4. BILD CAPTUREN & OPTIMIERT SKALIEREN / KOMPRIMIEREN
 function captureImageBase64() {
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+    
+    // Maximale Breite definieren (1024px reicht für KI-Analyse völlig aus)
+    const maxWidth = 1024;
+    const scale = maxWidth / (video.videoWidth || 640);
+    
+    canvas.width = maxWidth;
+    canvas.height = (video.videoHeight || 480) * scale;
+    
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/jpeg', 0.8);
+    
+    // Als JPEG mit 0.7 Qualität speichern (spart ~80% Dateigröße & schont den Render-Server)
+    return canvas.toDataURL('image/jpeg', 0.7);
 }
 
 // 5. ANFRAGE AN DEIN RENDER-BACKEND SCHICKEN
@@ -77,15 +84,24 @@ async function triggerAnalysis(mode) {
         });
 
         const data = await response.json();
-        const textResult = data.result || data.error || "Keine Antwort erhalten.";
 
-        speak(textResult, () => {
-            isAnalyzing = false;
-            startListening();
-        });
+        if (response.ok && data.result) {
+            speak(data.result, () => {
+                isAnalyzing = false;
+                startListening();
+            });
+        } else {
+            // Detaillierter Fehler vom Server
+            const errorMsg = data.details || data.error || "Fehler bei der Bildanalyse.";
+            console.error("API Fehler Details:", errorMsg);
+            speak(errorMsg, () => {
+                isAnalyzing = false;
+                startListening();
+            });
+        }
 
     } catch (err) {
-        console.error(err);
+        console.error("Netzwerkfehler:", err);
         speak("Verbindungsfehler zum Backend.", () => {
             isAnalyzing = false;
             startListening();
