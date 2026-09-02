@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title></title>
+  <style>
+      body {
+            overflow-y: auto; /* Seite muss scrollbar sein */
+            background-color: #f8f9fa;
+            font-family: sans-serif;
+            display: block; /* Flex-Layout vom Body aufheben */
+            scroll-behavior: smooth;
+            line-height: 1.6;
+            color: #333;
+        }
+        .container {
+            max-width: 650px; /* Gleiche Breite wie die Anleitung für Konsistenz */
+            margin: 0 auto;
+            padding: 20px;
+        }
+       
+        h1 { 
+            color: #2c3e50; 
+            font-size: 24px;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        
+        
+        p {
+            font-size: 14.5px;
+            color: #555;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        .back-button {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        .back-button:hover {
+            transform: translateX(-3px);
+        }
+
+
+              /* Perfekt abgestimmte Impressum-Box im Design deiner App-Karten */
+        .footer-box { 
+            background-color: #f0f4f8; 
+            border: 1px solid rgba(0,0,0,0.03); 
+            padding: 24px; 
+            margin-top: 40px; 
+            border-radius: 15px; 
+        }
+        .footer-box h1 {
+            font-size: 20px;
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        .header-insel {
+    position: sticky;
+    top: 15px;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    padding: 10px 20px;
+    border-radius: 30px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.brand-title {
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 18px;
+    text-decoration: none;
+}
+
+/* Hamburger Button */
+.menu-trigger {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #2c3e50;
+    cursor: pointer;
+    padding: 5px;
+    line-height: 1;
+}
+
+/* Das ausklappbare Menü-Panel */
+.menu-panel {
+    display: none; /* Standardmäßig unsichtbar */
+    position: absolute;
+    top: 65px;
+    right: 10px;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    width: 200px;
+    padding: 10px 0;
+}
+
+.menu-panel.show {
+    display: block; /* Wird per JavaScript sichtbar geschaltet */
+}
+
+.menu-panel a {
+    display: block;
+    padding: 12px 20px;
+    color: #2c3e50;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 15px;
+}
+
+.menu-panel a:hover {
+    background-color: #f8f9fa;
+    color: #3498db;
+}
+
+  </style>
+</head>
+
+<body>
+    <div class="container">
+    <div class="header-insel">
+        <a href="index.html" class="brand-title">StepFree</a>
+        <button class="menu-trigger" onclick="toggleMenu()">≡</button>
+        
+        <div class="menu-panel" id="dropdownMenu">
+            <a href="index.html">🗺️ Zurück zur Karte</a>
+            <a href="anleitung.html">📖 Anleitung & Hilfe</a>
+            <a href="datenschutz.html">🔒 Datenschutzerklärung</a>
+        </div>
+    </div>
+  <div class="footer-box">
+<h1>Impressum</h1>
+<p><strong>Dienstanbieter und Verantwortlicher für diese Webseite:</strong></p>
+<p style="line-height: 1.5; font-family: monospace; background: rgba(0,0,0,0.02); padding: 10px; border-radius: 8px; color: #2c3e50;">
+    Nathanael Renz<br>
+    Steingartenstraße 41/1<br>
+    70794 Filderstadt
+</p>
+
+<p style="margin-top: 15px;"><strong>Kontakt:</strong></p>
+<p>E-Mail: <a href="mailto:nathanael.renz@gmx.de" style="color: #3498db; text-decoration: none; font-weight: bold;">nathanael.renz@gmx.de</a></p>
+<p>Telefon: <a href="tel: +4915737293697" style="color: #3498db; text-decoration: none; font-weight: bold;">+49 1573 7293697</a></p>
+
+<p style="margin-top: 20px; font-style: italic; font-size: 13px; color: #7f8c8d;">
+    Hinweis: Dies ist eine rein private, nicht-kommerzielle Webseite, die im Rahmen eines ehrenamtlichen Inklusionsprojekts betrieben wird. Es werden keinerlei Einnahmen erzielt.
+</p>
+    <footer style="text-align: center; color: #bdc3c7; font-size: 13px; margin-top: 40px; margin-bottom: 20px;">
+       Renz Software &copy; 2026
+    </footer>
+</div>
+<script>
+    function toggleMenu() {
+    const menu = document.getElementById('dropdownMenu');
+    menu.classList.toggle('show');
+}
+
+// Schließt das Menü, wenn man irgendwo anders hinklickt
+window.onclick = function(event) {
+    if (!event.target.matches('.menu-trigger')) {
+        const dropdowns = document.getElementsByClassName("menu-panel");
+        for (let i = 0; i < dropdowns.length; i++) {
+            const openDropdown = dropdowns[i];
+            if (openDropdown.classList.contains('show')) {
+                openDropdown.classList.remove('show');
+            }
+        }
+    }
+}
+
+</script>
+</body>
+
+</html>
